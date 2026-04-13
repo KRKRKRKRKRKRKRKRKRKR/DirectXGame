@@ -1,5 +1,8 @@
 #include <Windows.h>
 #include <cstdint>
+#include <string>
+#include <format>
+
 
 //ウィンドウプロシージャ
 LRESULT CALLBACK windowPrec(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -18,8 +21,11 @@ LRESULT CALLBACK windowPrec(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 }
 
 
+/// <summary>
+/// ウィンドウの作成
+/// </summary>
+void CreateGameWindow() {
 
-int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE,_In_ LPSTR, _In_ int) {
 	//ウィンドウクラスの登録
 	WNDCLASS wc{};
 
@@ -28,13 +34,13 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE,_In_ LPSTR, _In_ int) {
 
 	//クラス名
 	wc.lpszClassName = L"DirectXGame";
-	
+
 	//インスタンスハンドル
 	wc.hInstance = GetModuleHandle(nullptr);
-	
+
 	//カーソル
 	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	
+
 	//ウィンドウクラスを登録する
 	RegisterClass(&wc);
 
@@ -46,7 +52,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE,_In_ LPSTR, _In_ int) {
 	RECT wrc = { 0, 0, kClientWidth, kClientHeight };
 
 	//クライアント領域を元に実際のサイズに変換する
-	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW,false);
+	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);
 
 	//ウィンドウの作成
 	HWND hwnd = CreateWindow(
@@ -65,7 +71,25 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE,_In_ LPSTR, _In_ int) {
 
 	//ウィンドウの表示
 	ShowWindow(hwnd, SW_SHOW);
+}
 
+void Log(const std::string& message) {
+	OutputDebugStringA(message.c_str());
+}
+
+//文字列変換関数
+std::wstring ConvertString(const std::string& str);
+std::string ConvertString(const std::wstring& wstr);
+
+
+int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
+
+	CreateGameWindow();
+
+	int enemyHP = 100;
+	Log(std::format("enemyHP{}\n", enemyHP));
+
+//	Log(ConvertString(std::format(L"WSTRING{}\n",enemyHP)));
 
 	MSG msg{};
 	//メッセージループ
@@ -77,9 +101,9 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE,_In_ LPSTR, _In_ int) {
 			DispatchMessage(&msg);
 
 		}
-		else{
+		else {
 			//ゲームの処理
-		
+
 		}
 	}
 
