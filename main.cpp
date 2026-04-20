@@ -1,4 +1,7 @@
 #include <Windows.h>
+#include <cstdint>
+#include <string>
+#include <format>
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -9,7 +12,14 @@
 //ウィンドウプロシージャ
 LRESULT CALLBACK windowPrec(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
-	return 0;
+	//メッセージの処理
+	switch (msg) {
+	case WM_DESTROY:
+
+		//ウィンドウが破棄されたときの処理
+		PostQuitMessage(0);
+		return 0;
+	}
 
 	//標準のメッセージ処理
 	return DefWindowProc(hwnd, msg, wparam, lparam);
@@ -154,7 +164,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	for (size_t i = 0; i < _countof(featureLevels); i++) {
 
-		hr = D3D12CreateDevice(useAdapter, featureLevels[i], IID_PPV_ARGS(&device));
+		hr = D3D12CreateDevice(nullptr, featureLevels[i], IID_PPV_ARGS(&device));
 
 		if (SUCCEEDED(hr)) {
 			Log(std::format("FeatureLevel:{}\n", featureLevelStrings[i]));
