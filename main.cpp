@@ -2,13 +2,14 @@
 #include <cstdint>
 #include <string>
 #include <format>
-
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <cassert>
+#include <dbghelp.h>
+#include <strsafe.h>
+#pragma comment(lib, "dbghelp.lib")
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
-
 //ウィンドウプロシージャ
 LRESULT CALLBACK windowPrec(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
@@ -111,15 +112,31 @@ std::string ConvertString(const std::wstring& str) {
 	return result;
 }
 
-
+static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception) {
+	SYSTEMTIME time;
+	GetLocalTime(&time);
+	wchar_t filePath[MAX_PATH] = { 0 };
+	CreateDirectory(L"./Dumps", nullptr);
+	StringCchPrintfW(filePath, MAX_PATH, L"./Dumps/%04d-%02d%02d-%02d%02d.dmp", time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute);
+	HANDLE dumpFileHandle = CreateFile(filePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
+	DWORD processId = GetCurrentProcessId();
+	DWORD threadId = GetCurrentThreadId();
+	MINIDUMP_EXCEPTION_INFORMATION minidumnpInfomation{ 0 };
+	minidumnpInfomation.ThreadId = threadId;
+	minidumnpInfomation.ExceptionPointers = exception;
+	minidumnpInfomation.ClientPointers = TRUE;
+	MiniDumpWriteDump(GetCurrentProcess(), processId, dumpFileHandle, MiniDumpWithFullMemory, &minidumnpInfomation, nullptr, nullptr);
+	return EXCEPTION_EXECUTE_HANDLER;
+}
 
 
 
 int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
-
+	SetUnhandledExceptionFilter(ExportDump);
 	CreateGameWindow();
 
 	int enemyHP = 100;
+
 	Log(std::format("enemyHP {}\n", enemyHP));
 
 	Log(ConvertString(std::format(L"WSTRING {}\n", enemyHP)));
@@ -175,6 +192,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	assert(device != nullptr);
 	Log("Complete create D3D12Device\n");
 
+	uint32_t* p = nullptr;
+	*p = 100;
 
 	//メッセージループ
 	while (msg.message != WM_QUIT) {
