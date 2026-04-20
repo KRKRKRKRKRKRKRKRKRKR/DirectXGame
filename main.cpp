@@ -192,8 +192,6 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	assert(device != nullptr);
 	Log("Complete create D3D12Device\n");
 
-	uint32_t* p = nullptr;
-	*p = 100;
 
 	//メッセージループ
 	while (msg.message != WM_QUIT) {
