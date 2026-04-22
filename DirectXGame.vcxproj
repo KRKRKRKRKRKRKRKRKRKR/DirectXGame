@@ -89,7 +89,19 @@
     <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Debug\CrashHandler.cpp" />
+    <ClCompile Include="Graphics\DirectXManager.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Utils\Logger.cpp" />
+    <ClCompile Include="Utils\StringUtils.cpp" />
+    <ClCompile Include="Window\WindowManager.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Debug\CrashHandler.h" />
+    <ClInclude Include="Graphics\DirectXManager.h" />
+    <ClInclude Include="Utils\Logger.h" />
+    <ClInclude Include="Utils\StringUtils.h" />
+    <ClInclude Include="Window\WindowManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
