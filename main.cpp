@@ -1,9 +1,13 @@
 #include "Window/WindowManager.h"
 #include "Graphics/DirectXManager.h"
 #include "Debug/CrashHandler.h"
+#include "Utils/Logger.h"
 
-int WINAPI WinMain(_In_ HINSTANCE,_In_opt_ HINSTANCE,_In_ LPSTR,_In_ int) {
+
+int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	CrashHandler::Register();
+
+	Logger::Initialize();
 
 	WindowManager window;
 	window.Create();
@@ -11,6 +15,7 @@ int WINAPI WinMain(_In_ HINSTANCE,_In_opt_ HINSTANCE,_In_ LPSTR,_In_ int) {
 	DirectXManager dx;
 	dx.Initialize();
 
+	
 	while (window.ProcessMessage()) {
 		// ゲームの処理
 	}
