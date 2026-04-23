@@ -7,23 +7,26 @@
 
 class DirectXManager {
 public:
-    DirectXManager() = default;
-    ~DirectXManager();
+	DirectXManager() = default;
+	~DirectXManager();
 
-    // 初期化
-    void Initialize();
+	// 初期化
+	void Initialize();
 
-    // ゲッター
-    ID3D12Device* GetDevice()  const { return device_; }
-    IDXGIFactory7* GetFactory() const { return dxgiFactory_; }
+	// ゲッター
+	ID3D12Device* GetDevice()  const { return device_; }
+	IDXGIFactory7* GetFactory() const { return dxgiFactory_; }
 
 private:
-    // 各初期化処理を分割
-    void CreateFactory();
-    void SelectAdapter();
-    void CreateDevice();
 
-    IDXGIFactory7* dxgiFactory_ = nullptr;
-    IDXGIAdapter4* useAdapter_ = nullptr;
-    ID3D12Device* device_ = nullptr;
+	// 各初期化処理を分割
+	void CreateFactory();
+	void SelectAdapter();
+	void CreateDevice();
+	void CreateCommandQueue();
+	void CreateSwapChain();
+
+	IDXGIFactory7* dxgiFactory_ = nullptr;
+	IDXGIAdapter4* useAdapter_ = nullptr;
+	ID3D12Device* device_ = nullptr;
 };
