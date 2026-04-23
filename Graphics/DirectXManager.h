@@ -1,6 +1,7 @@
 #pragma once
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <cstdint>
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -11,7 +12,7 @@ public:
 	~DirectXManager();
 
 	// 初期化
-	void Initialize();
+	void Initialize(HWND hwnd, int32_t width, int32_t height);
 
 	// ゲッター
 	ID3D12Device* GetDevice()  const { return device_; }
@@ -24,9 +25,19 @@ private:
 	void SelectAdapter();
 	void CreateDevice();
 	void CreateCommandQueue();
-	void CreateSwapChain();
+	void CreateSwapChain(HWND hwnd,int32_t width, int32_t height);
+	void CreateDescriptorHeap();
+	void GetSwapChainResources();
+	void CreateRTV();
 
 	IDXGIFactory7* dxgiFactory_ = nullptr;
 	IDXGIAdapter4* useAdapter_ = nullptr;
 	ID3D12Device* device_ = nullptr;
+	ID3D12CommandQueue* commandQueue_ = nullptr;
+	ID3D12CommandAllocator* commandAllocator_ = nullptr;
+	ID3D12GraphicsCommandList* commandList_ = nullptr;
+	IDXGISwapChain4* swapChain_ = nullptr;
+	ID3D12DescriptorHeap* rtvDescriptorHeap_ = nullptr;
+	ID3D12Resource* swapChainResources_[2] = { nullptr, nullptr };
+	
 };
