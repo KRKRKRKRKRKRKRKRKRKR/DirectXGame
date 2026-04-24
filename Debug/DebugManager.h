@@ -8,6 +8,7 @@
 class DebugManager {
 	public:
 	DebugManager() = delete;
+	~DebugManager();
 
 	// 例外フィルタを登録する	
 	static void RegisterCrashHandler();

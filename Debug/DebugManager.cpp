@@ -1,5 +1,9 @@
 #include "DebugManager.h"
 
+DebugManager::~DebugManager() { 
+
+}
+
 void DebugManager::RegisterCrashHandler() {
 	SetUnhandledExceptionFilter(ExportDump);
 }
@@ -55,6 +59,7 @@ void DebugManager::EnableDebugLayer() {
 		// D3D12の警告をすべて表示する
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
+		// 警告時に止まる
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
 
 		D3D12_MESSAGE_ID denyIds[] = {
@@ -67,7 +72,6 @@ void DebugManager::EnableDebugLayer() {
 		filter.DenyList.pIDList = denyIds;
 		filter.DenyList.NumSeverities = _countof(severities);
 		filter.DenyList.pSeverityList = severities;
-
 		infoQueue->PushStorageFilter(&filter);
 		infoQueue->Release();
 	}
