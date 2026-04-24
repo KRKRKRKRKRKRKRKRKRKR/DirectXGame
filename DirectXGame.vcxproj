@@ -59,6 +59,7 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
+      <AdditionalOptions>/ignore:4098</AdditionalOptions>
     </Link>
     <Manifest>
       <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
@@ -92,6 +93,7 @@
     <ClCompile Include="Debug\DebugManager.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PrimitiveRenderer.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
     <ClCompile Include="Window\WindowManager.cpp" />
@@ -99,6 +101,7 @@
   <ItemGroup>
     <ClInclude Include="Debug\DebugManager.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
+    <ClInclude Include="PrimitiveRenderer.h" />
     <ClInclude Include="Utils\Logger.h" />
     <ClInclude Include="Utils\StringUtils.h" />
     <ClInclude Include="Window\WindowManager.h" />
