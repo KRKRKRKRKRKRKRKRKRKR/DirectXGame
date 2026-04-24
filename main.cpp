@@ -16,6 +16,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	DebugManager::EnableDebugLayer();
 
 	DirectXManager dx;
+
 	dx.Initialize(window.GetHWND(), window	.GetClientWidth(), window.GetClientHeight());
 	
 	while (window.ProcessMessage()) {
@@ -26,5 +27,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 		dx.endFrame();
 	}
 
+	DebugManager::ReportLiveObjects();
+	
 	return 0;
 }

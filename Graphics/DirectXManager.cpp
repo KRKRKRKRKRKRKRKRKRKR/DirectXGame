@@ -5,7 +5,6 @@
 #include <format>
 
 DirectXManager::~DirectXManager() {
-
 	CloseHandle(fenceEvent_);
 	if(fence_) { fence_->Release(); fence_ = nullptr; }
 	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
