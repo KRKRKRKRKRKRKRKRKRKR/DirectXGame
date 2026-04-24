@@ -13,6 +13,8 @@ public:
 
 	// 初期化
 	void Initialize(HWND hwnd, int32_t width, int32_t height);
+	void beginFrame();
+	void endFrame();
 
 	// ゲッター
 	ID3D12Device* GetDevice()  const { return device_; }
@@ -30,6 +32,8 @@ private:
 	void GetSwapChainResources();
 	void CreateRTV();
 
+
+
 	IDXGIFactory7* dxgiFactory_ = nullptr;
 	IDXGIAdapter4* useAdapter_ = nullptr;
 	ID3D12Device* device_ = nullptr;
@@ -39,5 +43,6 @@ private:
 	IDXGISwapChain4* swapChain_ = nullptr;
 	ID3D12DescriptorHeap* rtvDescriptorHeap_ = nullptr;
 	ID3D12Resource* swapChainResources_[2] = { nullptr, nullptr };
-	
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2] = {};
+
 };

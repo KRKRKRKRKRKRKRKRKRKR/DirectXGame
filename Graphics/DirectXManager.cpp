@@ -168,10 +168,39 @@ void DirectXManager::CreateRTV() {
 	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvStartHandle = rtvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle[2];
-	rtvHandle[0] = rtvStartHandle;
-	device_->CreateRenderTargetView(swapChainResources_[0], &rtvDesc, rtvHandle[0]);
-	rtvHandle[1].ptr = rtvHandle[0].ptr + device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	rtvHandles_[0] = rtvStartHandle;
+	device_->CreateRenderTargetView(swapChainResources_[0], &rtvDesc, rtvHandles_[0]);
+	rtvHandles_[1].ptr = rtvHandles_[0].ptr + device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-	device_->CreateRenderTargetView(swapChainResources_[1], &rtvDesc, rtvHandle[1]);
+	device_->CreateRenderTargetView(swapChainResources_[1], &rtvDesc, rtvHandles_[1]);
+}
+
+void DirectXManager::beginFrame() {
+	UINT backBufferIndex = swapChain_->GetCurrentBackBufferIndex();
+	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex], false, nullptr);
+	float clearColor[] = { 0.1f,0.25f,0.5f,0.1f };
+	commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex], clearColor, 0, nullptr);
+	HRESULT hr = commandList_->Close();
+	if (FAILED(hr)) {
+		Logger::Log("Failed Close CommandList\n");
+	}
+	assert(SUCCEEDED(hr));
+}
+
+void DirectXManager::endFrame() {
+	ID3D12CommandList* commandLists[] = { commandList_ };
+	commandQueue_->ExecuteCommandLists(1,commandLists);
+	swapChain_->Present(1, 0);
+	HRESULT hr = commandAllocator_->Reset();
+
+	if (FAILED(hr)) {
+		Logger::Log("Failed Reset CommandAllocator\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	hr = commandList_->Reset(commandAllocator_, nullptr);
+	if (FAILED(hr)) {
+		Logger::Log("Failed Reset CommandList\n");
+	}
+	assert(SUCCEEDED(hr));
 }
