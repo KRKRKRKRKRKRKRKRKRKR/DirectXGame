@@ -89,7 +89,7 @@
     <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Debug\CrashHandler.cpp" />
+    <ClCompile Include="Debug\DebugManager.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
@@ -97,7 +97,7 @@
     <ClCompile Include="Window\WindowManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Debug\CrashHandler.h" />
+    <ClInclude Include="Debug\DebugManager.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
     <ClInclude Include="Utils\Logger.h" />
     <ClInclude Include="Utils\StringUtils.h" />

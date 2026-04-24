@@ -23,9 +23,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Debug\CrashHandler.cpp">
-      <Filter>Debug</Filter>
-    </ClCompile>
     <ClCompile Include="Window\WindowManager.cpp">
       <Filter>Window</Filter>
     </ClCompile>
@@ -38,11 +35,11 @@
     <ClCompile Include="Utils\StringUtils.cpp">
       <Filter>Utils</Filter>
     </ClCompile>
+    <ClCompile Include="Debug\DebugManager.cpp">
+      <Filter>Debug</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Debug\CrashHandler.h">
-      <Filter>Debug</Filter>
-    </ClInclude>
     <ClInclude Include="Window\WindowManager.h">
       <Filter>Window</Filter>
     </ClInclude>
@@ -54,6 +51,9 @@
     </ClInclude>
     <ClInclude Include="Utils\StringUtils.h">
       <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Debug\DebugManager.h">
+      <Filter>Debug</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
