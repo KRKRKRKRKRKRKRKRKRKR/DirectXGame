@@ -20,6 +20,8 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	DirectXManager directX;
 	directX.Initialize(window.GetHWND(), window.GetClientWidth(), window.GetClientHeight());
 
+	DebugManager::SetupInfoQueue(directX.GetDevice());
+
 	PrimitiveRenderer primitiveRenderer;
 	primitiveRenderer.Initialize(&directX);
 	
@@ -35,7 +37,6 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	primitiveRenderer.Finalize();
 	directX.Finalize();
-	DebugManager::SetupInfoQueue(directX.GetDevice());
 	DebugManager::ReportLiveObjects();
 
 	return 0;
