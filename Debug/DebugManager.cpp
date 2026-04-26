@@ -48,9 +48,13 @@ void DebugManager::EnableDebugLayer() {
 
 		debugController->Release();
 	}
+#endif
+}
 
+void DebugManager::SetupInfoQueue(ID3D12Device* dx) {
+#ifdef _DEBUG
 	ID3D12InfoQueue* infoQueue = nullptr;
-	if (SUCCEEDED(debugController->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
+	if (SUCCEEDED(dx->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
 		// D3D12の警告をすべて表示する
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);

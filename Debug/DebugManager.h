@@ -18,6 +18,9 @@ class DebugManager {
 	// デバッグレイヤーを有効にする
 	static void EnableDebugLayer();
 
+	//InfoQueueを取得する
+	static void SetupInfoQueue(ID3D12Device* dx);
+
 	// ライブオブジェクトをレポートする
 	static void ReportLiveObjects();
 
