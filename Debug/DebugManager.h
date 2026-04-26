@@ -18,6 +18,7 @@ class DebugManager {
 	// デバッグレイヤーを有効にする
 	static void EnableDebugLayer();
 
+	// ライブオブジェクトをレポートする
 	static void ReportLiveObjects();
 
 private:

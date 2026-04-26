@@ -17,21 +17,23 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 
 	DebugManager::EnableDebugLayer();
 
-	DirectXManager dx;
-	dx.Initialize(window.GetHWND(), window.GetClientWidth(), window.GetClientHeight());
+	DirectXManager directX;
+	directX.Initialize(window.GetHWND(), window.GetClientWidth(), window.GetClientHeight());
 
 	PrimitiveRenderer primitiveRenderer;
-	primitiveRenderer.Initialize(&dx);
+	primitiveRenderer.Initialize(&directX);
 
 	while (window.ProcessMessage()) {
-		dx.beginFrame();
+		directX.beginFrame();
 
 		//描画処理はここから
-		primitiveRenderer.DrawTriangleRender(&dx, window.GetClientWidth(), window.GetClientHeight(), dx.GetCommandList());
+		primitiveRenderer.DrawTriangleRender(&directX, window.GetClientWidth(), window.GetClientHeight(), directX.GetCommandList());
 
-		dx.endFrame();
+		directX.endFrame();
 	}
 
+	primitiveRenderer.Finalize();
+	directX.Finalize();
 	DebugManager::ReportLiveObjects();
 
 	return 0;

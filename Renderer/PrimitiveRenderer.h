@@ -18,7 +18,7 @@ public:
 	~PrimitiveRenderer();
 	void Initialize(DirectXManager* dx);
 	void DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList);
-
+	void Finalize();
 private:
 	void InitializeDXC();
 	IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);

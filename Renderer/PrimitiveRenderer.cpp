@@ -8,18 +8,7 @@
 //デストラクタ
 //==================================================================
 PrimitiveRenderer::~PrimitiveRenderer() {
-	if (materialResource_) { materialResource_->Release();      materialResource_ = nullptr; }
-	if (vertexResource_) { vertexResource_->Release();       vertexResource_ = nullptr; }
-	if (pixelShaderBlob_) { pixelShaderBlob_->Release();       pixelShaderBlob_ = nullptr; }
-	if (vertexShaderBlob_) { vertexShaderBlob_->Release();      vertexShaderBlob_ = nullptr; }
-	if (graphicsPipelineState_) { graphicsPipelineState_->Release(); graphicsPipelineState_ = nullptr; }
-	if (rootSignature_) { rootSignature_->Release();         rootSignature_ = nullptr; }
-	if (signatureBlob_) { signatureBlob_->Release();         signatureBlob_ = nullptr; }
-	if (errorBlob_) { errorBlob_->Release();             errorBlob_ = nullptr; }
-
-	if (includeHandler_) { includeHandler_->Release();        includeHandler_ = nullptr; }
-	if (dxcCompiler_) { dxcCompiler_->Release();           dxcCompiler_ = nullptr; }
-	if (dxcUtils_) { dxcUtils_->Release();              dxcUtils_ = nullptr; }
+	Finalize();
 }
 
 //==================================================================
@@ -31,6 +20,23 @@ void PrimitiveRenderer::Initialize(DirectXManager* dx) {
 	CreateVertexResource(dx);
 	CreateMaterialResource(dx);
 	Logger::Log("Complete Initialize PrimitiveRenderer\n");
+}
+
+//==================================================================
+// 終了処理
+//==================================================================
+void PrimitiveRenderer::Finalize() {
+	if (materialResource_) { materialResource_->Release();      materialResource_ = nullptr; }
+	if (vertexResource_) { vertexResource_->Release();       vertexResource_ = nullptr; }
+	if (pixelShaderBlob_) { pixelShaderBlob_->Release();       pixelShaderBlob_ = nullptr; }
+	if (vertexShaderBlob_) { vertexShaderBlob_->Release();      vertexShaderBlob_ = nullptr; }
+	if (graphicsPipelineState_) { graphicsPipelineState_->Release(); graphicsPipelineState_ = nullptr; }
+	if (rootSignature_) { rootSignature_->Release();         rootSignature_ = nullptr; }
+	if (signatureBlob_) { signatureBlob_->Release();         signatureBlob_ = nullptr; }
+	if (errorBlob_) { errorBlob_->Release();             errorBlob_ = nullptr; }
+	if (includeHandler_) { includeHandler_->Release();        includeHandler_ = nullptr; }
+	if (dxcCompiler_) { dxcCompiler_->Release();           dxcCompiler_ = nullptr; }
+	if (dxcUtils_) { dxcUtils_->Release();              dxcUtils_ = nullptr; }
 }
 
 //==================================================================
@@ -235,7 +241,7 @@ void PrimitiveRenderer::PixelShader() {
 //==================================================================
 //リソース関連
 //==================================================================
-ID3D12Resource* PrimitiveRenderer::CreateBufferResource(DirectXManager* dx,size_t sizeInBytes) {
+ID3D12Resource* PrimitiveRenderer::CreateBufferResource(DirectXManager* dx, size_t sizeInBytes) {
 	ID3D12Resource* resource = nullptr;
 	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
 	uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;

@@ -5,18 +5,7 @@
 #include <format>
 
 DirectXManager::~DirectXManager() {
-	CloseHandle(fenceEvent_);
-	if(fence_) { fence_->Release(); fence_ = nullptr; }
-	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
-	if (swapChainResources_[0]) { swapChainResources_[0]->Release();  swapChainResources_[0] = nullptr; }
-	if (swapChainResources_[1]) { swapChainResources_[1]->Release();  swapChainResources_[1] = nullptr; }
-	if (swapChain_) { swapChain_->Release();	swapChain_ = nullptr; }
-	if (commandList_) { commandList_->Release();	commandList_ = nullptr; }
-	if (commandAllocator_) { commandAllocator_->Release();	commandAllocator_ = nullptr; }
-	if (commandQueue_) { commandQueue_->Release();	commandQueue_ = nullptr; }
-	if (device_) { device_->Release();	device_ = nullptr; }
-	if (useAdapter_) { useAdapter_->Release();	useAdapter_ = nullptr; }
-	if (dxgiFactory_) { dxgiFactory_->Release();	dxgiFactory_ = nullptr; }
+	Finalize();
 }
 
 void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
@@ -253,6 +242,18 @@ void DirectXManager::CreateFence() {
 }
 
 void DirectXManager::Finalize() {
+	CloseHandle(fenceEvent_);
+	if (fence_) { fence_->Release(); fence_ = nullptr; }
+	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
+	if (swapChainResources_[0]) { swapChainResources_[0]->Release();  swapChainResources_[0] = nullptr; }
+	if (swapChainResources_[1]) { swapChainResources_[1]->Release();  swapChainResources_[1] = nullptr; }
+	if (swapChain_) { swapChain_->Release();	swapChain_ = nullptr; }
+	if (commandList_) { commandList_->Release();	commandList_ = nullptr; }
+	if (commandAllocator_) { commandAllocator_->Release();	commandAllocator_ = nullptr; }
+	if (commandQueue_) { commandQueue_->Release();	commandQueue_ = nullptr; }
+	if (device_) { device_->Release();	device_ = nullptr; }
+	if (useAdapter_) { useAdapter_->Release();	useAdapter_ = nullptr; }
+	if (dxgiFactory_) { dxgiFactory_->Release();	dxgiFactory_ = nullptr; }
 	IDXGIDebug1* debug = nullptr;
 	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug)))) {
 		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
@@ -260,5 +261,4 @@ void DirectXManager::Finalize() {
 		debug->ReportLiveObjects(DXGI_DEBUG_D3D12,DXGI_DEBUG_RLO_ALL);
 		debug->Release();
 	}
-	
 }
