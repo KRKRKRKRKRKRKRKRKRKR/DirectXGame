@@ -3,30 +3,39 @@
 #include "../Utils/StringUtils.h"
 #include <cassert>
 #include <format>
-PrimitiveRenderer::~PrimitiveRenderer() {
-	if (vertexResource_) { vertexResource_->Release();       vertexResource_ = nullptr; }
 
+//==================================================================
+//デストラクタ
+//==================================================================
+PrimitiveRenderer::~PrimitiveRenderer() {
+	if (materialResource_) { materialResource_->Release();      materialResource_ = nullptr; }
+	if (vertexResource_) { vertexResource_->Release();       vertexResource_ = nullptr; }
 	if (pixelShaderBlob_) { pixelShaderBlob_->Release();       pixelShaderBlob_ = nullptr; }
 	if (vertexShaderBlob_) { vertexShaderBlob_->Release();      vertexShaderBlob_ = nullptr; }
 	if (graphicsPipelineState_) { graphicsPipelineState_->Release(); graphicsPipelineState_ = nullptr; }
 	if (rootSignature_) { rootSignature_->Release();         rootSignature_ = nullptr; }
 	if (signatureBlob_) { signatureBlob_->Release();         signatureBlob_ = nullptr; }
 	if (errorBlob_) { errorBlob_->Release();             errorBlob_ = nullptr; }
-	
+
 	if (includeHandler_) { includeHandler_->Release();        includeHandler_ = nullptr; }
 	if (dxcCompiler_) { dxcCompiler_->Release();           dxcCompiler_ = nullptr; }
 	if (dxcUtils_) { dxcUtils_->Release();              dxcUtils_ = nullptr; }
 }
 
+//==================================================================
+// 初期化
+//==================================================================
 void PrimitiveRenderer::Initialize(DirectXManager* dx) {
 	InitializeDXC();
 	CreatePSO(dx);
 	CreateVertexResource(dx);
-	CreateVertexBufferView();
-	WriteVertexResource();
+	CreateMaterialResource(dx);
 	Logger::Log("Complete Initialize PrimitiveRenderer\n");
 }
 
+//==================================================================
+//DXC関連
+//==================================================================
 void PrimitiveRenderer::InitializeDXC() {
 
 	HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils_));
@@ -131,8 +140,9 @@ IDxcBlob* PrimitiveRenderer::GetShaderBlob(const std::wstring& filePath, const w
 	return shaderBlob;
 }
 
-
-
+//==================================================================
+// PSO関連
+//==================================================================
 void PrimitiveRenderer::CreatePSO(DirectXManager* dx) {
 	CreateRootSignature(dx);
 	InputLayout();
@@ -167,8 +177,15 @@ void PrimitiveRenderer::CreatePSO(DirectXManager* dx) {
 
 void PrimitiveRenderer::CreateRootSignature(DirectXManager* dx) {
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
-	descriptionRootSignature.Flags
-		= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+	D3D12_ROOT_PARAMETER rootParameters[1] = {};
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[0].Descriptor.ShaderRegister = 0;
+	descriptionRootSignature.pParameters = rootParameters;
+	descriptionRootSignature.NumParameters = _countof(rootParameters);
+
 	HRESULT hr = D3D12SerializeRootSignature(&descriptionRootSignature, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob_, &errorBlob_);
 	if (FAILED(hr)) {
 		Logger::Log(reinterpret_cast<char*>(errorBlob_->GetBufferPointer()));
@@ -178,6 +195,7 @@ void PrimitiveRenderer::CreateRootSignature(DirectXManager* dx) {
 	hr = dx->GetDevice()->CreateRootSignature(0,
 		signatureBlob_->GetBufferPointer(), signatureBlob_->GetBufferSize(),
 		IID_PPV_ARGS(&rootSignature_));
+
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateRootSignature\n");
 	}
@@ -214,14 +232,16 @@ void PrimitiveRenderer::PixelShader() {
 	assert(pixelShaderBlob_ != nullptr);
 }
 
-
-
-void PrimitiveRenderer::CreateVertexResource(DirectXManager* dx) {
+//==================================================================
+//リソース関連
+//==================================================================
+ID3D12Resource* PrimitiveRenderer::CreateBufferResource(DirectXManager* dx,size_t sizeInBytes) {
+	ID3D12Resource* resource = nullptr;
 	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
 	uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
 	D3D12_RESOURCE_DESC vertexBufferResourceDesc{};
 	vertexBufferResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	vertexBufferResourceDesc.Width = sizeof(Vector4) * 3;
+	vertexBufferResourceDesc.Width = sizeInBytes;
 	vertexBufferResourceDesc.Height = 1;
 	vertexBufferResourceDesc.DepthOrArraySize = 1;
 	vertexBufferResourceDesc.MipLevels = 1;
@@ -234,52 +254,49 @@ void PrimitiveRenderer::CreateVertexResource(DirectXManager* dx) {
 		&vertexBufferResourceDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
-		IID_PPV_ARGS(&vertexResource_)
+		IID_PPV_ARGS(&resource)
 	);
 
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommittedResource\n");
 	}
 	assert(SUCCEEDED(hr));
+	return resource;
+}
+
+void PrimitiveRenderer::CreateVertexResource(DirectXManager* dx) {
+	vertexResource_ = CreateBufferResource(dx, sizeof(Vector4) * 3);
+	CreateVertexBufferView();
+	WriteVertexResource();
 }
 
 void PrimitiveRenderer::CreateVertexBufferView() {
-	// 頂点バッファビューの作成
-	
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
 	vertexBufferView_.SizeInBytes = sizeof(Vector4) * 3;
 	vertexBufferView_.StrideInBytes = sizeof(Vector4);
 }
 
 void PrimitiveRenderer::WriteVertexResource() {
-	// 頂点データの書き込み
 	Vector4* vertexData = nullptr;
 	vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
-
-	vertexData[0] = Vector4(-0.5f,-0.5f,0.0f,1.0f);
+	vertexData[0] = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
 	vertexData[1] = Vector4(0.0f, 0.5f, 0.0f, 1.0f);
 	vertexData[2] = Vector4(0.5f, -0.5f, 0.0f, 1.0f);
-
 	vertexResource_->Unmap(0, nullptr);
 }
 
-void PrimitiveRenderer::ViewportScissorRect(int32_t width, int32_t height) {
-		
-		viewport_.Width = static_cast<float>(width);
-		viewport_.Height = static_cast<float>(height);
-		viewport_.TopLeftX = 0;
-		viewport_.TopLeftY = 0;
-		viewport_.MinDepth = 0.0f;
-		viewport_.MaxDepth = 1.0f;
-
-		scissorRect_.left = 0;
-		scissorRect_.right = width;
-		scissorRect_.top = 0;
-		scissorRect_.bottom = height;
+void PrimitiveRenderer::CreateMaterialResource(DirectXManager* dx) {
+	materialResource_ = CreateBufferResource(dx, sizeof(Vector4));
+	Vector4* materialData = nullptr;
+	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
+	*materialData = Vector4(1.0f, 0.0f, 0.0f, 1.0f);
+	materialResource_->Unmap(0, nullptr);
 }
 
+//==================================================================
+//描画関連
+//==================================================================
 void PrimitiveRenderer::DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList) {
-
 	ViewportScissorRect(width, height);
 	commandList->RSSetViewports(1, &viewport_);
 	commandList->RSSetScissorRects(1, &scissorRect_);
@@ -287,5 +304,20 @@ void PrimitiveRenderer::DrawTriangleRender(DirectXManager* dx, int32_t width, in
 	commandList->SetPipelineState(graphicsPipelineState_);
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList->DrawInstanced(3, 1, 0, 0);
 }
+
+void PrimitiveRenderer::ViewportScissorRect(int32_t width, int32_t height) {
+	viewport_.Width = static_cast<float>(width);
+	viewport_.Height = static_cast<float>(height);
+	viewport_.TopLeftX = 0;
+	viewport_.TopLeftY = 0;
+	viewport_.MinDepth = 0.0f;
+	viewport_.MaxDepth = 1.0f;
+	scissorRect_.left = 0;
+	scissorRect_.right = width;
+	scissorRect_.top = 0;
+	scissorRect_.bottom = height;
+}
+

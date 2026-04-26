@@ -31,7 +31,6 @@ private:
 	IDxcIncludeHandler* includeHandler_ = nullptr;
 	DxcBuffer shaderSourceBuffer_;
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[1] = {};
-
 	void CreatePSO(DirectXManager* dx);
 	void CreateRootSignature(DirectXManager* dx);
 	void InputLayout();
@@ -48,8 +47,9 @@ private:
 	D3D12_BLEND_DESC blendDesc_ = {};
 	D3D12_RASTERIZER_DESC rasterizerDesc_ = {};
 	ID3D12PipelineState* graphicsPipelineState_ = nullptr;
-
+	ID3D12Resource* CreateBufferResource(DirectXManager* dx, size_t sizeInBytes);
 	void CreateVertexResource(DirectXManager* dx);
+	void CreateMaterialResource(DirectXManager* dx);
 	void CreateVertexBufferView();
 	void WriteVertexResource();
 	void ViewportScissorRect(int32_t width, int32_t height);
@@ -57,5 +57,7 @@ private:
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
+	ID3D12Resource* materialResource_ = nullptr;
+
 };
 
