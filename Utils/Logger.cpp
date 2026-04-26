@@ -2,9 +2,8 @@
 #include "StringUtils.h"
 #include <Windows.h>
 #include <filesystem>
-#include <format>
 #include <chrono>
-
+#include <format>
 std::ofstream Logger::logStream_;
 
 void Logger::Initialize() {

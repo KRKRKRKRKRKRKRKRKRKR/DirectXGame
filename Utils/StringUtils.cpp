@@ -1,7 +1,5 @@
 #include "StringUtils.h"
 #include <Windows.h>
-
-
 std::wstring StringUtils::ConvertString(const std::string& str) {
     if (str.empty()) {
         return std::wstring();

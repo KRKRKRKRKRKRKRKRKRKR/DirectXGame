@@ -1,11 +1,9 @@
 #pragma once
-#include <windows.h>
-#include <dxgidebug.h>
+#include <Windows.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
+#include <dxgidebug.h>
 #include <cstdint>
-
-#pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 
@@ -23,6 +21,7 @@ public:
 	// ゲッター
 	ID3D12Device* GetDevice()  const { return device_; }
 	IDXGIFactory7* GetFactory() const { return dxgiFactory_; }
+	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_; }
 
 private:
 

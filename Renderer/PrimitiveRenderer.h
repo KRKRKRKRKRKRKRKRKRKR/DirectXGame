@@ -1,0 +1,61 @@
+#pragma once
+#include <Windows.h>
+#include <d3d12.h>
+#include <dxgi1_6.h>
+#include <dxcapi.h>
+#include <string>
+#include <cstdint>
+#include "../Graphics/DirectXManager.h"
+#include "../Math/MathTypes.h"
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
+#pragma comment(lib, "dxcompiler.lib")
+
+class PrimitiveRenderer {
+public:
+	PrimitiveRenderer() = default;
+	~PrimitiveRenderer();
+	void Initialize(DirectXManager* dx);
+	void DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList);
+
+private:
+	void InitializeDXC();
+	IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);
+	void LoadHLSLFile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource);
+	void ExecuteCompile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource, IDxcResult*& shaderResult);
+	void LogCompileErrors(IDxcResult* shaderResult);
+	IDxcBlob* GetShaderBlob(const std::wstring& filePath, const wchar_t* profile, IDxcResult* shaderResult);
+	IDxcUtils* dxcUtils_ = nullptr;
+	IDxcCompiler3* dxcCompiler_ = nullptr;
+	IDxcIncludeHandler* includeHandler_ = nullptr;
+	DxcBuffer shaderSourceBuffer_;
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[1] = {};
+
+	void CreatePSO(DirectXManager* dx);
+	void CreateRootSignature(DirectXManager* dx);
+	void InputLayout();
+	void BlendState();
+	void RasterizerState();
+	void VertexShader();
+	void PixelShader();
+	ID3DBlob* signatureBlob_ = nullptr;
+	ID3DBlob* errorBlob_ = nullptr;
+	ID3D12RootSignature* rootSignature_ = nullptr;
+	IDxcBlob* vertexShaderBlob_ = nullptr;
+	IDxcBlob* pixelShaderBlob_ = nullptr;
+	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc_ = {};
+	D3D12_BLEND_DESC blendDesc_ = {};
+	D3D12_RASTERIZER_DESC rasterizerDesc_ = {};
+	ID3D12PipelineState* graphicsPipelineState_ = nullptr;
+
+	void CreateVertexResource(DirectXManager* dx);
+	void CreateVertexBufferView();
+	void WriteVertexResource();
+	void ViewportScissorRect(int32_t width, int32_t height);
+	ID3D12Resource* vertexResource_ = nullptr;
+	D3D12_VIEWPORT viewport_{};
+	D3D12_RECT scissorRect_{};
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
+};
+

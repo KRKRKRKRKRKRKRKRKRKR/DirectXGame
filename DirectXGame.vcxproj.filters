@@ -17,6 +17,12 @@
     <Filter Include="Utils">
       <UniqueIdentifier>{a2c4be14-e7fd-4668-9e90-2a70af4e2a4c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Renderer">
+      <UniqueIdentifier>{0dd4f975-e789-4334-8cc0-b2b600e88112}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Math">
+      <UniqueIdentifier>{199f6276-3b66-4a3c-a0c1-eea1d3bc4747}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
@@ -38,6 +44,10 @@
     <ClCompile Include="Debug\DebugManager.cpp">
       <Filter>Debug</Filter>
     </ClCompile>
+    <ClCompile Include="Renderer\PrimitiveRenderer.cpp">
+      <Filter>Renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Window\WindowManager.h">
@@ -55,5 +65,16 @@
     <ClInclude Include="Debug\DebugManager.h">
       <Filter>Debug</Filter>
     </ClInclude>
+    <ClInclude Include="Renderer\PrimitiveRenderer.h">
+      <Filter>Renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="MathTypes.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Object3d.VS.hlsl" />
+    <FxCompile Include="Object3d.PS.hlsl" />
   </ItemGroup>
 </Project>

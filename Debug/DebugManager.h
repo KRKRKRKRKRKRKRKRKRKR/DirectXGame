@@ -1,17 +1,16 @@
 #pragma once
-#include <windows.h>
-#include <dxgidebug.h>
+#include <Windows.h>
 #include <dbghelp.h>
-#include <dxgi1_6.h>
 #include <strsafe.h>
+#include <d3d12.h>
 #include <d3d12sdklayers.h>
-
-#pragma comment(lib, "dxguid.lib")
+#include <dxgi1_6.h>
+#include <dxgidebug.h>
 #pragma comment(lib, "dbghelp.lib")
+
 class DebugManager {
 	public:
 	DebugManager() = delete;
-	~DebugManager();
 
 	// 例外フィルタを登録する	
 	static void RegisterCrashHandler();

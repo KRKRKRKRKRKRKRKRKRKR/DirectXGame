@@ -60,3 +60,4 @@ LRESULT CALLBACK WindowManager::WindowProc(
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);
 }
+

@@ -2,7 +2,6 @@
 #include <Windows.h>
 #include <cstdint>
 #include <string>
-
 class WindowManager {
 public:
 	WindowManager() = default;

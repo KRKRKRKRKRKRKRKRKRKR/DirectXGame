@@ -1,9 +1,4 @@
 #include "DebugManager.h"
-
-DebugManager::~DebugManager() { 
-
-}
-
 void DebugManager::RegisterCrashHandler() {
 	SetUnhandledExceptionFilter(ExportDump);
 }
