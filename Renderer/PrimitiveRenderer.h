@@ -16,8 +16,8 @@ class PrimitiveRenderer {
 public:
 	PrimitiveRenderer() = default;
 	~PrimitiveRenderer();
-	void Initialize(DirectXManager* dx);
-	void DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList,const Matrix4x4& wvp);
+	void Initialize(DirectXManager* dx, int32_t windowWidth, int32_t windowHeight);
+	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
 	void Finalize();
 private:
 	void InitializeDXC();
@@ -54,6 +54,9 @@ private:
 	void WriteVertexResource();
 	void ViewportScissorRect(int32_t width, int32_t height);
 	void CreateTransformationMatrix(DirectXManager* dx);
+	void SetPipelineCommands();
+	void RecordDrawCommands();
+
 	ID3D12Resource* vertexResource_ = nullptr;
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
@@ -61,6 +64,11 @@ private:
 	ID3D12Resource* materialResource_ = nullptr;
 	ID3D12Resource* wvpResource_ = nullptr;
 	Matrix4x4* wvpData_ = nullptr;
+	DirectXManager* dx_ = nullptr;
+	ID3D12GraphicsCommandList* commandList_ = nullptr;
+	int32_t windowWidth_ = 0;
+	int32_t windowHeight_ = 0;
+
 
 };
 

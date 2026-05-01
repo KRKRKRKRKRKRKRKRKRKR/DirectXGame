@@ -16,7 +16,12 @@ PrimitiveRenderer::~PrimitiveRenderer() {
 //==================================================================
 // 初期化
 //==================================================================
-void PrimitiveRenderer::Initialize(DirectXManager* dx) {
+void PrimitiveRenderer::Initialize(DirectXManager* dx, int32_t windowWidth, int32_t windowHeight) {
+	dx_ = dx;
+	commandList_ = dx->GetCommandList();
+	windowWidth_ = windowWidth;
+	windowHeight_ = windowHeight;
+
 	InitializeDXC();
 	CreatePSO(dx);
 	CreateVertexResource(dx);
@@ -321,20 +326,14 @@ void PrimitiveRenderer::CreateTransformationMatrix(DirectXManager* dx) {
 //==================================================================
 //描画関連
 //==================================================================
-void PrimitiveRenderer::DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList,const Matrix4x4& wvp) {
-	
-	*wvpData_ = wvp;
-	
-	ViewportScissorRect(width, height);
-	commandList->RSSetViewports(1, &viewport_);
-	commandList->RSSetScissorRects(1, &scissorRect_);
-	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(graphicsPipelineState_);
-	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-	commandList->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList->DrawInstanced(3, 1, 0, 0);
+void PrimitiveRenderer::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
+	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
+	*wvpData_ = worldMatrix * view * projection;
+
+	ViewportScissorRect(windowWidth_, windowHeight_);
+	SetPipelineCommands();
+	RecordDrawCommands();
+
 }
 
 void PrimitiveRenderer::ViewportScissorRect(int32_t width, int32_t height) {
@@ -348,5 +347,20 @@ void PrimitiveRenderer::ViewportScissorRect(int32_t width, int32_t height) {
 	scissorRect_.right = width;
 	scissorRect_.top = 0;
 	scissorRect_.bottom = height;
+}
+
+void PrimitiveRenderer::SetPipelineCommands() {
+	commandList_->RSSetViewports(1, &viewport_);
+	commandList_->RSSetScissorRects(1, &scissorRect_);
+	commandList_->SetGraphicsRootSignature(rootSignature_);
+	commandList_->SetPipelineState(graphicsPipelineState_);
+}
+
+void PrimitiveRenderer::RecordDrawCommands() {
+	commandList_->IASetVertexBuffers(0, 1, &vertexBufferView_);
+	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
+	commandList_->DrawInstanced(3, 1, 0, 0);
 }
 

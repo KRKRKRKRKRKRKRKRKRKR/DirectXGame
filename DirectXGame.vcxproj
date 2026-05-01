@@ -102,6 +102,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Camera\CameraManager.cpp" />
     <ClCompile Include="Debug\DebugManager.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
     <ClCompile Include="main.cpp" />
@@ -117,6 +118,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Window\WindowManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera\CameraManager.h" />
     <ClInclude Include="Debug\DebugManager.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
     <ClInclude Include="Math\MathTypes.h" />
