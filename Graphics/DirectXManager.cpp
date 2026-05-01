@@ -242,7 +242,11 @@ void DirectXManager::CreateFence() {
 }
 
 void DirectXManager::Finalize() {
+	if (fenceEvent_) {
 	CloseHandle(fenceEvent_);
+	fenceEvent_ = nullptr;
+	}
+
 	if (fence_) { fence_->Release(); fence_ = nullptr; }
 	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
 	if (swapChainResources_[0]) { swapChainResources_[0]->Release();  swapChainResources_[0] = nullptr; }

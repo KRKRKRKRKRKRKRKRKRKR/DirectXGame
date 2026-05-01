@@ -69,7 +69,16 @@
       <Filter>Renderer</Filter>
     </ClInclude>
     <ClInclude Include="pch.h" />
-    <ClInclude Include="MathTypes.h">
+    <ClInclude Include="Math\MathTypes.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\MatrixMath.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\VectorMath.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\TransformMath.h">
       <Filter>Math</Filter>
     </ClInclude>
   </ItemGroup>

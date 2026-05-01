@@ -1,6 +1,8 @@
 #include "PrimitiveRenderer.h"
 #include "../Utils/Logger.h"
 #include "../Utils/StringUtils.h"
+#include "../Math/MatrixMath.h"
+#include "../Math/TransformMath.h"
 #include <cassert>
 #include <format>
 
@@ -19,6 +21,7 @@ void PrimitiveRenderer::Initialize(DirectXManager* dx) {
 	CreatePSO(dx);
 	CreateVertexResource(dx);
 	CreateMaterialResource(dx);
+	CreateTransformationMatrix(dx);
 	Logger::Log("Complete Initialize PrimitiveRenderer\n");
 }
 
@@ -26,17 +29,24 @@ void PrimitiveRenderer::Initialize(DirectXManager* dx) {
 // 終了処理
 //==================================================================
 void PrimitiveRenderer::Finalize() {
-	if (materialResource_) { materialResource_->Release();      materialResource_ = nullptr; }
-	if (vertexResource_) { vertexResource_->Release();       vertexResource_ = nullptr; }
-	if (pixelShaderBlob_) { pixelShaderBlob_->Release();       pixelShaderBlob_ = nullptr; }
-	if (vertexShaderBlob_) { vertexShaderBlob_->Release();      vertexShaderBlob_ = nullptr; }
+	if (wvpResource_) {
+		wvpResource_->Unmap(0, nullptr);
+		wvpData_ = nullptr;         // deleteは不要、nullptrだけ
+		wvpResource_->Release();
+		wvpResource_ = nullptr;
+	}
+
+	if (materialResource_) { materialResource_->Release(); materialResource_ = nullptr; }
+	if (vertexResource_) { vertexResource_->Release(); vertexResource_ = nullptr; }
+	if (pixelShaderBlob_) { pixelShaderBlob_->Release(); pixelShaderBlob_ = nullptr; }
+	if (vertexShaderBlob_) { vertexShaderBlob_->Release(); vertexShaderBlob_ = nullptr; }
 	if (graphicsPipelineState_) { graphicsPipelineState_->Release(); graphicsPipelineState_ = nullptr; }
-	if (rootSignature_) { rootSignature_->Release();         rootSignature_ = nullptr; }
-	if (signatureBlob_) { signatureBlob_->Release();         signatureBlob_ = nullptr; }
-	if (errorBlob_) { errorBlob_->Release();             errorBlob_ = nullptr; }
-	if (includeHandler_) { includeHandler_->Release();        includeHandler_ = nullptr; }
-	if (dxcCompiler_) { dxcCompiler_->Release();           dxcCompiler_ = nullptr; }
-	if (dxcUtils_) { dxcUtils_->Release();              dxcUtils_ = nullptr; }
+	if (rootSignature_) { rootSignature_->Release(); rootSignature_ = nullptr; }
+	if (signatureBlob_) { signatureBlob_->Release(); signatureBlob_ = nullptr; }
+	if (errorBlob_) { errorBlob_->Release(); errorBlob_ = nullptr; }
+	if (includeHandler_) { includeHandler_->Release(); includeHandler_ = nullptr; }
+	if (dxcCompiler_) { dxcCompiler_->Release(); dxcCompiler_ = nullptr; }
+	if (dxcUtils_) { dxcUtils_->Release(); dxcUtils_ = nullptr; }
 }
 
 //==================================================================
@@ -185,10 +195,13 @@ void PrimitiveRenderer::CreateRootSignature(DirectXManager* dx) {
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
 	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_ROOT_PARAMETER rootParameters[1] = {};
+	D3D12_ROOT_PARAMETER rootParameters[2] = {};
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[0].Descriptor.ShaderRegister = 0;
+	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameters[1].Descriptor.ShaderRegister = 0;
 	descriptionRootSignature.pParameters = rootParameters;
 	descriptionRootSignature.NumParameters = _countof(rootParameters);
 
@@ -211,7 +224,7 @@ void PrimitiveRenderer::CreateRootSignature(DirectXManager* dx) {
 void PrimitiveRenderer::InputLayout() {
 	inputElementDescs_[0].SemanticName = "POSITION";
 	inputElementDescs_[0].SemanticIndex = 0;
-	inputElementDescs_[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+	inputElementDescs_[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	inputElementDescs_[0].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 	inputLayoutDesc_.pInputElementDescs = inputElementDescs_;
 	inputLayoutDesc_.NumElements = _countof(inputElementDescs_);
@@ -299,10 +312,19 @@ void PrimitiveRenderer::CreateMaterialResource(DirectXManager* dx) {
 	materialResource_->Unmap(0, nullptr);
 }
 
+void PrimitiveRenderer::CreateTransformationMatrix(DirectXManager* dx) {
+	wvpResource_ = CreateBufferResource(dx, sizeof(Matrix4x4));
+	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
+	*wvpData_ = MatrixMath::Identity();
+}
+
 //==================================================================
 //描画関連
 //==================================================================
-void PrimitiveRenderer::DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList) {
+void PrimitiveRenderer::DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList,const Matrix4x4& wvp) {
+	
+	*wvpData_ = wvp;
+	
 	ViewportScissorRect(width, height);
 	commandList->RSSetViewports(1, &viewport_);
 	commandList->RSSetScissorRects(1, &scissorRect_);
@@ -311,6 +333,7 @@ void PrimitiveRenderer::DrawTriangleRender(DirectXManager* dx, int32_t width, in
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+	commandList->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
 	commandList->DrawInstanced(3, 1, 0, 0);
 }
 

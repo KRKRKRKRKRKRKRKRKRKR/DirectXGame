@@ -17,7 +17,7 @@ public:
 	PrimitiveRenderer() = default;
 	~PrimitiveRenderer();
 	void Initialize(DirectXManager* dx);
-	void DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList);
+	void DrawTriangleRender(DirectXManager* dx, int32_t width, int32_t height, ID3D12GraphicsCommandList* commandList,const Matrix4x4& wvp);
 	void Finalize();
 private:
 	void InitializeDXC();
@@ -53,11 +53,14 @@ private:
 	void CreateVertexBufferView();
 	void WriteVertexResource();
 	void ViewportScissorRect(int32_t width, int32_t height);
+	void CreateTransformationMatrix(DirectXManager* dx);
 	ID3D12Resource* vertexResource_ = nullptr;
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
 	ID3D12Resource* materialResource_ = nullptr;
+	ID3D12Resource* wvpResource_ = nullptr;
+	Matrix4x4* wvpData_ = nullptr;
 
 };
 

@@ -119,7 +119,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   <ItemGroup>
     <ClInclude Include="Debug\DebugManager.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
-    <ClInclude Include="MathTypes.h" />
+    <ClInclude Include="Math\MathTypes.h" />
+    <ClInclude Include="Math\MatrixMath.h" />
+    <ClInclude Include="Math\TransformMath.h" />
+    <ClInclude Include="Math\VectorMath.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Renderer\PrimitiveRenderer.h" />
     <ClInclude Include="Utils\Logger.h" />
