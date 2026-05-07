@@ -1,0 +1,50 @@
+#include "Engine.h"
+
+void Engine::Initialize(const std::wstring& windowTitle, int width, int height) {
+	DebugManager::RegisterCrashHandler();
+	Logger::Initialize();
+
+	window_.Create(windowTitle, width, height);
+
+	DebugManager::EnableDebugLayer();
+
+	directX_.Initialize(window_.GetHWND(), window_.GetClientWidth(), window_.GetClientHeight());
+	DebugManager::SetupInfoQueue(directX_.GetDevice());
+	
+	primitiveRenderer_.Initialize(&directX_, window_.GetClientWidth(), window_.GetClientHeight());
+	
+	camera_.Initialize();
+	
+	transform_.scale = { 1.0f, 1.0f, 1.0f };
+	transform_.rotation = { 0.0f, 0.0f, 0.0f };
+	transform_.translation = { 0.0f, 0.0f, 0.0f };
+}
+
+void Engine::Run() {
+	while (window_.ProcessMessage()) {
+		Update();
+		Render();
+	}
+}
+
+void Engine::Finalize() {
+	primitiveRenderer_.Finalize();
+	directX_.Finalize();
+	DebugManager::ReportLiveObjects();
+}
+
+void Engine::Update() {
+	transform_.rotation.y += 0.01f;
+}
+
+void Engine::Render() {
+	directX_.beginFrame();
+
+	float aspectRatio = camera_.GetAspeRatio(window_.GetClientWidth(), window_.GetClientHeight());
+	Matrix4x4 viewMatrix = camera_.GetViewMatrix();
+	Matrix4x4 projectionMatrix = camera_.GetProjectionMatrix(aspectRatio);
+
+	primitiveRenderer_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
+
+	directX_.endFrame();
+}

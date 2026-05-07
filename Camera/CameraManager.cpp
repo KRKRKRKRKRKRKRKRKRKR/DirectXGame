@@ -13,6 +13,11 @@ void CameraManager::Update() {
 	// カメラの更新処理（必要に応じて実装）
 }
 
+float CameraManager::GetAspeRatio(const int clientWidth,const int clientHeight) const {
+	return static_cast<float>(clientWidth) / static_cast<float>(clientHeight);
+
+}
+
 Matrix4x4 CameraManager::GetViewMatrix() const {
 	Matrix4x4 viewMatrix = TransformMath::MakeAffineMatrix(Vector3(1.0f, 1.0f, 1.0f), cameraData_.rotation, cameraData_.position);
 	return MatrixMath::Inverse(viewMatrix);

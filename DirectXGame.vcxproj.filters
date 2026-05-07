@@ -26,6 +26,9 @@
     <Filter Include="Camera">
       <UniqueIdentifier>{7a962575-8638-44a3-9710-054aa4cadee2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Engine">
+      <UniqueIdentifier>{cb4dbdbe-2979-46ad-8267-ef4e2e13b2cd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
@@ -53,6 +56,9 @@
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="Camera\CameraManager.cpp">
       <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="Engine\Engine.cpp">
+      <Filter>Engine</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -89,6 +95,9 @@
     </ClInclude>
     <ClInclude Include="Camera\CameraManager.h">
       <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Engine.h">
+      <Filter>Engine</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
