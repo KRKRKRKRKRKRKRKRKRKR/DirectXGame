@@ -1,5 +1,5 @@
 #include "Engine.h"
-
+#include "../Externals/imgui/imgui.h"
 void Engine::Initialize(const std::wstring& windowTitle, int width, int height) {
 	DebugManager::RegisterCrashHandler();
 	Logger::Initialize();
@@ -15,6 +15,8 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	
 	camera_.Initialize();
 	
+	imgui_.Initialize(window_.GetHWND(), &directX_);
+
 	transform_.scale = { 1.0f, 1.0f, 1.0f };
 	transform_.rotation = { 0.0f, 0.0f, 0.0f };
 	transform_.translation = { 0.0f, 0.0f, 0.0f };
@@ -28,6 +30,7 @@ void Engine::Run() {
 }
 
 void Engine::Finalize() {
+	imgui_.Finalize();
 	primitiveRenderer_.Finalize();
 	directX_.Finalize();
 	DebugManager::ReportLiveObjects();
@@ -38,13 +41,17 @@ void Engine::Update() {
 }
 
 void Engine::Render() {
-	directX_.beginFrame();
+	directX_.BeginFrame();
+	imgui_.BeginFrame();
 
 	float aspectRatio = camera_.GetAspeRatio(window_.GetClientWidth(), window_.GetClientHeight());
 	Matrix4x4 viewMatrix = camera_.GetViewMatrix();
 	Matrix4x4 projectionMatrix = camera_.GetProjectionMatrix(aspectRatio);
 
 	primitiveRenderer_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
-
-	directX_.endFrame();
+	
+	ImGui::ShowDemoWindow();
+	
+	imgui_.EndFrame(&directX_);
+	directX_.EndFrame();
 }

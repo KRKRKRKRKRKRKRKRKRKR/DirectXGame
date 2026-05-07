@@ -8,6 +8,7 @@
 #include "../Math/TransformMath.h"
 #include "../Math/MatrixMath.h"
 #include "../Camera/CameraManager.h"
+#include "../Externals/imgui/imguiManager.h"
 
 class Engine {
 public:
@@ -29,6 +30,7 @@ private:
 	DirectXManager directX_;
 	PrimitiveRenderer primitiveRenderer_;
 	CameraManager camera_;
+	ImGuiManager imgui_;
 
 	Transform transform_;
 };

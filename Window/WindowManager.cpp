@@ -1,4 +1,9 @@
 #include "WindowManager.h"
+#include "../Externals/imgui/imgui.h"
+#include "../Externals/imgui/imgui_impl_dx12.h"
+#include "../Externals/imgui/imgui_impl_win32.h"
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 WindowManager::~WindowManager() {
     if (hwnd_) {
@@ -8,8 +13,7 @@ WindowManager::~WindowManager() {
     UnregisterClass(wc_.lpszClassName, wc_.hInstance);
 }
 
-void WindowManager::Create(const std::wstring& title,
-    int32_t width, int32_t height) {
+void WindowManager::Create(const std::wstring& title,int32_t width, int32_t height) {
     clientWidth_ = width;
     clientHeight_ = height;
 
@@ -51,8 +55,12 @@ bool WindowManager::ProcessMessage() {
     return true;  // 継続
 }
 
-LRESULT CALLBACK WindowManager::WindowProc(
-    HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+
+     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam)) {
+        return true;
+	 }
+
     switch (msg) {
     case WM_DESTROY:
         PostQuitMessage(0);

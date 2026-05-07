@@ -14,14 +14,15 @@ public:
 
 	// 初期化
 	void Initialize(HWND hwnd, int32_t width, int32_t height);
-	void beginFrame();
-	void endFrame();
+	void BeginFrame();
+	void EndFrame();
 	void Finalize();
 
 	// ゲッター
 	ID3D12Device* GetDevice()  const { return device_; }
 	IDXGIFactory7* GetFactory() const { return dxgiFactory_; }
 	ID3D12GraphicsCommandList* GetCommandList() const { return commandList_; }
+	ID3D12DescriptorHeap* GetSRVDescriptorHeap() const { return srvDescriptorHeap_; }
 
 private:
 
@@ -31,7 +32,9 @@ private:
 	void CreateDevice();
 	void CreateCommandQueue();
 	void CreateSwapChain(HWND hwnd,int32_t width, int32_t height);
-	void CreateDescriptorHeap();
+	ID3D12DescriptorHeap* CreateDescriptorHeap(ID3D12Device* device,D3D12_DESCRIPTOR_HEAP_TYPE heapType,UINT numDescriptors,bool shaderVisible);
+	void CreateRTVDescriptorHeap();
+	void CreateSRVDescriptorHeap();
 	void GetSwapChainResources();
 	void CreateRTV();
 	void BeginTransitionBarrier();
@@ -46,6 +49,7 @@ private:
 	ID3D12GraphicsCommandList* commandList_ = nullptr;
 	IDXGISwapChain4* swapChain_ = nullptr;
 	ID3D12DescriptorHeap* rtvDescriptorHeap_ = nullptr;
+	ID3D12DescriptorHeap* srvDescriptorHeap_ = nullptr;
 	ID3D12Resource* swapChainResources_[2] = { nullptr, nullptr };
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2] = {};
 	UINT backBufferIndex_;

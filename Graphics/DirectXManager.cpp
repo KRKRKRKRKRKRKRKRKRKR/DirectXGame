@@ -7,6 +7,9 @@
 DirectXManager::~DirectXManager() {
 	Finalize();
 }
+//===========================================
+//public
+//===========================================
 
 void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateFactory();
@@ -15,11 +18,86 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateCommandQueue();
 	CreateSwapChain(hwnd, width, height);
 	GetSwapChainResources();
-	CreateDescriptorHeap();
+	CreateRTVDescriptorHeap();
+	CreateSRVDescriptorHeap();
 	CreateRTV();
 	CreateFence();
 	Logger::Log("Complete Initialize DirectXManager\n");
 }
+
+void DirectXManager::BeginFrame() {
+	backBufferIndex_ = swapChain_->GetCurrentBackBufferIndex();
+	BeginTransitionBarrier();
+	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, nullptr);
+	float clearColor[] = { 0.1f,0.25f,0.5f,0.1f };
+	commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex_], clearColor, 0, nullptr);
+	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap_ };
+	commandList_->SetDescriptorHeaps(1, descriptorHeaps);
+}
+
+void DirectXManager::EndFrame() {
+
+	EndTransitionBarrier();
+
+	HRESULT hr = commandList_->Close();
+	if (FAILED(hr)) {
+		Logger::Log("Failed Close CommandList\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	ID3D12CommandList* commandLists[] = { commandList_ };
+	commandQueue_->ExecuteCommandLists(1, commandLists);
+	swapChain_->Present(1, 0);
+	fenceValue_++;
+	commandQueue_->Signal(fence_, fenceValue_);
+	if (fence_->GetCompletedValue() < fenceValue_) {
+		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+		WaitForSingleObject(fenceEvent_, INFINITE);
+	}
+
+	hr = commandAllocator_->Reset();
+	if (FAILED(hr)) {
+		Logger::Log("Failed Reset CommandAllocator\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	hr = commandList_->Reset(commandAllocator_, nullptr);
+	if (FAILED(hr)) {
+		Logger::Log("Failed Reset CommandList\n");
+	}
+	assert(SUCCEEDED(hr));
+
+}
+
+void DirectXManager::Finalize() {
+	if (fenceEvent_) {
+	CloseHandle(fenceEvent_);
+	fenceEvent_ = nullptr;
+	}
+
+	if (fence_) { fence_->Release(); fence_ = nullptr; }
+	if (srvDescriptorHeap_) { srvDescriptorHeap_->Release(); srvDescriptorHeap_ = nullptr; }
+	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
+	if (swapChainResources_[0]) { swapChainResources_[0]->Release();  swapChainResources_[0] = nullptr; }
+	if (swapChainResources_[1]) { swapChainResources_[1]->Release();  swapChainResources_[1] = nullptr; }
+	if (swapChain_) { swapChain_->Release();	swapChain_ = nullptr; }
+	if (commandList_) { commandList_->Release();	commandList_ = nullptr; }
+	if (commandAllocator_) { commandAllocator_->Release();	commandAllocator_ = nullptr; }
+	if (commandQueue_) { commandQueue_->Release();	commandQueue_ = nullptr; }
+	if (device_) { device_->Release();	device_ = nullptr; }
+	if (useAdapter_) { useAdapter_->Release();	useAdapter_ = nullptr; }
+	if (dxgiFactory_) { dxgiFactory_->Release();	dxgiFactory_ = nullptr; }
+	IDXGIDebug1* debug = nullptr;
+	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug)))) {
+		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
+		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
+		debug->ReportLiveObjects(DXGI_DEBUG_D3D12,DXGI_DEBUG_RLO_ALL);
+		debug->Release();
+	}
+}
+//===========================================
+//private
+//===========================================
 
 void DirectXManager::CreateFactory() {
 	HRESULT hr = CreateDXGIFactory(IID_PPV_ARGS(&dxgiFactory_));
@@ -127,17 +205,30 @@ void DirectXManager::CreateSwapChain(HWND hwnd, int32_t width, int32_t height) {
 	assert(SUCCEEDED(hr));
 }
 
-void DirectXManager::CreateDescriptorHeap() {
-	D3D12_DESCRIPTOR_HEAP_DESC rtvDescriptorHeapDesc{};
-	rtvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvDescriptorHeapDesc.NumDescriptors = 2;
-	HRESULT hr = device_->CreateDescriptorHeap(&rtvDescriptorHeapDesc, IID_PPV_ARGS(&rtvDescriptorHeap_));
+ID3D12DescriptorHeap* DirectXManager::CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible) {
+	ID3D12DescriptorHeap* descriptorHeap = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc{};
+	descriptorHeapDesc.Type = heapType;
+	descriptorHeapDesc.NumDescriptors = numDescriptors;
+	descriptorHeapDesc.Flags = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+	HRESULT hr = device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap));
+	
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateDescriptorHeap\n");
 	}
+	
 	assert(SUCCEEDED(hr));
 
+	return descriptorHeap;
+}
 
+void DirectXManager::CreateRTVDescriptorHeap() {
+	rtvDescriptorHeap_ = CreateDescriptorHeap(device_, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
+}
+
+void DirectXManager::CreateSRVDescriptorHeap() {
+	srvDescriptorHeap_ = CreateDescriptorHeap(device_, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
 }
 
 void DirectXManager::GetSwapChainResources() {
@@ -168,49 +259,6 @@ void DirectXManager::CreateRTV() {
 	device_->CreateRenderTargetView(swapChainResources_[1], &rtvDesc, rtvHandles_[1]);
 }
 
-void DirectXManager::beginFrame() {
-	backBufferIndex_ = swapChain_->GetCurrentBackBufferIndex();
-	BeginTransitionBarrier();
-	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, nullptr);
-	float clearColor[] = { 0.1f,0.25f,0.5f,0.1f };
-	commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex_], clearColor, 0, nullptr);
-
-}
-
-void DirectXManager::endFrame() {
-
-	EndTransitionBarrier();
-
-	HRESULT hr = commandList_->Close();
-	if (FAILED(hr)) {
-		Logger::Log("Failed Close CommandList\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	ID3D12CommandList* commandLists[] = { commandList_ };
-	commandQueue_->ExecuteCommandLists(1, commandLists);
-	swapChain_->Present(1, 0);
-	fenceValue_++;
-	commandQueue_->Signal(fence_, fenceValue_);
-	if (fence_->GetCompletedValue() < fenceValue_) {
-		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-		WaitForSingleObject(fenceEvent_, INFINITE);
-	}
-
-	hr = commandAllocator_->Reset();
-	if (FAILED(hr)) {
-		Logger::Log("Failed Reset CommandAllocator\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	hr = commandList_->Reset(commandAllocator_, nullptr);
-	if (FAILED(hr)) {
-		Logger::Log("Failed Reset CommandList\n");
-	}
-	assert(SUCCEEDED(hr));
-
-}
-
 void DirectXManager::BeginTransitionBarrier() {
 	barrier_.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barrier_.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -239,30 +287,4 @@ void DirectXManager::CreateFence() {
 		Logger::Log("Failed CreateEvent\n");
 	}
 	assert(fenceEvent_ != nullptr);
-}
-
-void DirectXManager::Finalize() {
-	if (fenceEvent_) {
-	CloseHandle(fenceEvent_);
-	fenceEvent_ = nullptr;
-	}
-
-	if (fence_) { fence_->Release(); fence_ = nullptr; }
-	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
-	if (swapChainResources_[0]) { swapChainResources_[0]->Release();  swapChainResources_[0] = nullptr; }
-	if (swapChainResources_[1]) { swapChainResources_[1]->Release();  swapChainResources_[1] = nullptr; }
-	if (swapChain_) { swapChain_->Release();	swapChain_ = nullptr; }
-	if (commandList_) { commandList_->Release();	commandList_ = nullptr; }
-	if (commandAllocator_) { commandAllocator_->Release();	commandAllocator_ = nullptr; }
-	if (commandQueue_) { commandQueue_->Release();	commandQueue_ = nullptr; }
-	if (device_) { device_->Release();	device_ = nullptr; }
-	if (useAdapter_) { useAdapter_->Release();	useAdapter_ = nullptr; }
-	if (dxgiFactory_) { dxgiFactory_->Release();	dxgiFactory_ = nullptr; }
-	IDXGIDebug1* debug = nullptr;
-	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug)))) {
-		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
-		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
-		debug->ReportLiveObjects(DXGI_DEBUG_D3D12,DXGI_DEBUG_RLO_ALL);
-		debug->Release();
-	}
 }

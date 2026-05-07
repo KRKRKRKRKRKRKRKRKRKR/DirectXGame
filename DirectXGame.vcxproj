@@ -105,14 +105,16 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Camera\CameraManager.cpp" />
     <ClCompile Include="Debug\DebugManager.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
+    <ClCompile Include="Externals\imgui\imgui.cpp" />
+    <ClCompile Include="Externals\imgui\imguiManager.cpp" />
+    <ClCompile Include="Externals\imgui\imgui_demo.cpp" />
+    <ClCompile Include="Externals\imgui\imgui_draw.cpp" />
+    <ClCompile Include="Externals\imgui\imgui_impl_dx12.cpp" />
+    <ClCompile Include="Externals\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="Externals\imgui\imgui_tables.cpp" />
+    <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
-    </ClCompile>
     <ClCompile Include="Renderer\PrimitiveRenderer.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
@@ -122,12 +124,20 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Camera\CameraManager.h" />
     <ClInclude Include="Debug\DebugManager.h" />
     <ClInclude Include="Engine\Engine.h" />
+    <ClInclude Include="Externals\imgui\imconfig.h" />
+    <ClInclude Include="Externals\imgui\imgui.h" />
+    <ClInclude Include="Externals\imgui\imguiManager.h" />
+    <ClInclude Include="Externals\imgui\imgui_impl_dx12.h" />
+    <ClInclude Include="Externals\imgui\imgui_impl_win32.h" />
+    <ClInclude Include="Externals\imgui\imgui_internal.h" />
+    <ClInclude Include="Externals\imgui\imstb_rectpack.h" />
+    <ClInclude Include="Externals\imgui\imstb_textedit.h" />
+    <ClInclude Include="Externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />
     <ClInclude Include="Math\VectorMath.h" />
-    <ClInclude Include="pch.h" />
     <ClInclude Include="Renderer\PrimitiveRenderer.h" />
     <ClInclude Include="Utils\Logger.h" />
     <ClInclude Include="Utils\StringUtils.h" />
@@ -146,6 +156,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Externals\imgui\LICENSE.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
