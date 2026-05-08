@@ -12,6 +12,7 @@ DirectXManager::~DirectXManager() {
 //===========================================
 
 void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
+	InitializeCOM();
 	CreateFactory();
 	SelectAdapter();
 	CreateDevice();
@@ -94,10 +95,23 @@ void DirectXManager::Finalize() {
 		debug->ReportLiveObjects(DXGI_DEBUG_D3D12,DXGI_DEBUG_RLO_ALL);
 		debug->Release();
 	}
+	FinalizeCOM();
 }
 //===========================================
 //private
 //===========================================
+
+void DirectXManager::InitializeCOM() {
+	HRESULT hr = CoInitializeEx(0, COINITBASE_MULTITHREADED);
+	if (FAILED(hr)) {
+		Logger::Log("Failed CoInitializeEx\n");
+	}
+	assert(SUCCEEDED(hr));
+}
+
+void DirectXManager::FinalizeCOM() {
+	CoUninitialize();
+}
 
 void DirectXManager::CreateFactory() {
 	HRESULT hr = CreateDXGIFactory(IID_PPV_ARGS(&dxgiFactory_));

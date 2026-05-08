@@ -27,6 +27,8 @@ public:
 private:
 
 	// 各初期化処理を分割
+	void InitializeCOM();
+	void FinalizeCOM();
 	void CreateFactory();
 	void SelectAdapter();
 	void CreateDevice();
