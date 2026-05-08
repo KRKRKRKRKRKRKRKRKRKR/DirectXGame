@@ -23,7 +23,7 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateSRVDescriptorHeap();
 	CreateRTV();
 	CreateFence();
-	
+
 	LoadTextureResource("Resources/texture.png");
 	CreateDescriptorRange();
 	CreateStaticSamplers();
@@ -76,8 +76,8 @@ void DirectXManager::EndFrame() {
 
 void DirectXManager::Finalize() {
 
-	if(textureResource_) { textureResource_->Release(); textureResource_ = nullptr; }
-	if (fenceEvent_) {		CloseHandle(fenceEvent_);	fenceEvent_ = nullptr;}
+	if (textureResource_) { textureResource_->Release(); textureResource_ = nullptr; }
+	if (fenceEvent_) { CloseHandle(fenceEvent_);	fenceEvent_ = nullptr; }
 	if (fence_) { fence_->Release(); fence_ = nullptr; }
 	if (srvDescriptorHeap_) { srvDescriptorHeap_->Release(); srvDescriptorHeap_ = nullptr; }
 	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
@@ -385,7 +385,7 @@ void DirectXManager::CreateTextureFromFile(const std::string& filePath) {
 	UploadTextureData(textureResource, mipImages);
 }
 
-void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata,ID3D12Resource* textureResource) {
+void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, ID3D12Resource* textureResource) {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = metadata.format;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -395,10 +395,12 @@ void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metada
 	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = srvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart();
 
+	UINT incrementSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	textureSrvHandleCPU.ptr += device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	textureSrvHandleGPU.ptr += device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	device_->CreateShaderResourceView(textureResource,&srvDesc,textureSrvHandleCPU);
+	device_->CreateShaderResourceView(textureResource, &srvDesc, textureSrvHandleCPU);
+	textureSrvHandle_ = textureSrvHandleGPU;
 }
 
 void DirectXManager::LoadTextureResource(const std::string& filePath) {
