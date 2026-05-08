@@ -29,6 +29,8 @@ public:
 	UINT GetDescriptorRangeCount() const { return DESCRIPTOR_RANGE_COUNT; }
 	const D3D12_STATIC_SAMPLER_DESC* GetStaticSamplers() const { return staticSamplers_; }
 	UINT GetStaticSamplerCount() const { return STATIC_SAMPLER_COUNT; }
+	D3D12_GPU_DESCRIPTOR_HANDLE GetTextureSrvHandle() const { return textureSrvHandle_; }
+
 private:
 
 	// 各初期化処理を分割
@@ -78,5 +80,6 @@ private:
 	void CreateStaticSamplers();
 	static constexpr UINT STATIC_SAMPLER_COUNT = 1;
 	D3D12_STATIC_SAMPLER_DESC staticSamplers_[STATIC_SAMPLER_COUNT] = {};
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle_ = {};
 
 };

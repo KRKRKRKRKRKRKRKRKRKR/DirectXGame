@@ -384,7 +384,7 @@ void PrimitiveRenderer::RecordDrawCommands() {
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootDescriptorTable(2,dx_->GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
+	commandList_->SetGraphicsRootDescriptorTable(2, dx_->GetTextureSrvHandle());
 	commandList_->DrawInstanced(3, 1, 0, 0);
 }
 
