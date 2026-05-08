@@ -11,8 +11,9 @@ struct Transform {
 	Vector3 translation = {0.0f, 0.0f, 0.0f};
 };
 
-struct Triangle {
-	Vector3 vertices[3];
+struct VertexData {
+	Vector4 position;
+	Vector2 texcoord;
 };
 
 struct CameraData {

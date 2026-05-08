@@ -30,7 +30,7 @@ private:
 	IDxcCompiler3* dxcCompiler_ = nullptr;
 	IDxcIncludeHandler* includeHandler_ = nullptr;
 	DxcBuffer shaderSourceBuffer_;
-	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[1] = {};
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[2] = {};
 	void CreatePSO(DirectXManager* dx);
 	void CreateRootSignature(DirectXManager* dx);
 	void InputLayout();

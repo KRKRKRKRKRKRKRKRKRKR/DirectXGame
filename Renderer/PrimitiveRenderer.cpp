@@ -2,6 +2,7 @@
 #include "../Utils/Logger.h"
 #include "../Utils/StringUtils.h"
 #include "../Math/MatrixMath.h"
+#include "../Math/MathTypes.h"
 #include "../Math/TransformMath.h"
 #include <cassert>
 #include <format>
@@ -200,15 +201,25 @@ void PrimitiveRenderer::CreateRootSignature(DirectXManager* dx) {
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
 	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_ROOT_PARAMETER rootParameters[2] = {};
+	D3D12_ROOT_PARAMETER rootParameters[3] = {};
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[0].Descriptor.ShaderRegister = 0;
+
 	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 	rootParameters[1].Descriptor.ShaderRegister = 0;
+
+	rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[2].DescriptorTable.pDescriptorRanges = dx->GetDescriptorRange();
+	rootParameters[2].DescriptorTable.NumDescriptorRanges = dx->GetDescriptorRangeCount();
+
 	descriptionRootSignature.pParameters = rootParameters;
 	descriptionRootSignature.NumParameters = _countof(rootParameters);
+
+	descriptionRootSignature.pStaticSamplers = dx->GetStaticSamplers();
+	descriptionRootSignature.NumStaticSamplers = dx->GetStaticSamplerCount();
 
 	HRESULT hr = D3D12SerializeRootSignature(&descriptionRootSignature, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob_, &errorBlob_);
 	if (FAILED(hr)) {
@@ -231,8 +242,13 @@ void PrimitiveRenderer::InputLayout() {
 	inputElementDescs_[0].SemanticIndex = 0;
 	inputElementDescs_[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	inputElementDescs_[0].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+	inputElementDescs_[1].SemanticName = "TEXCOORD";
+	inputElementDescs_[1].SemanticIndex = 0;
+	inputElementDescs_[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+	inputElementDescs_[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
 	inputLayoutDesc_.pInputElementDescs = inputElementDescs_;
 	inputLayoutDesc_.NumElements = _countof(inputElementDescs_);
+
 }
 
 void PrimitiveRenderer::BlendState() {
@@ -289,23 +305,30 @@ ID3D12Resource* PrimitiveRenderer::CreateBufferResource(DirectXManager* dx, size
 }
 
 void PrimitiveRenderer::CreateVertexResource(DirectXManager* dx) {
-	vertexResource_ = CreateBufferResource(dx, sizeof(Vector4) * 3);
+	vertexResource_ = CreateBufferResource(dx, sizeof(VertexData) * 3);
 	CreateVertexBufferView();
 	WriteVertexResource();
 }
 
 void PrimitiveRenderer::CreateVertexBufferView() {
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-	vertexBufferView_.SizeInBytes = sizeof(Vector4) * 3;
-	vertexBufferView_.StrideInBytes = sizeof(Vector4);
+	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 3;
+	vertexBufferView_.StrideInBytes = sizeof(VertexData);
 }
 
 void PrimitiveRenderer::WriteVertexResource() {
-	Vector4* vertexData = nullptr;
+	VertexData* vertexData = nullptr;
 	vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
-	vertexData[0] = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
-	vertexData[1] = Vector4(0.0f, 0.5f, 0.0f, 1.0f);
-	vertexData[2] = Vector4(0.5f, -0.5f, 0.0f, 1.0f);
+
+	vertexData[0].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
+	vertexData[0].texcoord = Vector2(0.0f, 1.0f);
+
+	vertexData[1].position = Vector4(0.0f, 0.5f, 0.0f, 1.0f);
+	vertexData[1].texcoord = Vector2(0.5f, 0.0f);
+
+	vertexData[2].position = Vector4(0.5f, -0.5f, 0.0f, 1.0f);
+	vertexData[2].texcoord = Vector2(1.0f, 1.0f);
+
 	vertexResource_->Unmap(0, nullptr);
 }
 
@@ -313,7 +336,7 @@ void PrimitiveRenderer::CreateMaterialResource(DirectXManager* dx) {
 	materialResource_ = CreateBufferResource(dx, sizeof(Vector4));
 	Vector4* materialData = nullptr;
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
-	*materialData = Vector4(1.0f, 0.0f, 0.0f, 1.0f);
+	*materialData = Vector4(0.0f, 0.0f, 1.0f, 1.0f);
 	materialResource_->Unmap(0, nullptr);
 }
 
@@ -361,6 +384,7 @@ void PrimitiveRenderer::RecordDrawCommands() {
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
+	commandList_->SetGraphicsRootDescriptorTable(2,dx_->GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 	commandList_->DrawInstanced(3, 1, 0, 0);
 }
 
