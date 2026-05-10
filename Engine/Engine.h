@@ -1,13 +1,11 @@
 #pragma once
-#include "../Window/WindowManager.h"
+#include "../Window/Window.h"
 #include "../Graphics/DirectXManager.h"
-#include "../Debug/DebugManager.h"
-#include "../Utils/Logger.h"
-#include "../Renderer/PrimitiveRenderer.h"
+
+#include "../Graphics/Renderer/Primitive/PrimitiveRenderer.h"
 #include "../Math/MathTypes.h"
-#include "../Math/TransformMath.h"
-#include "../Math/MatrixMath.h"
-#include "../Camera/CameraManager.h"
+
+#include "../Camera/Camera.h"
 #include "../Externals/imgui/imguiManager.h"
 
 class Engine {
@@ -26,10 +24,10 @@ private:
 
 	void Render();
 
-	WindowManager window_;
+	Window window_;
 	DirectXManager directX_;
 	PrimitiveRenderer primitiveRenderer_;
-	CameraManager camera_;
+	Camera camera_;
 	ImGuiManager imgui_;
 
 	Transform transform_;

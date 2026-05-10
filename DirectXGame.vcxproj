@@ -101,10 +101,11 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   <ItemGroup>
     <None Include=".editorconfig" />
     <None Include="Object3d.hlsli" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Camera\CameraManager.cpp" />
-    <ClCompile Include="Debug\DebugManager.cpp" />
+    <ClCompile Include="Camera\Camera.cpp" />
+    <ClCompile Include="Debug\Debug.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Externals\imgui\imgui.cpp" />
     <ClCompile Include="Externals\imgui\imguiManager.cpp" />
@@ -115,15 +116,16 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
+    <ClCompile Include="Graphics\Renderer\Primitive\PrimitiveRenderer.cpp" />
+    <ClCompile Include="Graphics\Renderer\Texture\Texture.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Renderer\PrimitiveRenderer.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
-    <ClCompile Include="Window\WindowManager.cpp" />
+    <ClCompile Include="Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Camera\CameraManager.h" />
-    <ClInclude Include="Debug\DebugManager.h" />
+    <ClInclude Include="Camera\Camera.h" />
+    <ClInclude Include="Debug\Debug.h" />
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Externals\imgui\imconfig.h" />
     <ClInclude Include="Externals\imgui\imgui.h" />
@@ -135,14 +137,15 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Externals\imgui\imstb_textedit.h" />
     <ClInclude Include="Externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
+    <ClInclude Include="Graphics\Renderer\Primitive\PrimitiveRenderer.h" />
+    <ClInclude Include="Graphics\Renderer\Texture\Texture.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />
     <ClInclude Include="Math\VectorMath.h" />
-    <ClInclude Include="Renderer\PrimitiveRenderer.h" />
     <ClInclude Include="Utils\Logger.h" />
     <ClInclude Include="Utils\StringUtils.h" />
-    <ClInclude Include="Window\WindowManager.h" />
+    <ClInclude Include="Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Object3d.PS.hlsl">

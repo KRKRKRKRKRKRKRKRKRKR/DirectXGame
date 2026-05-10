@@ -1,11 +1,11 @@
-#include "WindowManager.h"
+#include "Window.h"
 #include "../Externals/imgui/imgui.h"
 #include "../Externals/imgui/imgui_impl_dx12.h"
 #include "../Externals/imgui/imgui_impl_win32.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-WindowManager::~WindowManager() {
+Window::~Window() {
     if (hwnd_) {
         DestroyWindow(hwnd_);
         hwnd_ = nullptr;
@@ -13,7 +13,7 @@ WindowManager::~WindowManager() {
     UnregisterClass(wc_.lpszClassName, wc_.hInstance);
 }
 
-void WindowManager::Create(const std::wstring& title,int32_t width, int32_t height) {
+void Window::Create(const std::wstring& title,int32_t width, int32_t height) {
     clientWidth_ = width;
     clientHeight_ = height;
 
@@ -41,7 +41,7 @@ void WindowManager::Create(const std::wstring& title,int32_t width, int32_t heig
     ShowWindow(hwnd_, SW_SHOW);
 }
 
-bool WindowManager::ProcessMessage() {
+bool Window::ProcessMessage() {
     MSG msg{};
 
     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -55,7 +55,7 @@ bool WindowManager::ProcessMessage() {
     return true;  // 継続
 }
 
-LRESULT CALLBACK WindowManager::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+LRESULT CALLBACK Window::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
      if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam)) {
         return true;

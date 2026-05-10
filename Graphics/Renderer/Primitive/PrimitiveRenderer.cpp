@@ -1,9 +1,9 @@
 #include "PrimitiveRenderer.h"
-#include "../Utils/Logger.h"
-#include "../Utils/StringUtils.h"
-#include "../Math/MatrixMath.h"
-#include "../Math/MathTypes.h"
-#include "../Math/TransformMath.h"
+#include"../../../Utils/Logger.h"
+#include "../../../Utils/StringUtils.h"
+#include "../../../Math/MatrixMath.h"
+#include "../../../Math/MathTypes.h"
+#include "../../../Math/TransformMath.h"
 #include <cassert>
 #include <format>
 

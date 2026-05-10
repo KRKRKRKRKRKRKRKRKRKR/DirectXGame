@@ -5,8 +5,8 @@
 #include <dxcapi.h>
 #include <string>
 #include <cstdint>
-#include "../Graphics/DirectXManager.h"
-#include "../Math/MathTypes.h"
+#include "../../DirectXManager.h"
+#include "../../../Math/MathTypes.h"
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")

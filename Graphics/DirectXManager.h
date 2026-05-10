@@ -67,6 +67,7 @@ private:
 
 	void InitializeCOM();
 	void FinalizeCOM();
+
 	DirectX::ScratchImage LoadTexture(const std::string& filePath);
 	ID3D12Resource* CreateTextureResource(const DirectX::TexMetadata& metadata);
 	void UploadTextureData(ID3D12Resource* textureResource, const DirectX::ScratchImage& mipImages);

@@ -2,10 +2,10 @@
 #include <Windows.h>
 #include <cstdint>
 #include <string>
-class WindowManager {
+class Window {
 public:
-	WindowManager() = default;
-	~WindowManager();
+	Window() = default;
+	~Window();
 
 	// ウィンドウの作成
 	void Create(const std::wstring& title = L"DirectXGame",
@@ -27,6 +27,6 @@ private:
 
 	HWND     hwnd_ = nullptr;
 	WNDCLASS wc_ = {};
-	int32_t  clientWidth_ = 1280;
-	int32_t  clientHeight_ = 720;
+	int32_t  clientWidth_;
+	int32_t  clientHeight_ ;
 };

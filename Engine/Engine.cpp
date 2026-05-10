@@ -1,15 +1,18 @@
 #include "Engine.h"
 #include "../Externals/imgui/imgui.h"
+#include "../Debug/Debug.h"
+#include "../Utils/Logger.h"
+
 void Engine::Initialize(const std::wstring& windowTitle, int width, int height) {
-	DebugManager::RegisterCrashHandler();
+	Debug::RegisterCrashHandler();
 	Logger::Initialize();
 
 	window_.Create(windowTitle, width, height);
 
-	DebugManager::EnableDebugLayer();
+	Debug::EnableDebugLayer();
 
 	directX_.Initialize(window_.GetHWND(), window_.GetClientWidth(), window_.GetClientHeight());
-	DebugManager::SetupInfoQueue(directX_.GetDevice());
+	Debug::SetupInfoQueue(directX_.GetDevice());
 	
 	primitiveRenderer_.Initialize(&directX_, window_.GetClientWidth(), window_.GetClientHeight());
 	
@@ -33,7 +36,7 @@ void Engine::Finalize() {
 	imgui_.Finalize();
 	primitiveRenderer_.Finalize();
 	directX_.Finalize();
-	DebugManager::ReportLiveObjects();
+	Debug::ReportLiveObjects();
 }
 
 void Engine::Update() {
