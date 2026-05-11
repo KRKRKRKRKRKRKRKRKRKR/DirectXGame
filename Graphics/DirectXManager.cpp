@@ -25,6 +25,9 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateFence();
 
 	LoadTextureResource("Resources/texture.png");
+
+
+
 	CreateDescriptorRange();
 	CreateStaticSamplers();
 	Logger::Log("Complete Initialize DirectXManager\n");
@@ -71,6 +74,8 @@ void DirectXManager::EndFrame() {
 		Logger::Log("Failed Reset CommandList\n");
 	}
 	assert(SUCCEEDED(hr));
+
+
 
 }
 
@@ -339,50 +344,75 @@ ID3D12Resource* DirectXManager::CreateTextureResource(const DirectX::TexMetadata
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metadata.dimension);
 
 	D3D12_HEAP_PROPERTIES heapProperties{};
-	heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM;
+	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
 	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
 	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
 
-	ID3D12Resource* textureResource = nullptr;
+	ID3D12Resource* resource = nullptr;
 	HRESULT hr = device_->CreateCommittedResource(
 		&heapProperties,
 		D3D12_HEAP_FLAG_NONE,
 		&resourceDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
+		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
-		IID_PPV_ARGS(&textureResource));
+		IID_PPV_ARGS(&resource));
 
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommittedResource\n");
 	}
 	assert(SUCCEEDED(hr));
-	return textureResource;
+	return resource;
 }
 
-void DirectXManager::UploadTextureData(ID3D12Resource* textureResource, const DirectX::ScratchImage& mipImages) {
-	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
+//==================================================================
+//リソース関連
+//==================================================================
+ID3D12Resource* DirectXManager::CreateBufferResource( size_t sizeInBytes) {
+	ID3D12Resource* resource = nullptr;
+	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
+	uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+	D3D12_RESOURCE_DESC vertexBufferResourceDesc{};
+	vertexBufferResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	vertexBufferResourceDesc.Width = sizeInBytes;
+	vertexBufferResourceDesc.Height = 1;
+	vertexBufferResourceDesc.DepthOrArraySize = 1;
+	vertexBufferResourceDesc.MipLevels = 1;
+	vertexBufferResourceDesc.SampleDesc.Count = 1;
+	vertexBufferResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-	for (size_t mipLevel = 0; mipLevel < metadata.mipLevels;++mipLevel) {
-		const DirectX::Image* image = mipImages.GetImage(mipLevel, 0, 0);
+	HRESULT hr = device_->CreateCommittedResource(
+		&uploadHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&vertexBufferResourceDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&resource)
+	);
 
-		HRESULT hr = textureResource->WriteToSubresource(
-			UINT(mipLevel),
-			nullptr,
-			image->pixels,
-			UINT(image->rowPitch),
-			UINT(image->slicePitch));
-		if (FAILED(hr)) {
-			Logger::Log(std::format("Failed WriteToSubresource : mipLevel {}\n", mipLevel));
-		}
-		assert(SUCCEEDED(hr));
+	if (FAILED(hr)) {
+		Logger::Log("Failed CreateCommittedResource\n");
 	}
+	assert(SUCCEEDED(hr));
+	return resource;
 }
+[[nodiscard]]
+ID3D12Resource* DirectXManager::UploadTextureData(ID3D12Resource* textureResource, const DirectX::ScratchImage& mipImages) {
 
-void DirectXManager::CreateTextureFromFile(const std::string& filePath) {
-	DirectX::ScratchImage mipImages = LoadTexture(filePath);
-	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
-	ID3D12Resource* textureResource = CreateTextureResource(metadata);
-	UploadTextureData(textureResource, mipImages);
+	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
+	DirectX::PrepareUpload(device_, mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
+	uint64_t intermediateSize = GetRequiredIntermediateSize(textureResource, 0, UINT(subresources.size()));
+	ID3D12Resource* intermediateResource = CreateBufferResource(intermediateSize);
+	UpdateSubresources(commandList_, textureResource, intermediateResource, 0, 0, UINT(subresources.size()), subresources.data());
+
+	D3D12_RESOURCE_BARRIER barrier{};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barrier.Transition.pResource = textureResource;
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
+	commandList_->ResourceBarrier(1, &barrier);
+	return intermediateResource;
 }
 
 void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, ID3D12Resource* textureResource) {
@@ -407,8 +437,9 @@ void DirectXManager::LoadTextureResource(const std::string& filePath) {
 	DirectX::ScratchImage mipImages = LoadTexture(filePath);
 	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 	textureResource_ = CreateTextureResource(metadata);
-	UploadTextureData(textureResource_, mipImages);
+	intermediateResource_ = UploadTextureData(textureResource_, mipImages);
 	CreateShaderResourceView(metadata, textureResource_);
+
 }
 
 void DirectXManager::CreateDescriptorRange() {

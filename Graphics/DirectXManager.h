@@ -5,7 +5,9 @@
 #include <dxgidebug.h>
 #include <cstdint>
 #include <string>
+#include <vector>
 #include "../Externals/DirectXTex/DirectXTex.h"
+#include "../Externals/DirectXTex/d3dx12.h"
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 
@@ -70,8 +72,7 @@ private:
 
 	DirectX::ScratchImage LoadTexture(const std::string& filePath);
 	ID3D12Resource* CreateTextureResource(const DirectX::TexMetadata& metadata);
-	void UploadTextureData(ID3D12Resource* textureResource, const DirectX::ScratchImage& mipImages);
-	void CreateTextureFromFile(const std::string& filePath);
+	ID3D12Resource* UploadTextureData(ID3D12Resource* textureResource, const DirectX::ScratchImage& mipImages);
 	void CreateShaderResourceView(const DirectX::TexMetadata& metadata, ID3D12Resource* textureResource);
 	void LoadTextureResource(const std::string& filePath);
 	ID3D12Resource* textureResource_ = nullptr;
@@ -82,5 +83,6 @@ private:
 	static constexpr UINT STATIC_SAMPLER_COUNT = 1;
 	D3D12_STATIC_SAMPLER_DESC staticSamplers_[STATIC_SAMPLER_COUNT] = {};
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle_ = {};
-
+	ID3D12Resource* CreateBufferResource( size_t sizeInBytes);
+	ID3D12Resource* intermediateResource_ = nullptr;
 };
