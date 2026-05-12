@@ -17,6 +17,7 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	SelectAdapter();
 	CreateDevice();
 	CreateCommandQueue();
+
 	CreateSwapChain(hwnd, width, height);
 	GetSwapChainResources();
 	CreateRTVDescriptorHeap();
@@ -25,8 +26,6 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateFence();
 
 	LoadTextureResource("Resources/texture.png");
-
-
 
 	CreateDescriptorRange();
 	CreateStaticSamplers();
@@ -39,7 +38,7 @@ void DirectXManager::BeginFrame() {
 	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, nullptr);
 	float clearColor[] = { 0.1f,0.25f,0.5f,0.1f };
 	commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex_], clearColor, 0, nullptr);
-	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap_ };
+	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap_.Get() };
 	commandList_->SetDescriptorHeaps(1, descriptorHeaps);
 }
 
@@ -53,11 +52,11 @@ void DirectXManager::EndFrame() {
 	}
 	assert(SUCCEEDED(hr));
 
-	ID3D12CommandList* commandLists[] = { commandList_ };
+	ID3D12CommandList* commandLists[] = { commandList_.Get() };
 	commandQueue_->ExecuteCommandLists(1, commandLists);
 	swapChain_->Present(1, 0);
 	fenceValue_++;
-	commandQueue_->Signal(fence_, fenceValue_);
+	commandQueue_->Signal(fence_.Get(), fenceValue_);
 	if (fence_->GetCompletedValue() < fenceValue_) {
 		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
 		WaitForSingleObject(fenceEvent_, INFINITE);
@@ -69,39 +68,55 @@ void DirectXManager::EndFrame() {
 	}
 	assert(SUCCEEDED(hr));
 
-	hr = commandList_->Reset(commandAllocator_, nullptr);
+	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
 	if (FAILED(hr)) {
 		Logger::Log("Failed Reset CommandList\n");
 	}
 	assert(SUCCEEDED(hr));
 
-
-
 }
 
 void DirectXManager::Finalize() {
-
-	if (textureResource_) { textureResource_->Release(); textureResource_ = nullptr; }
-	if (fenceEvent_) { CloseHandle(fenceEvent_);	fenceEvent_ = nullptr; }
-	if (fence_) { fence_->Release(); fence_ = nullptr; }
-	if (srvDescriptorHeap_) { srvDescriptorHeap_->Release(); srvDescriptorHeap_ = nullptr; }
-	if (rtvDescriptorHeap_) { rtvDescriptorHeap_->Release(); rtvDescriptorHeap_ = nullptr; }
-	if (swapChainResources_[0]) { swapChainResources_[0]->Release();  swapChainResources_[0] = nullptr; }
-	if (swapChainResources_[1]) { swapChainResources_[1]->Release();  swapChainResources_[1] = nullptr; }
-	if (swapChain_) { swapChain_->Release();	swapChain_ = nullptr; }
-	if (commandList_) { commandList_->Release();	commandList_ = nullptr; }
-	if (commandAllocator_) { commandAllocator_->Release();	commandAllocator_ = nullptr; }
-	if (commandQueue_) { commandQueue_->Release();	commandQueue_ = nullptr; }
-	if (device_) { device_->Release();	device_ = nullptr; }
-	if (useAdapter_) { useAdapter_->Release();	useAdapter_ = nullptr; }
-	if (dxgiFactory_) { dxgiFactory_->Release();	dxgiFactory_ = nullptr; }
-	IDXGIDebug1* debug = nullptr;
-	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug)))) {
-		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_ALL);
-		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_ALL);
-		debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_ALL);
-		debug->Release();
+	if (finalized_) {
+		return;
 	}
+	finalized_ = true;
+
+ // Initialize途中で失敗した場合など、各リソースが未作成のことがある
+	if (commandQueue_ && commandAllocator_ && commandList_ && fence_ && fenceEvent_) {
+		WaitForGPUCompletion();
+	}
+
+	textureResource_.Reset();
+
+	for (auto& res : swapChainResources_) { res.Reset(); }
+
+
+	rtvDescriptorHeap_.Reset();
+	
+	srvDescriptorHeap_.Reset();
+	
+	swapChain_.Reset();
+	
+	commandList_.Reset();
+	
+	commandAllocator_.Reset();
+	
+	commandQueue_.Reset();
+
+
+
+	if (fenceEvent_) {
+		CloseHandle(fenceEvent_);
+		fenceEvent_ = nullptr;
+	}
+
+	fence_.Reset();
+	device_.Reset();
+	useAdapter_.Reset();
+	dxgiFactory_.Reset();
+
+
 	FinalizeCOM();
 }
 //===========================================
@@ -154,7 +169,7 @@ void DirectXManager::CreateDevice() {
 
 	for (size_t i = 0; i < _countof(featureLevels); i++) {
 		HRESULT hr = D3D12CreateDevice(
-			useAdapter_, featureLevels[i], IID_PPV_ARGS(&device_));
+			useAdapter_.Get(), featureLevels[i], IID_PPV_ARGS(&device_));
 
 		if (SUCCEEDED(hr)) {
 			Logger::Log(std::format(
@@ -188,7 +203,7 @@ void DirectXManager::CreateCommandQueue() {
 	assert(SUCCEEDED(hr));
 
 	// コマンドリストの作成
-	hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_, nullptr, IID_PPV_ARGS(&commandList_));
+	hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.Get(), nullptr, IID_PPV_ARGS(&commandList_));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommandList\n");
 	}
@@ -207,7 +222,7 @@ void DirectXManager::CreateSwapChain(HWND hwnd, int32_t width, int32_t height) {
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;//描画ターゲットとして使用することを指定
 	swapChainDesc.BufferCount = 2;//バッファ数の指定
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;//モニターを移したら中身を破棄
-	HRESULT hr = dxgiFactory_->CreateSwapChainForHwnd(commandQueue_, hwnd, &swapChainDesc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(&swapChain_));
+	HRESULT hr = dxgiFactory_->CreateSwapChainForHwnd(commandQueue_.Get(), hwnd, &swapChainDesc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(swapChain_.GetAddressOf()));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateSwapChain\n");
 	}
@@ -215,8 +230,8 @@ void DirectXManager::CreateSwapChain(HWND hwnd, int32_t width, int32_t height) {
 	assert(SUCCEEDED(hr));
 }
 
-ID3D12DescriptorHeap* DirectXManager::CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible) {
-	ID3D12DescriptorHeap* descriptorHeap = nullptr;
+ComPtr<ID3D12DescriptorHeap> DirectXManager::CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible) {
+	ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
 	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc{};
 	descriptorHeapDesc.Type = heapType;
 	descriptorHeapDesc.NumDescriptors = numDescriptors;
@@ -234,11 +249,11 @@ ID3D12DescriptorHeap* DirectXManager::CreateDescriptorHeap(ID3D12Device* device,
 }
 
 void DirectXManager::CreateRTVDescriptorHeap() {
-	rtvDescriptorHeap_ = CreateDescriptorHeap(device_, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
+	rtvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
 }
 
 void DirectXManager::CreateSRVDescriptorHeap() {
-	srvDescriptorHeap_ = CreateDescriptorHeap(device_, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
+	srvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
 }
 
 void DirectXManager::GetSwapChainResources() {
@@ -263,16 +278,16 @@ void DirectXManager::CreateRTV() {
 
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvStartHandle = rtvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
 	rtvHandles_[0] = rtvStartHandle;
-	device_->CreateRenderTargetView(swapChainResources_[0], &rtvDesc, rtvHandles_[0]);
+	device_->CreateRenderTargetView(swapChainResources_[0].Get(), &rtvDesc, rtvHandles_[0]);
 	rtvHandles_[1].ptr = rtvHandles_[0].ptr + device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-	device_->CreateRenderTargetView(swapChainResources_[1], &rtvDesc, rtvHandles_[1]);
+	device_->CreateRenderTargetView(swapChainResources_[1].Get(), &rtvDesc, rtvHandles_[1]);
 }
 
 void DirectXManager::BeginTransitionBarrier() {
 	barrier_.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barrier_.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barrier_.Transition.pResource = swapChainResources_[backBufferIndex_];
+	barrier_.Transition.pResource = swapChainResources_[backBufferIndex_].Get();
 	barrier_.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 	barrier_.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	commandList_->ResourceBarrier(1, &barrier_);
@@ -301,15 +316,23 @@ void DirectXManager::CreateFence() {
 
 
 void DirectXManager::InitializeCOM() {
+   if (comInitialized_) {
+		return;
+	}
 	HRESULT hr = CoInitializeEx(0, COINITBASE_MULTITHREADED);
 	if (FAILED(hr)) {
 		Logger::Log("Failed CoInitializeEx\n");
 	}
 	assert(SUCCEEDED(hr));
+	comInitialized_ = true;
 }
 
 void DirectXManager::FinalizeCOM() {
+   if (!comInitialized_) {
+		return;
+	}
 	CoUninitialize();
+	comInitialized_ = false;
 }
 
 DirectX::ScratchImage DirectXManager::LoadTexture(const std::string& filePath) {
@@ -331,8 +354,10 @@ DirectX::ScratchImage DirectXManager::LoadTexture(const std::string& filePath) {
 	return mipImage;
 
 }
-
-ID3D12Resource* DirectXManager::CreateTextureResource(const DirectX::TexMetadata& metadata) {
+//==================================================================
+//リソース関連
+//==================================================================
+ComPtr<ID3D12Resource> DirectXManager::CreateTextureResource(const DirectX::TexMetadata& metadata) {
 
 	D3D12_RESOURCE_DESC resourceDesc{};
 	resourceDesc.Width = UINT(metadata.width);
@@ -344,7 +369,7 @@ ID3D12Resource* DirectXManager::CreateTextureResource(const DirectX::TexMetadata
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metadata.dimension);
 
 	D3D12_HEAP_PROPERTIES heapProperties{};
-	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM;
 	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
 	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
 
@@ -364,11 +389,9 @@ ID3D12Resource* DirectXManager::CreateTextureResource(const DirectX::TexMetadata
 	return resource;
 }
 
-//==================================================================
-//リソース関連
-//==================================================================
-ID3D12Resource* DirectXManager::CreateBufferResource( size_t sizeInBytes) {
-	ID3D12Resource* resource = nullptr;
+
+ComPtr<ID3D12Resource> DirectXManager::CreateBufferResource(size_t sizeInBytes) {
+	ComPtr<ID3D12Resource> resource = nullptr;
 	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
 	uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
 	D3D12_RESOURCE_DESC vertexBufferResourceDesc{};
@@ -396,18 +419,18 @@ ID3D12Resource* DirectXManager::CreateBufferResource( size_t sizeInBytes) {
 	return resource;
 }
 [[nodiscard]]
-ID3D12Resource* DirectXManager::UploadTextureData(ID3D12Resource* textureResource, const DirectX::ScratchImage& mipImages) {
+ComPtr<ID3D12Resource> DirectXManager::UploadTextureData(ComPtr<ID3D12Resource> textureResource, const DirectX::ScratchImage& mipImages) {
 
 	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-	DirectX::PrepareUpload(device_, mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
-	uint64_t intermediateSize = GetRequiredIntermediateSize(textureResource, 0, UINT(subresources.size()));
-	ID3D12Resource* intermediateResource = CreateBufferResource(intermediateSize);
-	UpdateSubresources(commandList_, textureResource, intermediateResource, 0, 0, UINT(subresources.size()), subresources.data());
+	DirectX::PrepareUpload(device_.Get(), mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
+	uint64_t intermediateSize = GetRequiredIntermediateSize(textureResource.Get(), 0, UINT(subresources.size()));
+	ComPtr<ID3D12Resource> intermediateResource = CreateBufferResource(intermediateSize);
+	UpdateSubresources(commandList_.Get(), textureResource.Get(), intermediateResource.Get(), 0, 0, UINT(subresources.size()), subresources.data());
 
 	D3D12_RESOURCE_BARRIER barrier{};
 	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
 	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barrier.Transition.pResource = textureResource;
+	barrier.Transition.pResource = textureResource.Get();
 	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
@@ -415,7 +438,7 @@ ID3D12Resource* DirectXManager::UploadTextureData(ID3D12Resource* textureResourc
 	return intermediateResource;
 }
 
-void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, ID3D12Resource* textureResource) {
+void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> textureResource) {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = metadata.format;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -429,7 +452,7 @@ void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metada
 	textureSrvHandleCPU.ptr += device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	textureSrvHandleGPU.ptr += device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	device_->CreateShaderResourceView(textureResource, &srvDesc, textureSrvHandleCPU);
+	device_->CreateShaderResourceView(textureResource.Get(), &srvDesc, textureSrvHandleCPU);
 	textureSrvHandle_ = textureSrvHandleGPU;
 }
 
@@ -437,8 +460,14 @@ void DirectXManager::LoadTextureResource(const std::string& filePath) {
 	DirectX::ScratchImage mipImages = LoadTexture(filePath);
 	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 	textureResource_ = CreateTextureResource(metadata);
-	intermediateResource_ = UploadTextureData(textureResource_, mipImages);
+	ComPtr<ID3D12Resource> intermediateResource = UploadTextureData(textureResource_, mipImages);
+	// intermediateResourceはスコープを抜けるときに自動削除
+	// ただし、GPU処理がまだ完了していないため、Initialize内で
+	// WaitForGPUCompletion()が呼ばれるまで保持される必要がある
+
+	WaitForGPUCompletion();
 	CreateShaderResourceView(metadata, textureResource_);
+	intermediateResource.Reset();
 
 }
 
@@ -458,5 +487,49 @@ void DirectXManager::CreateStaticSamplers() {
 	staticSamplers_[0].MaxLOD = D3D12_FLOAT32_MAX;
 	staticSamplers_[0].ShaderRegister = 0;
 	staticSamplers_[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+}
+void DirectXManager::WaitForGPUCompletion() {
+ if (!commandQueue_ || !commandAllocator_ || !commandList_ || !fence_ || !fenceEvent_) {
+		Logger::Log("Skip WaitForGPUCompletion : DirectX resources are not initialized\n");
+		return;
+	}
+
+	HRESULT hr = commandList_->Close();
+	// すでにClose済みの場合 E_FAIL になることがあるため許容する
+	if (FAILED(hr) && hr != E_FAIL) {
+		Logger::Log("Failed Close CommandList\n");
+		return;
+	}
+
+	ID3D12CommandList* commandLists[] = { commandList_.Get() };
+	commandQueue_->ExecuteCommandLists(1, commandLists);
+
+	fenceValue_++;
+   hr = commandQueue_->Signal(fence_.Get(), fenceValue_);
+	if (FAILED(hr)) {
+		Logger::Log("Failed Signal Fence\n");
+		return;
+	}
+	if (fence_->GetCompletedValue() < fenceValue_) {
+     hr = fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+		if (FAILED(hr)) {
+			Logger::Log("Failed SetEventOnCompletion\n");
+			return;
+		}
+		WaitForSingleObject(fenceEvent_, INFINITE);
+	}
+
+	hr = commandAllocator_->Reset();
+	if (FAILED(hr)) {
+		Logger::Log("Failed Reset CommandAllocator\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
+	if (FAILED(hr)) {
+		Logger::Log("Failed Reset CommandList\n");
+	}
+	assert(SUCCEEDED(hr));
 
 }

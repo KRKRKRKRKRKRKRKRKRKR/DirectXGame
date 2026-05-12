@@ -19,8 +19,8 @@ PrimitiveRenderer::~PrimitiveRenderer() {
 //==================================================================
 void PrimitiveRenderer::Initialize(DirectXManager* dx, int32_t windowWidth, int32_t windowHeight) {
 	dx_ = dx;
-	commandList_ = dx->GetCommandList();
-	windowWidth_ = windowWidth;
+    commandList_ = dx->GetCommandList(); // Ensure command list pointer is received correctly
+	windowWidth_ = windowWidth;		
 	windowHeight_ = windowHeight;
 
 	InitializeDXC();
@@ -35,24 +35,33 @@ void PrimitiveRenderer::Initialize(DirectXManager* dx, int32_t windowWidth, int3
 // 終了処理
 //==================================================================
 void PrimitiveRenderer::Finalize() {
+
 	if (wvpResource_) {
 		wvpResource_->Unmap(0, nullptr);
-		wvpData_ = nullptr;         // deleteは不要、nullptrだけ
-		wvpResource_->Release();
-		wvpResource_ = nullptr;
+		wvpData_ = nullptr;
+		wvpResource_.Reset();
 	}
 
-	if (materialResource_) { materialResource_->Release(); materialResource_ = nullptr; }
-	if (vertexResource_) { vertexResource_->Release(); vertexResource_ = nullptr; }
-	if (pixelShaderBlob_) { pixelShaderBlob_->Release(); pixelShaderBlob_ = nullptr; }
-	if (vertexShaderBlob_) { vertexShaderBlob_->Release(); vertexShaderBlob_ = nullptr; }
-	if (graphicsPipelineState_) { graphicsPipelineState_->Release(); graphicsPipelineState_ = nullptr; }
-	if (rootSignature_) { rootSignature_->Release(); rootSignature_ = nullptr; }
-	if (signatureBlob_) { signatureBlob_->Release(); signatureBlob_ = nullptr; }
-	if (errorBlob_) { errorBlob_->Release(); errorBlob_ = nullptr; }
-	if (includeHandler_) { includeHandler_->Release(); includeHandler_ = nullptr; }
-	if (dxcCompiler_) { dxcCompiler_->Release(); dxcCompiler_ = nullptr; }
-	if (dxcUtils_) { dxcUtils_->Release(); dxcUtils_ = nullptr; }
+	
+	vertexResource_.Reset();
+	materialResource_.Reset();
+
+	graphicsPipelineState_.Reset();
+	rootSignature_.Reset();
+
+	vertexShaderBlob_.Reset();
+	pixelShaderBlob_.Reset();
+	signatureBlob_.Reset();
+	errorBlob_.Reset();
+
+	// DXC関連
+	includeHandler_.Reset();
+	dxcCompiler_.Reset();
+	dxcUtils_.Reset();
+
+	commandList_ = nullptr;
+	dx_ = nullptr;
+	
 }
 
 //==================================================================
@@ -123,7 +132,7 @@ void PrimitiveRenderer::ExecuteCompile(const std::wstring& filePath, const wchar
 		&shaderSourceBuffer_,
 		arguments,
 		_countof(arguments),
-		includeHandler_,
+		includeHandler_.Get(),
 		IID_PPV_ARGS(&shaderResult)
 	);
 
@@ -141,7 +150,6 @@ void PrimitiveRenderer::LogCompileErrors(IDxcResult* shaderResult) {
 	shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
 	if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
 		Logger::Log(StringUtils::ConvertString(std::format("Shader Compile Error: {}\n", shaderError->GetStringPointer())));
-		shaderError->Release();
 		assert(false);
 	}
 	if (shaderError) {
@@ -174,7 +182,7 @@ void PrimitiveRenderer::CreatePSO(DirectXManager* dx) {
 	PixelShader();
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.pRootSignature = rootSignature_;
+	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
 	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc_;
 	graphicsPipelineStateDesc.VS = { vertexShaderBlob_->GetBufferPointer(), vertexShaderBlob_->GetBufferSize() };
 	graphicsPipelineStateDesc.PS = { pixelShaderBlob_->GetBufferPointer(), pixelShaderBlob_->GetBufferSize() };
@@ -261,14 +269,12 @@ void PrimitiveRenderer::RasterizerState() {
 }
 
 void PrimitiveRenderer::VertexShader() {
-	vertexShaderBlob_ = CompileShader(L"Object3D.VS.hlsl",
-		L"vs_6_0");
+   vertexShaderBlob_.Attach(CompileShader(L"Object3D.VS.hlsl", L"vs_6_0"));
 	assert(vertexShaderBlob_ != nullptr);
 }
 
 void PrimitiveRenderer::PixelShader() {
-	pixelShaderBlob_ = CompileShader(L"Object3D.PS.hlsl",
-		L"ps_6_0");
+   pixelShaderBlob_.Attach(CompileShader(L"Object3D.PS.hlsl", L"ps_6_0"));
 	assert(pixelShaderBlob_ != nullptr);
 }
 
@@ -305,7 +311,7 @@ ID3D12Resource* PrimitiveRenderer::CreateBufferResource(DirectXManager* dx, size
 }
 
 void PrimitiveRenderer::CreateVertexResource(DirectXManager* dx) {
-	vertexResource_ = CreateBufferResource(dx, sizeof(VertexData) * 3);
+  vertexResource_.Attach(CreateBufferResource(dx, sizeof(VertexData) * 3));
 	CreateVertexBufferView();
 	WriteVertexResource();
 }
@@ -333,7 +339,7 @@ void PrimitiveRenderer::WriteVertexResource() {
 }
 
 void PrimitiveRenderer::CreateMaterialResource(DirectXManager* dx) {
-	materialResource_ = CreateBufferResource(dx, sizeof(Vector4));
+  materialResource_.Attach(CreateBufferResource(dx, sizeof(Vector4)));
 	Vector4* materialData = nullptr;
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 	*materialData = Vector4(0.0f, 0.0f, 1.0f, 1.0f);
@@ -341,7 +347,7 @@ void PrimitiveRenderer::CreateMaterialResource(DirectXManager* dx) {
 }
 
 void PrimitiveRenderer::CreateTransformationMatrix(DirectXManager* dx) {
-	wvpResource_ = CreateBufferResource(dx, sizeof(Matrix4x4));
+  wvpResource_.Attach(CreateBufferResource(dx, sizeof(Matrix4x4)));
 	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
 	*wvpData_ = MatrixMath::Identity();
 }
@@ -375,8 +381,8 @@ void PrimitiveRenderer::ViewportScissorRect(int32_t width, int32_t height) {
 void PrimitiveRenderer::SetPipelineCommands() {
 	commandList_->RSSetViewports(1, &viewport_);
 	commandList_->RSSetScissorRects(1, &scissorRect_);
-	commandList_->SetGraphicsRootSignature(rootSignature_);
-	commandList_->SetPipelineState(graphicsPipelineState_);
+	commandList_->SetGraphicsRootSignature(rootSignature_.Get());
+	commandList_->SetPipelineState(graphicsPipelineState_.Get());
 }
 
 void PrimitiveRenderer::RecordDrawCommands() {

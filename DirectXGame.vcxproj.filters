@@ -37,6 +37,7 @@
     <None Include=".editorconfig" />
     <None Include="Object3d.hlsli" />
     <None Include="README.md" />
+    <None Include="PrimitiveRendererのフロー.md" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -168,5 +169,6 @@
     <Text Include="Externals\imgui\LICENSE.txt">
       <Filter>imgui</Filter>
     </Text>
+    <Text Include="DirectXManagerのフロー.md" />
   </ItemGroup>
 </Project>

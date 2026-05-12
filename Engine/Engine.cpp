@@ -12,7 +12,7 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	Debug::EnableDebugLayer();
 
 	directX_.Initialize(window_.GetHWND(), window_.GetClientWidth(), window_.GetClientHeight());
-	Debug::SetupInfoQueue(directX_.GetDevice());
+  Debug::SetupInfoQueue(directX_.GetDevice());
 	
 	primitiveRenderer_.Initialize(&directX_, window_.GetClientWidth(), window_.GetClientHeight());
 	
@@ -36,7 +36,6 @@ void Engine::Finalize() {
 	imgui_.Finalize();
 	primitiveRenderer_.Finalize();
 	directX_.Finalize();
-	Debug::ReportLiveObjects();
 }
 
 void Engine::Update() {

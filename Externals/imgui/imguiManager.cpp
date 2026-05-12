@@ -7,9 +7,9 @@ void ImGuiManager::Initialize(HWND hwnd, DirectXManager* dx) {
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
 	ImGui_ImplWin32_Init(hwnd);
-	ImGui_ImplDX12_Init(dx->GetDevice(),
+  ImGui_ImplDX12_Init(dx->GetDevice(),
 		2, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
-		dx->GetSRVDescriptorHeap(),
+       dx->GetSRVDescriptorHeap(),
 		dx->GetSRVDescriptorHeap()->GetCPUDescriptorHandleForHeapStart(),
 		dx->GetSRVDescriptorHeap()->GetGPUDescriptorHandleForHeapStart());
 	ImGuiIO& io = ImGui::GetIO();
@@ -24,7 +24,7 @@ void ImGuiManager::BeginFrame() {
 
 void ImGuiManager::EndFrame(DirectXManager* dx) {
 	ImGui::Render();
-	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), dx->GetCommandList());
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), dx->GetCommandList());
 
 }
 
