@@ -11,7 +11,9 @@ DirectXManager::~DirectXManager() {
 //ライフサイクル
 //===========================================
 void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
-	
+
+	windowWidth_ = width;
+	windowHeight_ = height;
 	if (initialized_) {
 		Logger::Log("Already initialized\n");
 		return;
@@ -23,10 +25,11 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateDevice();
 	CreateCommandQueue();
 
-	CreateSwapChain(hwnd, width, height);
+	CreateSwapChain(hwnd);
 	GetSwapChainResources();
 	CreateRTVDescriptorHeap();
 	CreateSRVDescriptorHeap();
+	CreateDSVDescriptorHeap();
 	CreateRTV();
 	CreateFence();
 
@@ -38,21 +41,23 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 
 	initialized_ = true;
 }
+
 void DirectXManager::Finalize() {
 	if (!initialized_) {
 		return;
 	}
 	initialized_ = false;
 
- // GPU処理完了を待つ
+	// GPU処理完了を待つ
 	if (commandQueue_ && commandAllocator_ && commandList_ && fence_ && fenceEvent_) {
 		WaitForGPUCompletion();
 		Logger::Log("Wait for GPU completion in Finalize\n");
 	}
 
-
+	// テクスチャのリソース解放
 	if (isTextureLoaded_) {
 		textureResource_.Reset();
+		depthStencilResource_.Reset();
 		intermediateResource_.Reset();
 		isTextureLoaded_ = false;
 	}
@@ -61,7 +66,7 @@ void DirectXManager::Finalize() {
 
 	rtvDescriptorHeap_.Reset();
 	srvDescriptorHeap_.Reset();
-	
+
 	swapChain_.Reset();
 	commandList_.Reset();
 	commandAllocator_.Reset();
@@ -72,7 +77,7 @@ void DirectXManager::Finalize() {
 		fenceEvent_ = nullptr;
 	}
 	fence_.Reset();
-	
+
 	device_.Reset();
 	useAdapter_.Reset();
 	dxgiFactory_.Reset();
@@ -94,6 +99,7 @@ void DirectXManager::BeginFrame() {
 	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap_.Get() };
 	commandList_->SetDescriptorHeaps(1, descriptorHeaps);
 }
+
 void DirectXManager::EndFrame() {
 
 	EndTransitionBarrier();
@@ -145,6 +151,7 @@ void DirectXManager::InitializeCOM() {
 	assert(SUCCEEDED(hr));
 	comInitialized_ = true;
 }
+
 void DirectXManager::FinalizeCOM() {
 	if (!comInitialized_) {
 		Logger::Log("Com is not initialized\n");
@@ -166,6 +173,7 @@ void DirectXManager::CreateFactory() {
 
 	assert(SUCCEEDED(hr));
 }
+
 void DirectXManager::SelectAdapter() {
 	for (UINT i = 0; dxgiFactory_->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE, IID_PPV_ARGS(&useAdapter_)) != DXGI_ERROR_NOT_FOUND; ++i) {
 
@@ -191,6 +199,7 @@ void DirectXManager::SelectAdapter() {
 
 	assert(useAdapter_ != nullptr);
 }
+
 void DirectXManager::CreateDevice() {
 	D3D_FEATURE_LEVEL featureLevels[] = {
 		D3D_FEATURE_LEVEL_12_2,
@@ -249,12 +258,12 @@ void DirectXManager::CreateCommandQueue() {
 //===========================================
 //スワップチェーンの作成
 //===========================================
-void DirectXManager::CreateSwapChain(HWND hwnd, int32_t width, int32_t height) {
+void DirectXManager::CreateSwapChain(HWND hwnd) {
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
 
-	swapChainDesc.Width = width;//幅の指定
-	swapChainDesc.Height = height;//高さの指定
+	swapChainDesc.Width = windowWidth_;//幅の指定
+	swapChainDesc.Height = windowHeight_;//高さの指定
 	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//色の指定
 	swapChainDesc.SampleDesc.Count = 1;//マルチサンプルの指定
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;//描画ターゲットとして使用することを指定
@@ -267,6 +276,7 @@ void DirectXManager::CreateSwapChain(HWND hwnd, int32_t width, int32_t height) {
 
 	assert(SUCCEEDED(hr));
 }
+
 void DirectXManager::GetSwapChainResources() {
 
 	HRESULT hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&swapChainResources_[0]));
@@ -302,13 +312,18 @@ ComPtr<ID3D12DescriptorHeap> DirectXManager::CreateDescriptorHeap(ID3D12Device* 
 
 	return descriptorHeap;
 }
+
 void DirectXManager::CreateRTVDescriptorHeap() {
 	rtvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
 }
+
 void DirectXManager::CreateSRVDescriptorHeap() {
 	srvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
 }
 
+void DirectXManager::CreateDSVDescriptorHeap() {
+	dsvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+}
 //===========================================
 //Render Target Viewの作成
 //===========================================
@@ -342,6 +357,7 @@ void DirectXManager::CreateFence() {
 	}
 	assert(fenceEvent_ != nullptr);
 }
+
 void DirectXManager::WaitForGPUCompletion() {
 	if (!commandQueue_ || !commandAllocator_ || !commandList_ || !fence_ || !fenceEvent_) {
 		Logger::Log("Skip WaitForGPUCompletion : DirectX resources are not initialized\n");
@@ -407,20 +423,14 @@ ComPtr<ID3D12Resource> DirectXManager::CreateTextureResource(const DirectX::TexM
 	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
 
 	ID3D12Resource* resource = nullptr;
-	HRESULT hr = device_->CreateCommittedResource(
-		&heapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&resourceDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&resource));
-
+	HRESULT hr = device_->CreateCommittedResource(&heapProperties,D3D12_HEAP_FLAG_NONE,&resourceDesc,D3D12_RESOURCE_STATE_COPY_DEST,nullptr,IID_PPV_ARGS(&resource));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommittedResource\n");
 	}
 	assert(SUCCEEDED(hr));
 	return resource;
 }
+
 ComPtr<ID3D12Resource> DirectXManager::CreateBufferResource(size_t sizeInBytes) {
 	ComPtr<ID3D12Resource> resource = nullptr;
 	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
@@ -449,6 +459,7 @@ ComPtr<ID3D12Resource> DirectXManager::CreateBufferResource(size_t sizeInBytes) 
 	assert(SUCCEEDED(hr));
 	return resource;
 }
+
 [[nodiscard]]
 ComPtr<ID3D12Resource> DirectXManager::UploadTextureData(ComPtr<ID3D12Resource> textureResource, const DirectX::ScratchImage& mipImages) {
 
@@ -467,6 +478,32 @@ ComPtr<ID3D12Resource> DirectXManager::UploadTextureData(ComPtr<ID3D12Resource> 
 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
 	commandList_->ResourceBarrier(1, &barrier);
 	return intermediateResource;
+}
+
+ComPtr<ID3D12Resource> DirectXManager::CreateDepthStencilTextureResource(int32_t width, int32_t height) {
+	D3D12_RESOURCE_DESC resourceDesc{};
+	resourceDesc.Width = UINT(width);
+	resourceDesc.Height = UINT(height);
+	resourceDesc.MipLevels = 1;
+	resourceDesc.DepthOrArraySize = 1;
+	resourceDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	resourceDesc.SampleDesc.Count = 1;
+	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	D3D12_HEAP_PROPERTIES heapProperties{};
+	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	D3D12_CLEAR_VALUE depthClearValue{};
+	depthClearValue.DepthStencil.Depth = 1.0f;
+	depthClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+	ID3D12Resource* resource = nullptr;
+	HRESULT hr = device_->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClearValue, IID_PPV_ARGS(&resource));
+	if (FAILED(hr)) {
+		Logger::Log("Failed CreateCommittedResource\n");
+	}
+	assert(SUCCEEDED(hr));
+	return resource;
 }
 
 //===========================================
@@ -495,10 +532,12 @@ void DirectXManager::LoadTextureResource(const std::string& filePath) {
 	DirectX::ScratchImage mipImages = LoadTexture(filePath);
 	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 	textureResource_ = CreateTextureResource(metadata);
+	depthStencilResource_ = CreateDepthStencilTextureResource(windowWidth_,windowHeight_);
 	intermediateResource_ = UploadTextureData(textureResource_, mipImages);
 
 	WaitForGPUCompletion();
 	CreateShaderResourceView(metadata, textureResource_);
+	DepthShaderResourceView();
 
 	isTextureLoaded_ = true;
 	Logger::Log("Texture loaded successfully\n");
@@ -520,6 +559,15 @@ void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metada
 	device_->CreateShaderResourceView(textureResource.Get(), &srvDesc, textureSrvHandleCPU);
 	textureSrvHandle_ = textureSrvHandleGPU;
 }
+
+void DirectXManager::DepthShaderResourceView() {
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
+		dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+		device_->CreateDepthStencilView(depthStencilResource_.Get(), &dsvDesc, dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
+		dsvHandle_ = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+}
+
 
 //===========================================
 //状態遷移バリア

@@ -44,6 +44,8 @@ private:
 	void RasterizerState();
 	void VertexShader();
 	void PixelShader();
+	void DepthStencilState();
+
 	ComPtr<ID3DBlob> signatureBlob_ = nullptr;
 	ComPtr<ID3DBlob> errorBlob_ = nullptr;
 	ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
@@ -52,6 +54,8 @@ private:
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc_ = {};
 	D3D12_BLEND_DESC blendDesc_ = {};
 	D3D12_RASTERIZER_DESC rasterizerDesc_ = {};
+	D3D12_DEPTH_STENCIL_DESC depthStencilDesc_ = {};
+
 	ComPtr<ID3D12PipelineState> graphicsPipelineState_ = nullptr;
 	ID3D12Resource* CreateBufferResource(DirectXManager* dx, size_t sizeInBytes);
 	void CreateVertexResource(DirectXManager* dx);

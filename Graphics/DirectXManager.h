@@ -38,8 +38,13 @@ public:
 	const D3D12_STATIC_SAMPLER_DESC* GetStaticSamplers() const { return staticSamplers_; }
 	UINT GetStaticSamplerCount() const { return STATIC_SAMPLER_COUNT; }
 	D3D12_GPU_DESCRIPTOR_HANDLE GetTextureSrvHandle() const { return textureSrvHandle_; }
-
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return dsvHandle_; }
+	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle() const { return rtvHandles_[backBufferIndex_]; }
+	UINT GetBackBufferIndex() const { return backBufferIndex_; }
 private:
+
+	int32_t windowWidth_ = 0;
+	int32_t windowHeight_ = 0;
 	// ===== COMの初期化 =====
 	void InitializeCOM();
 	void FinalizeCOM();
@@ -53,14 +58,14 @@ private:
 	void CreateCommandQueue();
 
 	// ===== スワップチェーンの作成 =====
-	void CreateSwapChain(HWND hwnd, int32_t width, int32_t height);
+	void CreateSwapChain(HWND hwnd);
 	void GetSwapChainResources();
 
 	// ===== Descriptor Heapsの作成 =====
 	ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible);
 	void CreateRTVDescriptorHeap();
 	void CreateSRVDescriptorHeap();
-
+	void CreateDSVDescriptorHeap();
 	// ===== Render Target Viewsの作成 =====
 	void CreateRTV();
 
@@ -71,15 +76,14 @@ private:
 	// ===== リソース管理 =====
 	ComPtr<ID3D12Resource> CreateTextureResource(const DirectX::TexMetadata& metadata);
 	ComPtr<ID3D12Resource> CreateBufferResource(size_t sizeInBytes);
-	ComPtr<ID3D12Resource> UploadTextureData(
-		ComPtr<ID3D12Resource> textureResource,
-		const DirectX::ScratchImage& mipImages
-	);
+	ComPtr<ID3D12Resource> UploadTextureData(ComPtr<ID3D12Resource> textureResource, const DirectX::ScratchImage& mipImages);
+	ComPtr<ID3D12Resource> CreateDepthStencilTextureResource(int32_t width, int32_t height);
 
 	// ===== テクスチャロード =====
 	DirectX::ScratchImage LoadTexture(const std::string& filePath);
 	void LoadTextureResource(const std::string& filePath);
 	void CreateShaderResourceView(const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> textureResource);
+	void DepthShaderResourceView();
 
 	// ===== 状態遷移バリア =====
 	void BeginTransitionBarrier();
@@ -113,11 +117,14 @@ private:
 	ComPtr<ID3D12DescriptorHeap> rtvDescriptorHeap_ = nullptr;
 	ComPtr<ID3D12DescriptorHeap> srvDescriptorHeap_ = nullptr;
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2] = {};
+	ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_ = nullptr;
 
 	// ===== テクスチャリソースの作成 =====
 	ComPtr<ID3D12Resource> textureResource_ = nullptr;
 	ComPtr<ID3D12Resource> intermediateResource_ = nullptr;
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle_ = {};
+	ComPtr<ID3D12Resource> depthStencilResource_ = nullptr;
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle_ = {};
 
 	// ===== 同期オブジェクトの作成 =====
 	ComPtr<ID3D12Fence> fence_ = nullptr;

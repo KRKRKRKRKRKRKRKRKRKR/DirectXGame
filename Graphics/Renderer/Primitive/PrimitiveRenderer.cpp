@@ -180,6 +180,7 @@ void PrimitiveRenderer::CreatePSO(DirectXManager* dx) {
 	RasterizerState();
 	VertexShader();
 	PixelShader();
+	DepthStencilState();
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
 	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
@@ -197,6 +198,8 @@ void PrimitiveRenderer::CreatePSO(DirectXManager* dx) {
 	graphicsPipelineStateDesc.SampleDesc.Count = 1;
 	graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 
+	graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc_;
+	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 	HRESULT hr = dx->GetDevice()->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState_));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateGraphicsPipelineState\n");
@@ -278,6 +281,11 @@ void PrimitiveRenderer::PixelShader() {
 	assert(pixelShaderBlob_ != nullptr);
 }
 
+void PrimitiveRenderer::DepthStencilState() {
+	depthStencilDesc_.DepthEnable = true;
+	depthStencilDesc_.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+}
 //==================================================================
 //リソース関連
 //==================================================================
@@ -311,14 +319,14 @@ ID3D12Resource* PrimitiveRenderer::CreateBufferResource(DirectXManager* dx, size
 }
 
 void PrimitiveRenderer::CreateVertexResource(DirectXManager* dx) {
-  vertexResource_.Attach(CreateBufferResource(dx, sizeof(VertexData) * 3));
+  vertexResource_.Attach(CreateBufferResource(dx, sizeof(VertexData) * 6));
 	CreateVertexBufferView();
 	WriteVertexResource();
 }
 
 void PrimitiveRenderer::CreateVertexBufferView() {
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 3;
+	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 6;
 	vertexBufferView_.StrideInBytes = sizeof(VertexData);
 }
 
@@ -334,6 +342,15 @@ void PrimitiveRenderer::WriteVertexResource() {
 
 	vertexData[2].position = Vector4(0.5f, -0.5f, 0.0f, 1.0f);
 	vertexData[2].texcoord = Vector2(1.0f, 1.0f);
+
+	vertexData[3].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
+	vertexData[3].texcoord = Vector2(0.0f, 1.0f);
+
+	vertexData[4].position = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+	vertexData[4].texcoord = Vector2(0.5f, 0.0f);
+
+	vertexData[5].position = Vector4(0.5f, -0.5f, -0.5f, 1.0f);
+	vertexData[5].texcoord = Vector2(1.0f, 1.0f);
 
 	vertexResource_->Unmap(0, nullptr);
 }
@@ -391,6 +408,11 @@ void PrimitiveRenderer::RecordDrawCommands() {
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootDescriptorTable(2, dx_->GetTextureSrvHandle());
-	commandList_->DrawInstanced(3, 1, 0, 0);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = dx_->GetRTVHandle();
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = dx_->GetDSVHandle();
+
+	commandList_->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
+	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	commandList_->DrawInstanced(6, 1, 0, 0);
 }
 
