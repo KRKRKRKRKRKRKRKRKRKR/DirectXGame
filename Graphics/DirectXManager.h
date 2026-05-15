@@ -4,14 +4,18 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <dxgidebug.h>
+#include <dxcapi.h>
 #include <cstdint>
 #include <string>
 #include <wrl.h>
 #include "../Externals/DirectXTex/DirectXTex.h"
 #include "../Externals/DirectXTex/d3dx12.h"
+#include "../Math/MathTypes.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dxguid.lib")
+#pragma comment(lib, "dxcompiler.lib")
 
 using Microsoft::WRL::ComPtr;
 
@@ -28,6 +32,9 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
+	// ===== 描画関連 =====
+	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
+
 	// =====  ゲッター =====
 	ID3D12Device* GetDevice() const { return device_.Get(); }
 	IDXGIFactory7* GetFactory() const { return dxgiFactory_.Get(); }
@@ -41,10 +48,11 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return dsvHandle_; }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle() const { return rtvHandles_[backBufferIndex_]; }
 	UINT GetBackBufferIndex() const { return backBufferIndex_; }
-private:
 
+private:
 	int32_t windowWidth_ = 0;
 	int32_t windowHeight_ = 0;
+
 	// ===== COMの初期化 =====
 	void InitializeCOM();
 	void FinalizeCOM();
@@ -66,6 +74,7 @@ private:
 	void CreateRTVDescriptorHeap();
 	void CreateSRVDescriptorHeap();
 	void CreateDSVDescriptorHeap();
+
 	// ===== Render Target Viewsの作成 =====
 	void CreateRTV();
 
@@ -92,6 +101,34 @@ private:
 	// =====　パイプライン設定 =====
 	void CreateDescriptorRange();
 	void CreateStaticSamplers();
+
+	// ===== DXC & シェーダーコンパイル =====
+	void InitializeDXC();
+	IDxcBlob* CompileShader(const std::wstring& filePath, const wchar_t* profile);
+	void LoadHLSLFile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource);
+	void ExecuteCompile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource, IDxcResult*& shaderResult);
+	void LogCompileErrors(IDxcResult* shaderResult);
+	IDxcBlob* GetShaderBlob(const std::wstring& filePath, const wchar_t* profile, IDxcResult* shaderResult);
+
+	// ===== PSO作成 =====
+	void CreatePSO();
+	void CreateRootSignature();
+	void InputLayout();
+	void BlendState();
+	void RasterizerState();
+	void VertexShader();
+	void PixelShader();
+	void DepthStencilState();
+
+	// ===== 描画リソース作成 =====
+	void CreateVertexResource();
+	void CreateMaterialResource();
+	void CreateVertexBufferView();
+	void WriteVertexResource();
+	void ViewportScissorRect(int32_t width, int32_t height);
+	void CreateTransformationMatrix();
+	void SetPipelineCommands();
+	void RecordDrawCommands();
 
 	// ===== 状態フラグ =====
 	bool initialized_ = false;
@@ -137,4 +174,34 @@ private:
 	D3D12_DESCRIPTOR_RANGE descriptorRange_[DESCRIPTOR_RANGE_COUNT] = {};
 	static constexpr UINT STATIC_SAMPLER_COUNT = 1;
 	D3D12_STATIC_SAMPLER_DESC staticSamplers_[STATIC_SAMPLER_COUNT] = {};
+
+	// ===== DXC 関連 =====
+	ComPtr<IDxcUtils> dxcUtils_ = nullptr;
+	ComPtr<IDxcCompiler3> dxcCompiler_ = nullptr;
+	ComPtr<IDxcIncludeHandler> includeHandler_ = nullptr;
+	DxcBuffer shaderSourceBuffer_;
+
+	// ===== PSO 関連 =====
+	ComPtr<ID3DBlob> signatureBlob_ = nullptr;
+	ComPtr<ID3DBlob> errorBlob_ = nullptr;
+	ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
+	ComPtr<IDxcBlob> vertexShaderBlob_ = nullptr;
+	ComPtr<IDxcBlob> pixelShaderBlob_ = nullptr;
+	ComPtr<ID3D12PipelineState> graphicsPipelineState_ = nullptr;
+
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[2] = {};
+	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc_ = {};
+	D3D12_BLEND_DESC blendDesc_ = {};
+	D3D12_RASTERIZER_DESC rasterizerDesc_ = {};
+	D3D12_DEPTH_STENCIL_DESC depthStencilDesc_ = {};
+
+	// ===== 描画用リソース =====
+	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
+	ComPtr<ID3D12Resource> materialResource_ = nullptr;
+	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
+
+	D3D12_VIEWPORT viewport_{};
+	D3D12_RECT scissorRect_{};
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
+	Matrix4x4* wvpData_ = nullptr;
 };

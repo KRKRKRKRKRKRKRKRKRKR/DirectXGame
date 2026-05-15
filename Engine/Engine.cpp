@@ -14,7 +14,6 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	directX_.Initialize(window_.GetHWND(), window_.GetClientWidth(), window_.GetClientHeight());
   Debug::SetupInfoQueue(directX_.GetDevice());
 	
-	primitiveRenderer_.Initialize(&directX_, window_.GetClientWidth(), window_.GetClientHeight());
 	
 	camera_.Initialize();
 	
@@ -34,7 +33,6 @@ void Engine::Run() {
 
 void Engine::Finalize() {
 	imgui_.Finalize();
-	primitiveRenderer_.Finalize();
 	directX_.Finalize();
 }
 
@@ -50,8 +48,7 @@ void Engine::Render() {
 	Matrix4x4 viewMatrix = camera_.GetViewMatrix();
 	Matrix4x4 projectionMatrix = camera_.GetProjectionMatrix(aspectRatio);
 
-	primitiveRenderer_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
-	
+	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
 	ImGui::ShowDemoWindow();
 	
 	imgui_.EndFrame(&directX_);

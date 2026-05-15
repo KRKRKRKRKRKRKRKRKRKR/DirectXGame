@@ -2,7 +2,6 @@
 #include "../Window/Window.h"
 #include "../Graphics/DirectXManager.h"
 
-#include "../Graphics/Renderer/Primitive/PrimitiveRenderer.h"
 #include "../Math/MathTypes.h"
 
 #include "../Camera/Camera.h"
@@ -26,7 +25,6 @@ private:
 
 	Window window_;
 	DirectXManager directX_;
-	PrimitiveRenderer primitiveRenderer_;
 	Camera camera_;
 	ImGuiManager imgui_;
 

@@ -1,12 +1,15 @@
 #include "DirectXManager.h"
 #include "../Utils/Logger.h"
 #include "../Utils/StringUtils.h"
+#include "../Math/MatrixMath.h"
+#include "../Math/TransformMath.h"
 #include <cassert>
 #include <format>
 
 DirectXManager::~DirectXManager() {
 	Finalize();
 }
+
 //===========================================
 //ライフサイクル
 //===========================================
@@ -37,8 +40,15 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 
 	CreateDescriptorRange();
 	CreateStaticSamplers();
-	Logger::Log("Complete Initialize DirectXManager\n");
 
+	// Primitive 描画の初期化
+	InitializeDXC();
+	CreatePSO();
+	CreateVertexResource();
+	CreateMaterialResource();
+	CreateTransformationMatrix();
+
+	Logger::Log("Complete Initialize DirectXManager\n");
 	initialized_ = true;
 }
 
@@ -54,6 +64,13 @@ void DirectXManager::Finalize() {
 		Logger::Log("Wait for GPU completion in Finalize\n");
 	}
 
+	// マッピング解除
+	if (wvpResource_) {
+		wvpResource_->Unmap(0, nullptr);
+		wvpData_ = nullptr;
+		wvpResource_.Reset();
+	}
+
 	// テクスチャのリソース解放
 	if (isTextureLoaded_) {
 		textureResource_.Reset();
@@ -62,10 +79,27 @@ void DirectXManager::Finalize() {
 		isTextureLoaded_ = false;
 	}
 
+	// 描画関連リソース解放
+	vertexResource_.Reset();
+	materialResource_.Reset();
+
+	graphicsPipelineState_.Reset();
+	rootSignature_.Reset();
+
+	vertexShaderBlob_.Reset();
+	pixelShaderBlob_.Reset();
+	signatureBlob_.Reset();
+	errorBlob_.Reset();
+
+	includeHandler_.Reset();
+	dxcCompiler_.Reset();
+	dxcUtils_.Reset();
+
 	for (auto& res : swapChainResources_) { res.Reset(); }
 
 	rtvDescriptorHeap_.Reset();
 	srvDescriptorHeap_.Reset();
+	dsvDescriptorHeap_.Reset();
 
 	swapChain_.Reset();
 	commandList_.Reset();
@@ -230,8 +264,6 @@ void DirectXManager::CreateDevice() {
 //コマンドキューとコマンドリストの作成
 //===========================================
 void DirectXManager::CreateCommandQueue() {
-
-	// コマンドキューの作成
 	D3D12_COMMAND_QUEUE_DESC commandQueueDesc{};
 	HRESULT hr = device_->CreateCommandQueue(&commandQueueDesc, IID_PPV_ARGS(&commandQueue_));
 	if (FAILED(hr)) {
@@ -239,36 +271,32 @@ void DirectXManager::CreateCommandQueue() {
 	}
 	assert(SUCCEEDED(hr));
 
-	// コマンドアロケータの作成
 	hr = device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&commandAllocator_));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommandAllocator\n");
 	}
 	assert(SUCCEEDED(hr));
 
-	// コマンドリストの作成
 	hr = device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, commandAllocator_.Get(), nullptr, IID_PPV_ARGS(&commandList_));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommandList\n");
 	}
 	assert(SUCCEEDED(hr));
-
 }
 
 //===========================================
 //スワップチェーンの作成
 //===========================================
 void DirectXManager::CreateSwapChain(HWND hwnd) {
-
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
 
-	swapChainDesc.Width = windowWidth_;//幅の指定
-	swapChainDesc.Height = windowHeight_;//高さの指定
-	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;//色の指定
-	swapChainDesc.SampleDesc.Count = 1;//マルチサンプルの指定
-	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;//描画ターゲットとして使用することを指定
-	swapChainDesc.BufferCount = 2;//バッファ数の指定
-	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;//モニターを移したら中身を破棄
+	swapChainDesc.Width = windowWidth_;
+	swapChainDesc.Height = windowHeight_;
+	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swapChainDesc.SampleDesc.Count = 1;
+	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swapChainDesc.BufferCount = 2;
+	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	HRESULT hr = dxgiFactory_->CreateSwapChainForHwnd(commandQueue_.Get(), hwnd, &swapChainDesc, nullptr, nullptr, reinterpret_cast<IDXGISwapChain1**>(swapChain_.GetAddressOf()));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateSwapChain\n");
@@ -278,7 +306,6 @@ void DirectXManager::CreateSwapChain(HWND hwnd) {
 }
 
 void DirectXManager::GetSwapChainResources() {
-
 	HRESULT hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&swapChainResources_[0]));
 	if (FAILED(hr)) {
 		Logger::Log("Failed GetBuffer(0)\n");
@@ -324,6 +351,7 @@ void DirectXManager::CreateSRVDescriptorHeap() {
 void DirectXManager::CreateDSVDescriptorHeap() {
 	dsvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 }
+
 //===========================================
 //Render Target Viewの作成
 //===========================================
@@ -365,7 +393,6 @@ void DirectXManager::WaitForGPUCompletion() {
 	}
 
 	HRESULT hr = commandList_->Close();
-	// すでにClose済みの場合 E_FAIL になることがあるため許容する
 	if (FAILED(hr) && hr != E_FAIL) {
 		Logger::Log("Failed Close CommandList\n");
 		return;
@@ -400,14 +427,12 @@ void DirectXManager::WaitForGPUCompletion() {
 		Logger::Log("Failed Reset CommandList\n");
 	}
 	assert(SUCCEEDED(hr));
-
 }
 
 //===========================================
 //リソース管理
 //===========================================
 ComPtr<ID3D12Resource> DirectXManager::CreateTextureResource(const DirectX::TexMetadata& metadata) {
-
 	D3D12_RESOURCE_DESC resourceDesc{};
 	resourceDesc.Width = UINT(metadata.width);
 	resourceDesc.Height = UINT(metadata.height);
@@ -423,7 +448,7 @@ ComPtr<ID3D12Resource> DirectXManager::CreateTextureResource(const DirectX::TexM
 	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
 
 	ID3D12Resource* resource = nullptr;
-	HRESULT hr = device_->CreateCommittedResource(&heapProperties,D3D12_HEAP_FLAG_NONE,&resourceDesc,D3D12_RESOURCE_STATE_COPY_DEST,nullptr,IID_PPV_ARGS(&resource));
+	HRESULT hr = device_->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resource));
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommittedResource\n");
 	}
@@ -460,9 +485,7 @@ ComPtr<ID3D12Resource> DirectXManager::CreateBufferResource(size_t sizeInBytes) 
 	return resource;
 }
 
-[[nodiscard]]
 ComPtr<ID3D12Resource> DirectXManager::UploadTextureData(ComPtr<ID3D12Resource> textureResource, const DirectX::ScratchImage& mipImages) {
-
 	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
 	DirectX::PrepareUpload(device_.Get(), mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
 	uint64_t intermediateSize = GetRequiredIntermediateSize(textureResource.Get(), 0, UINT(subresources.size()));
@@ -498,7 +521,14 @@ ComPtr<ID3D12Resource> DirectXManager::CreateDepthStencilTextureResource(int32_t
 	depthClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
 	ID3D12Resource* resource = nullptr;
-	HRESULT hr = device_->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &depthClearValue, IID_PPV_ARGS(&resource));
+	HRESULT hr = device_->CreateCommittedResource(
+		&heapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&resourceDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&depthClearValue,
+		IID_PPV_ARGS(&resource));
+
 	if (FAILED(hr)) {
 		Logger::Log("Failed CreateCommittedResource\n");
 	}
@@ -526,13 +556,13 @@ DirectX::ScratchImage DirectXManager::LoadTexture(const std::string& filePath) {
 	assert(SUCCEEDED(hr));
 
 	return mipImage;
-
 }
+
 void DirectXManager::LoadTextureResource(const std::string& filePath) {
 	DirectX::ScratchImage mipImages = LoadTexture(filePath);
 	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 	textureResource_ = CreateTextureResource(metadata);
-	depthStencilResource_ = CreateDepthStencilTextureResource(windowWidth_,windowHeight_);
+	depthStencilResource_ = CreateDepthStencilTextureResource(windowWidth_, windowHeight_);
 	intermediateResource_ = UploadTextureData(textureResource_, mipImages);
 
 	WaitForGPUCompletion();
@@ -542,6 +572,7 @@ void DirectXManager::LoadTextureResource(const std::string& filePath) {
 	isTextureLoaded_ = true;
 	Logger::Log("Texture loaded successfully\n");
 }
+
 void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> textureResource) {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = metadata.format;
@@ -562,12 +593,11 @@ void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metada
 
 void DirectXManager::DepthShaderResourceView() {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
-		dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-		dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-		device_->CreateDepthStencilView(depthStencilResource_.Get(), &dsvDesc, dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
-		dsvHandle_ = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	device_->CreateDepthStencilView(depthStencilResource_.Get(), &dsvDesc, dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
+	dsvHandle_ = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
 }
-
 
 //===========================================
 //状態遷移バリア
@@ -580,6 +610,7 @@ void DirectXManager::BeginTransitionBarrier() {
 	barrier_.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	commandList_->ResourceBarrier(1, &barrier_);
 }
+
 void DirectXManager::EndTransitionBarrier() {
 	barrier_.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	barrier_.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
@@ -595,6 +626,7 @@ void DirectXManager::CreateDescriptorRange() {
 	descriptorRange_[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descriptorRange_[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 }
+
 void DirectXManager::CreateStaticSamplers() {
 	staticSamplers_[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	staticSamplers_[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -604,6 +636,317 @@ void DirectXManager::CreateStaticSamplers() {
 	staticSamplers_[0].MaxLOD = D3D12_FLOAT32_MAX;
 	staticSamplers_[0].ShaderRegister = 0;
 	staticSamplers_[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-
 }
 
+//==================================================================
+//DXC関連 (Unified from PrimitiveRenderer)
+//==================================================================
+void DirectXManager::InitializeDXC() {
+	HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils_));
+	if (FAILED(hr)) {
+		Logger::Log("Failed DxcCreateInstance for IDxcUtils\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler_));
+	if (FAILED(hr)) {
+		Logger::Log("Failed DxcCreateInstance for IDxcCompiler3\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	hr = dxcUtils_->CreateDefaultIncludeHandler(&includeHandler_);
+	if (FAILED(hr)) {
+		Logger::Log("Failed CreateDefaultIncludeHandler\n");
+	}
+	assert(SUCCEEDED(hr));
+}
+
+IDxcBlob* DirectXManager::CompileShader(const std::wstring& filePath, const wchar_t* profile) {
+	IDxcBlobEncoding* shaderSource = nullptr;
+	IDxcResult* shaderResult = nullptr;
+	LoadHLSLFile(filePath, profile, shaderSource);
+	ExecuteCompile(filePath, profile, shaderSource, shaderResult);
+	LogCompileErrors(shaderResult);
+
+	IDxcBlob* blob = GetShaderBlob(filePath, profile, shaderResult);
+
+	if (shaderResult) { shaderResult->Release(); }
+	if (shaderSource) { shaderSource->Release(); }
+
+	return blob;
+}
+
+void DirectXManager::LoadHLSLFile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource) {
+	Logger::Log(StringUtils::ConvertString(std::format(L"Begin CompileShader, path: {}, profile: {}\n", filePath, profile)));
+	HRESULT hr = dxcUtils_->LoadFile(filePath.c_str(), nullptr, &shaderSource);
+
+	if (FAILED(hr)) {
+		Logger::Log("Failed LoadFile\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	shaderSourceBuffer_.Ptr = shaderSource->GetBufferPointer();
+	shaderSourceBuffer_.Size = shaderSource->GetBufferSize();
+	shaderSourceBuffer_.Encoding = DXC_CP_UTF8;
+}
+
+void DirectXManager::ExecuteCompile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource, IDxcResult*& shaderResult) {
+	LPCWSTR arguments[] = {
+		filePath.c_str(),
+		L"-E", L"main",
+		L"-T", profile,
+		L"-Zi",L"-Qembed_debug",
+		L"-Od",
+		L"-Zpr",
+	};
+
+	HRESULT hr = dxcCompiler_->Compile(
+		&shaderSourceBuffer_,
+		arguments,
+		_countof(arguments),
+		includeHandler_.Get(),
+		IID_PPV_ARGS(&shaderResult)
+	);
+
+	if (FAILED(hr)) {
+		Logger::Log("Failed Compile\n");
+	}
+	assert(SUCCEEDED(hr));
+}
+
+void DirectXManager::LogCompileErrors(IDxcResult* shaderResult) {
+	IDxcBlobUtf8* shaderError = nullptr;
+	shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
+	if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
+		Logger::Log(StringUtils::ConvertString(std::format("Shader Compile Error: {}\n", shaderError->GetStringPointer())));
+		assert(false);
+	}
+	if (shaderError) {
+		shaderError->Release();
+	}
+}
+
+IDxcBlob* DirectXManager::GetShaderBlob(const std::wstring& filePath, const wchar_t* profile, IDxcResult* shaderResult) {
+	IDxcBlob* shaderBlob = nullptr;
+	HRESULT hr = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr);
+
+	if (FAILED(hr)) {
+		Logger::Log("Failed GetOutput for shader blob\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	Logger::Log(StringUtils::ConvertString(std::format(L"Complete CompileShader, path: {}, profile: {}\n", filePath, profile)));
+	return shaderBlob;
+}
+
+//==================================================================
+// PSO関連 (Unified from PrimitiveRenderer)
+//==================================================================
+void DirectXManager::CreatePSO() {
+	CreateRootSignature();
+	InputLayout();
+	BlendState();
+	RasterizerState();
+	VertexShader();
+	PixelShader();
+	DepthStencilState();
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
+	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
+	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc_;
+	graphicsPipelineStateDesc.VS = { vertexShaderBlob_->GetBufferPointer(), vertexShaderBlob_->GetBufferSize() };
+	graphicsPipelineStateDesc.PS = { pixelShaderBlob_->GetBufferPointer(), pixelShaderBlob_->GetBufferSize() };
+	graphicsPipelineStateDesc.BlendState = blendDesc_;
+	graphicsPipelineStateDesc.RasterizerState = rasterizerDesc_;
+
+	graphicsPipelineStateDesc.NumRenderTargets = 1;
+	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
+
+	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+	graphicsPipelineStateDesc.SampleDesc.Count = 1;
+	graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
+
+	graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc_;
+	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+	HRESULT hr = device_->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState_));
+	if (FAILED(hr)) {
+		Logger::Log("Failed CreateGraphicsPipelineState\n");
+	}
+	assert(SUCCEEDED(hr));
+}
+
+void DirectXManager::CreateRootSignature() {
+	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
+	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+
+	D3D12_ROOT_PARAMETER rootParameters[3] = {};
+	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[0].Descriptor.ShaderRegister = 0;
+
+	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameters[1].Descriptor.ShaderRegister = 0;
+
+	rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[2].DescriptorTable.pDescriptorRanges = descriptorRange_;
+	rootParameters[2].DescriptorTable.NumDescriptorRanges = DESCRIPTOR_RANGE_COUNT;
+
+	descriptionRootSignature.pParameters = rootParameters;
+	descriptionRootSignature.NumParameters = _countof(rootParameters);
+
+	descriptionRootSignature.pStaticSamplers = staticSamplers_;
+	descriptionRootSignature.NumStaticSamplers = STATIC_SAMPLER_COUNT;
+
+	HRESULT hr = D3D12SerializeRootSignature(&descriptionRootSignature, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob_, &errorBlob_);
+	if (FAILED(hr)) {
+		Logger::Log(reinterpret_cast<char*>(errorBlob_->GetBufferPointer()));
+	}
+	assert(SUCCEEDED(hr));
+
+	hr = device_->CreateRootSignature(0, signatureBlob_->GetBufferPointer(), signatureBlob_->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
+
+	if (FAILED(hr)) {
+		Logger::Log("Failed CreateRootSignature\n");
+	}
+	assert(SUCCEEDED(hr));
+}
+
+void DirectXManager::InputLayout() {
+	inputElementDescs_[0].SemanticName = "POSITION";
+	inputElementDescs_[0].SemanticIndex = 0;
+	inputElementDescs_[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	inputElementDescs_[0].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+	inputElementDescs_[1].SemanticName = "TEXCOORD";
+	inputElementDescs_[1].SemanticIndex = 0;
+	inputElementDescs_[1].Format = DXGI_FORMAT_R32G32_FLOAT;
+	inputElementDescs_[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
+	inputLayoutDesc_.pInputElementDescs = inputElementDescs_;
+	inputLayoutDesc_.NumElements = _countof(inputElementDescs_);
+}
+
+void DirectXManager::BlendState() {
+	blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+}
+
+void DirectXManager::RasterizerState() {
+	rasterizerDesc_.CullMode = D3D12_CULL_MODE_BACK;
+	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
+}
+
+void DirectXManager::VertexShader() {
+	vertexShaderBlob_.Attach(CompileShader(L"Object3D.VS.hlsl", L"vs_6_0"));
+	assert(vertexShaderBlob_ != nullptr);
+}
+
+void DirectXManager::PixelShader() {
+	pixelShaderBlob_.Attach(CompileShader(L"Object3D.PS.hlsl", L"ps_6_0"));
+	assert(pixelShaderBlob_ != nullptr);
+}
+
+void DirectXManager::DepthStencilState() {
+	depthStencilDesc_.DepthEnable = true;
+	depthStencilDesc_.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+}
+
+//==================================================================
+//描画リソース作成 (Unified from PrimitiveRenderer)
+//==================================================================
+void DirectXManager::CreateVertexResource() {
+	vertexResource_ = CreateBufferResource(sizeof(VertexData) * 6);
+	CreateVertexBufferView();
+	WriteVertexResource();
+}
+
+void DirectXManager::CreateVertexBufferView() {
+	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
+	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 6;
+	vertexBufferView_.StrideInBytes = sizeof(VertexData);
+}
+
+void DirectXManager::WriteVertexResource() {
+	VertexData* vertexData = nullptr;
+	vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
+
+	vertexData[0].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
+	vertexData[0].texcoord = Vector2(0.0f, 1.0f);
+
+	vertexData[1].position = Vector4(0.0f, 0.5f, 0.0f, 1.0f);
+	vertexData[1].texcoord = Vector2(0.5f, 0.0f);
+
+	vertexData[2].position = Vector4(0.5f, -0.5f, 0.0f, 1.0f);
+	vertexData[2].texcoord = Vector2(1.0f, 1.0f);
+
+	vertexData[3].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
+	vertexData[3].texcoord = Vector2(0.0f, 1.0f);
+
+	vertexData[4].position = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+	vertexData[4].texcoord = Vector2(0.5f, 0.0f);
+
+	vertexData[5].position = Vector4(0.5f, -0.5f, -0.5f, 1.0f);
+	vertexData[5].texcoord = Vector2(1.0f, 1.0f);
+
+	vertexResource_->Unmap(0, nullptr);
+}
+
+void DirectXManager::CreateMaterialResource() {
+	materialResource_ = CreateBufferResource(sizeof(Vector4));
+	Vector4* materialData = nullptr;
+	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
+	*materialData = Vector4(0.0f, 0.0f, 1.0f, 1.0f);
+	materialResource_->Unmap(0, nullptr);
+}
+
+void DirectXManager::CreateTransformationMatrix() {
+	wvpResource_ = CreateBufferResource(sizeof(Matrix4x4));
+	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
+	*wvpData_ = MatrixMath::Identity();
+}
+
+//==================================================================
+//描画関連 (Unified from PrimitiveRenderer)
+//==================================================================
+void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
+	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
+	*wvpData_ = worldMatrix * view * projection;
+
+	ViewportScissorRect(windowWidth_, windowHeight_);
+	SetPipelineCommands();
+	RecordDrawCommands();
+}
+
+void DirectXManager::ViewportScissorRect(int32_t width, int32_t height) {
+	viewport_.Width = static_cast<float>(width);
+	viewport_.Height = static_cast<float>(height);
+	viewport_.TopLeftX = 0;
+	viewport_.TopLeftY = 0;
+	viewport_.MinDepth = 0.0f;
+	viewport_.MaxDepth = 1.0f;
+	scissorRect_.left = 0;
+	scissorRect_.right = width;
+	scissorRect_.top = 0;
+	scissorRect_.bottom = height;
+}
+
+void DirectXManager::SetPipelineCommands() {
+	commandList_->RSSetViewports(1, &viewport_);
+	commandList_->RSSetScissorRects(1, &scissorRect_);
+	commandList_->SetGraphicsRootSignature(rootSignature_.Get());
+	commandList_->SetPipelineState(graphicsPipelineState_.Get());
+}
+
+void DirectXManager::RecordDrawCommands() {
+	commandList_->IASetVertexBuffers(0, 1, &vertexBufferView_);
+	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
+	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle_);
+
+	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
+	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	commandList_->DrawInstanced(6, 1, 0, 0);
+}
