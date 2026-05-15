@@ -34,7 +34,7 @@ public:
 
 	// ===== 描画関連 =====
 	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
-
+	void DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
 	// =====  ゲッター =====
 	ID3D12Device* GetDevice() const { return device_.Get(); }
 	IDXGIFactory7* GetFactory() const { return dxgiFactory_.Get(); }
@@ -130,6 +130,9 @@ private:
 	void SetPipelineCommands();
 	void RecordDrawCommands();
 
+	void CreateVertexSpriteResource();
+	void SetVertexSpriteResource();
+	void CreateVertexTransformMatrixResource();
 	// ===== 状態フラグ =====
 	bool initialized_ = false;
 	bool comInitialized_ = false;
@@ -199,9 +202,13 @@ private:
 	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 	ComPtr<ID3D12Resource> materialResource_ = nullptr;
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
-
+	ComPtr<ID3D12Resource> vertexResourceSprite_ = nullptr;
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
 	Matrix4x4* wvpData_ = nullptr;
+	ComPtr<ID3D12Resource> transformationMatrixResourceSprite_ = nullptr;
+	Matrix4x4* transformationMatrixDataSprite_ = nullptr;
+	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSprite_{};
+
 };

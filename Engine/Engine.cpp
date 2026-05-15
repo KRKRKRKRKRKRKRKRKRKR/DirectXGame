@@ -22,6 +22,10 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	transform_.scale = { 1.0f, 1.0f, 1.0f };
 	transform_.rotation = { 0.0f, 0.0f, 0.0f };
 	transform_.translation = { 0.0f, 0.0f, 0.0f };
+
+	transformSprite_.scale = { 1.0f, 1.0f, 1.0f };
+	transformSprite_.rotation = { 0.0f, 0.0f, 0.0f };
+	transformSprite_.translation = { 0.0f, 0.0f, 0.0f };
 }
 
 void Engine::Run() {
@@ -48,9 +52,16 @@ void Engine::Render() {
 	Matrix4x4 viewMatrix = camera_.GetViewMatrix();
 	Matrix4x4 projectionMatrix = camera_.GetProjectionMatrix(aspectRatio);
 
+	Matrix4x4 viewMatrixSprite = MatrixMath::Identity();
+	Matrix4x4 projectionMatrixSprite = TransformMath::MakeOrthographicMatrix(0,0,static_cast<float>(window_.GetClientWidth()), static_cast<float>(window_.GetClientHeight()), 0.1f, 100.0f);
+
 	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
+	directX_.DrawSpriteRender(viewMatrixSprite, projectionMatrixSprite, transformSprite_);
+
 	ImGui::ShowDemoWindow();
-	
+	ImGui::Begin("Settings");
+	ImGui::SliderFloat3("Sprite Position", &transformSprite_.translation.x, -1000.0f, 1000.0f);
+	ImGui::End();
 	imgui_.EndFrame(&directX_);
 	directX_.EndFrame();
 }

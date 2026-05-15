@@ -48,6 +48,11 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateMaterialResource();
 	CreateTransformationMatrix();
 
+	CreateVertexSpriteResource();
+	SetVertexSpriteResource();
+
+	CreateVertexTransformMatrixResource();
+
 	Logger::Log("Complete Initialize DirectXManager\n");
 	initialized_ = true;
 }
@@ -82,6 +87,8 @@ void DirectXManager::Finalize() {
 	// 描画関連リソース解放
 	vertexResource_.Reset();
 	materialResource_.Reset();
+	vertexResourceSprite_.Reset();
+	transformationMatrixResourceSprite_.Reset();
 
 	graphicsPipelineState_.Reset();
 	rootSignature_.Reset();
@@ -854,7 +861,7 @@ void DirectXManager::DepthStencilState() {
 }
 
 //==================================================================
-//描画リソース作成 (Unified from PrimitiveRenderer)
+//描画リソース作成 
 //==================================================================
 void DirectXManager::CreateVertexResource() {
 	vertexResource_ = CreateBufferResource(sizeof(VertexData) * 6);
@@ -907,6 +914,46 @@ void DirectXManager::CreateTransformationMatrix() {
 	*wvpData_ = MatrixMath::Identity();
 }
 
+void DirectXManager::CreateVertexSpriteResource() {
+	vertexResourceSprite_ = CreateBufferResource(sizeof(VertexData) * 6);
+	vertexBufferViewSprite_.BufferLocation = vertexResourceSprite_->GetGPUVirtualAddress();
+	vertexBufferViewSprite_.SizeInBytes = sizeof(VertexData) * 6;
+	vertexBufferViewSprite_.StrideInBytes = sizeof(VertexData);
+
+}
+
+void DirectXManager::SetVertexSpriteResource() {
+	VertexData* vertexDataSprite = nullptr;
+	vertexResourceSprite_->Map(0, nullptr, reinterpret_cast<void**>(&vertexDataSprite));
+
+	vertexDataSprite[0].position = Vector4(-0.5f, 360.0f, 0.0f, 1.0f);
+	vertexDataSprite[0].texcoord = Vector2(0.0f, 1.0f);
+
+	vertexDataSprite[1].position = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+	vertexDataSprite[1].texcoord = Vector2(0.0f, 0.0f);
+	
+	vertexDataSprite[2].position = Vector4(640.0f, 360.0f, 0.0f, 1.0f);
+	vertexDataSprite[2].texcoord = Vector2(1.0f, 1.0f);
+	
+	vertexDataSprite[3].position = Vector4(-0.0f, -0.0f, 0.0f, 1.0f);
+	vertexDataSprite[3].texcoord = Vector2(0.0f, 0.0f);
+	
+	vertexDataSprite[4].position = Vector4(640.0f, 0.0f, 0.0f, 1.0f);
+	vertexDataSprite[4].texcoord = Vector2(1.0f, 0.0f);
+	
+	vertexDataSprite[5].position = Vector4(640.0f, 360.0f, 0.0f, 1.0f);
+	vertexDataSprite[5].texcoord = Vector2(1.0f, 1.0f);
+	
+	vertexResourceSprite_->Unmap(0, nullptr);
+}
+
+void DirectXManager::CreateVertexTransformMatrixResource() {
+	transformationMatrixResourceSprite_ = CreateBufferResource(sizeof(Matrix4x4));
+	transformationMatrixResourceSprite_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixDataSprite_));
+	*transformationMatrixDataSprite_ = MatrixMath::Identity();
+
+
+}
 //==================================================================
 //描画関連 (Unified from PrimitiveRenderer)
 //==================================================================
@@ -914,6 +961,14 @@ void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& 
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
 	*wvpData_ = worldMatrix * view * projection;
 
+	ViewportScissorRect(windowWidth_, windowHeight_);
+	SetPipelineCommands();
+	RecordDrawCommands();
+}
+
+void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
+	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
+	*transformationMatrixDataSprite_ = worldMatrix * view * projection;
 	ViewportScissorRect(windowWidth_, windowHeight_);
 	SetPipelineCommands();
 	RecordDrawCommands();
@@ -945,8 +1000,11 @@ void DirectXManager::RecordDrawCommands() {
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle_);
-
 	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
 	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(6, 1, 0, 0);
+	commandList_->IASetVertexBuffers(0, 1, &vertexBufferViewSprite_);
+	commandList_->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite_->GetGPUVirtualAddress());
+	commandList_->DrawInstanced(6, 1, 0, 0);
+
 }

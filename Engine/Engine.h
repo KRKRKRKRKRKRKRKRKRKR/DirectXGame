@@ -29,4 +29,7 @@ private:
 	ImGuiManager imgui_;
 
 	Transform transform_;
+
+	Transform transformSprite_;
+
 };
