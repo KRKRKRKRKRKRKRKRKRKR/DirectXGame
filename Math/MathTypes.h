@@ -23,3 +23,8 @@ struct CameraData {
 	float nearClip = 0.1f;
 	float farClip = 100.0f;
 };
+
+struct SphereData {
+	Vector3 center;
+	float radius;
+};

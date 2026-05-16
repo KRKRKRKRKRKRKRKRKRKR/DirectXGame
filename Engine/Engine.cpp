@@ -41,7 +41,7 @@ void Engine::Finalize() {
 }
 
 void Engine::Update() {
-	transform_.rotation.y += 0.01f;
+	transform_.rotation.y += 0.1f;
 }
 
 void Engine::Render() {
@@ -57,7 +57,7 @@ void Engine::Render() {
 
 	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
 	directX_.DrawSpriteRender(viewMatrixSprite, projectionMatrixSprite, transformSprite_);
-
+	directX_.CreateDrawSphereResource({ Vector3(0.0f, 0.0f, 0.0f), 1.0f }, viewMatrix, projectionMatrix);
 	ImGui::ShowDemoWindow();
 	ImGui::Begin("Settings");
 	ImGui::SliderFloat3("Sprite Position", &transformSprite_.translation.x, -1000.0f, 1000.0f);
