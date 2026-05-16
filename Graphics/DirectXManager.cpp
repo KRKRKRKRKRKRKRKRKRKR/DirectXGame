@@ -44,6 +44,7 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	// Primitive 描画の初期化
 	InitializeDXC();
 	CreatePSO();
+
 	CreateVertexResource();
 	CreateMaterialResource();
 	CreateTransformationMatrix();
@@ -450,9 +451,9 @@ ComPtr<ID3D12Resource> DirectXManager::CreateTextureResource(const DirectX::TexM
 	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metadata.dimension);
 
 	D3D12_HEAP_PROPERTIES heapProperties{};
-	heapProperties.Type = D3D12_HEAP_TYPE_CUSTOM;
-	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
 
 	ID3D12Resource* resource = nullptr;
 	HRESULT hr = device_->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resource));
