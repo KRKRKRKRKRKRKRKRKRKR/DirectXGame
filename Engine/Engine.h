@@ -32,4 +32,8 @@ private:
 
 	Transform transformSprite_;
 
+	Transform transformSphere_;
+	SphereData sphereData_;
+
+
 };

@@ -26,6 +26,13 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	transformSprite_.scale = { 1.0f, 1.0f, 1.0f };
 	transformSprite_.rotation = { 0.0f, 0.0f, 0.0f };
 	transformSprite_.translation = { 0.0f, 0.0f, 0.0f };
+
+	transformSphere_.scale = { 1.0f, 1.0f, 1.0f };
+	transformSphere_.rotation = { 0.0f, 0.0f, 0.0f };
+	transformSphere_.translation = { 0.0f, 0.0f, 0.0f };
+
+	sphereData_.center = Vector3(0.0f, 0.0f, 0.0f);
+	sphereData_.radius = 1.0f;
 }
 
 void Engine::Run() {
@@ -42,6 +49,7 @@ void Engine::Finalize() {
 
 void Engine::Update() {
 	transform_.rotation.y += 0.1f;
+	transformSphere_.rotation.y += 0.1f;
 }
 
 void Engine::Render() {
@@ -57,10 +65,13 @@ void Engine::Render() {
 
 	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
 	directX_.DrawSpriteRender(viewMatrixSprite, projectionMatrixSprite, transformSprite_);
-	directX_.CreateDrawSphereResource({ Vector3(0.0f, 0.0f, 0.0f), 1.0f }, viewMatrix, projectionMatrix);
+	directX_.CreateDrawSphereResource(sphereData_, viewMatrix, projectionMatrix, transformSphere_);
 	ImGui::ShowDemoWindow();
+
 	ImGui::Begin("Settings");
-	ImGui::SliderFloat3("Sprite Position", &transformSprite_.translation.x, -1000.0f, 1000.0f);
+	ImGui::SliderFloat3("Object Position", &transform_.translation.x, -10.0f, 10.0f);
+	ImGui::SliderFloat3("Sprite Position", &transformSprite_.translation.x, -100.0f, 100.0f);
+	ImGui::SliderFloat3("Sphere Position", &transformSphere_.translation.x, -10.0f, 10.0f);
 	ImGui::End();
 	imgui_.EndFrame(&directX_);
 	directX_.EndFrame();

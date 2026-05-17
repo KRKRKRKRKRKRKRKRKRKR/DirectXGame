@@ -977,12 +977,13 @@ void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& pr
 	SetPipelineCommands();
 	RecordDrawCommands();
 }
-void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& viewProjectionMatrix, const Matrix4x4& viewportMatrix) {
+void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection,const Transform& transform) {
+	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
+	*wvpData_ = worldMatrix * view * projection;
 	const uint32_t Ksubdivision = 50;
 	const float kLonEvery = DirectX::XM_2PI / Ksubdivision;
 	const float kLatEvery = DirectX::XM_PI / Ksubdivision;
 
-	Matrix4x4 vp_viewport = viewProjectionMatrix * viewportMatrix;
    // Sphere uses a dedicated vertex buffer. Without this, vertexData remains nullptr and will crash on write.
 	sphereVertexCount_ = Ksubdivision * Ksubdivision * 6;
 	const size_t bufferSize = sizeof(VertexData) * static_cast<size_t>(sphereVertexCount_);
