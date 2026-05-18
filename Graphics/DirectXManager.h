@@ -92,8 +92,8 @@ private:
 
 	// ===== テクスチャロード =====
 	DirectX::ScratchImage LoadTexture(const std::string& filePath);
-	void LoadTextureResource(const std::string& filePath);
-	void CreateShaderResourceView(const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> textureResource);
+	void LoadTextureResource(const std::string& filePath1, const std::string& filePath2);
+	void CreateShaderResourceView(const DirectX::TexMetadata& metadata, const DirectX::TexMetadata& metadata2, ComPtr<ID3D12Resource> textureResource, ComPtr<ID3D12Resource> textureResource2);
 	void DepthShaderResourceView();
 
 	// ===== 状態遷移バリア =====
@@ -136,6 +136,9 @@ private:
 	void SetVertexSpriteResource();
 	void CreateVertexTransformMatrixResource();
 
+	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index);
+	D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index);
+
 	// ===== 状態フラグ =====
 	bool initialized_ = false;
 	bool comInitialized_ = false;
@@ -164,9 +167,15 @@ private:
 
 	// ===== テクスチャリソースの作成 =====
 	ComPtr<ID3D12Resource> textureResource_ = nullptr;
+	ComPtr<ID3D12Resource> textureResource2_ = nullptr;
 	ComPtr<ID3D12Resource> intermediateResource_ = nullptr;
+	ComPtr<ID3D12Resource> intermediateResource2_ = nullptr;
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle_ = {};
 	ComPtr<ID3D12Resource> depthStencilResource_ = nullptr;
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle2_ = {};
+
+
+
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle_ = {};
 
 	// ===== 同期オブジェクトの作成 =====
@@ -218,4 +227,9 @@ private:
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSprite_{};
 	uint32_t sphereVertexCount_ = 0;
 
+
+	void SetDescriptorSizes();
+	uint32_t descriptorSizeSRV_;
+	uint32_t descriptorSizeRTV_;
+	uint32_t descriptorSizeDSV_;
 };

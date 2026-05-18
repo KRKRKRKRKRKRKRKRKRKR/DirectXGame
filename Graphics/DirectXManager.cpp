@@ -36,8 +36,7 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateRTV();
 	CreateFence();
 
-	LoadTextureResource("Resources/texture.png");
-
+	LoadTextureResource("Resources/texture.png", "Resources/monsterBall.png");
 	CreateDescriptorRange();
 	CreateStaticSamplers();
 
@@ -53,6 +52,10 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	SetVertexSpriteResource();
 
 	CreateVertexTransformMatrixResource();
+
+	SetDescriptorSizes();
+	GetCPUDescriptorHandle(rtvDescriptorHeap_.Get(), descriptorSizeRTV_, 0);
+
 
 	Logger::Log("Complete Initialize DirectXManager\n");
 	initialized_ = true;
@@ -567,30 +570,35 @@ DirectX::ScratchImage DirectXManager::LoadTexture(const std::string& filePath) {
 	return mipImage;
 }
 
-void DirectXManager::LoadTextureResource(const std::string& filePath) {
-	DirectX::ScratchImage mipImages = LoadTexture(filePath);
+void DirectXManager::LoadTextureResource(const std::string& filePath1, const std::string& filePath2) {
+	DirectX::ScratchImage mipImages = LoadTexture(filePath1);
 	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
 	textureResource_ = CreateTextureResource(metadata);
 	depthStencilResource_ = CreateDepthStencilTextureResource(windowWidth_, windowHeight_);
 	intermediateResource_ = UploadTextureData(textureResource_, mipImages);
 
+	DirectX::ScratchImage mipImages2 = LoadTexture(filePath2);
+	const DirectX::TexMetadata& metadata2 = mipImages2.GetMetadata();
+	textureResource2_ = CreateTextureResource(metadata2);
+	intermediateResource2_ = UploadTextureData(textureResource2_, mipImages2);
+
 	WaitForGPUCompletion();
-	CreateShaderResourceView(metadata, textureResource_);
+	CreateShaderResourceView(metadata, metadata2, textureResource_, textureResource2_);
 	DepthShaderResourceView();
 
 	isTextureLoaded_ = true;
 	Logger::Log("Texture loaded successfully\n");
 }
 
-void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> textureResource) {
+void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata,const DirectX::TexMetadata& metadata2, ComPtr<ID3D12Resource> textureResource, ComPtr<ID3D12Resource> textureResource2) {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = metadata.format;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels = UINT(metadata.mipLevels);
 
-	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = srvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = srvDescriptorHeap_->GetGPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = GetCPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 1);
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = GetGPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 1);
 
 	UINT incrementSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	textureSrvHandleCPU.ptr += device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -598,6 +606,17 @@ void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metada
 
 	device_->CreateShaderResourceView(textureResource.Get(), &srvDesc, textureSrvHandleCPU);
 	textureSrvHandle_ = textureSrvHandleGPU;
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc2{};
+	srvDesc2.Format = metadata2.format;
+	srvDesc2.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc2.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc2.Texture2D.MipLevels = UINT(metadata2.mipLevels);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU2 = GetCPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 2);
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU2 = GetGPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 2);
+	device_->CreateShaderResourceView(textureResource2.Get(), &srvDesc2, textureSrvHandleCPU2);
+	textureSrvHandle2_ = textureSrvHandleGPU2;
 }
 
 void DirectXManager::DepthShaderResourceView() {
@@ -906,7 +925,7 @@ void DirectXManager::CreateMaterialResource() {
 	materialResource_ = CreateBufferResource(sizeof(Vector4));
 	Vector4* materialData = nullptr;
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
-	*materialData = Vector4(0.0f, 0.0f, 1.0f, 1.0f);
+	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
 	materialResource_->Unmap(0, nullptr);
 }
 
@@ -1088,7 +1107,7 @@ void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, cons
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle_);
+	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle2_);
 	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
 	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(sphereVertexCount_, 1, 0, 0);
@@ -1118,11 +1137,30 @@ void DirectXManager::RecordDrawCommands() {
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle_);
+	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle2_);
 	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
 	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(6, 1, 0, 0);
 	commandList_->IASetVertexBuffers(0, 1, &vertexBufferViewSprite_);
 	commandList_->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite_->GetGPUVirtualAddress());
 	commandList_->DrawInstanced(6, 1, 0, 0);
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE DirectXManager::GetCPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index) {
+	D3D12_CPU_DESCRIPTOR_HANDLE handleCPU = descriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	handleCPU.ptr += (descriptorSize * index);
+	return handleCPU;
+}
+
+
+D3D12_GPU_DESCRIPTOR_HANDLE DirectXManager::GetGPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index) {
+	D3D12_GPU_DESCRIPTOR_HANDLE handleGPU = descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	handleGPU.ptr += (descriptorSize * index);
+	return handleGPU;
+}
+
+void DirectXManager::SetDescriptorSizes() {
+	const uint32_t descriptorSizeSRV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	const uint32_t descriptorSizeRTV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	const uint32_t descriptorSizeDSV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 }

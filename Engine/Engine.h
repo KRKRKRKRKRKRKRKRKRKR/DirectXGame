@@ -34,6 +34,6 @@ private:
 
 	Transform transformSphere_;
 	SphereData sphereData_;
-
+	CameraData cameraData_;
 
 };

@@ -33,6 +33,8 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 
 	sphereData_.center = Vector3(0.0f, 0.0f, 0.0f);
 	sphereData_.radius = 1.0f;
+
+	cameraData_.position = Vector3(0.0f, 0.0f, -5.0f);
 }
 
 void Engine::Run() {
@@ -68,11 +70,16 @@ void Engine::Render() {
 	directX_.CreateDrawSphereResource(sphereData_, viewMatrix, projectionMatrix, transformSphere_);
 	ImGui::ShowDemoWindow();
 
+	
+
 	ImGui::Begin("Settings");
 	ImGui::SliderFloat3("Object Position", &transform_.translation.x, -10.0f, 10.0f);
 	ImGui::SliderFloat3("Sprite Position", &transformSprite_.translation.x, -100.0f, 100.0f);
 	ImGui::SliderFloat3("Sphere Position", &transformSphere_.translation.x, -10.0f, 10.0f);
+	ImGui::SliderFloat3("Sphere Scale", &transformSphere_.scale.x, 0.1f, 10.0f);
+	ImGui::SliderFloat3("Camera Position", &cameraData_.position.x, -10.0f, 10.0f);
 	ImGui::End();
+	camera_.SetPosition(cameraData_.position);
 	imgui_.EndFrame(&directX_);
 	directX_.EndFrame();
 }
