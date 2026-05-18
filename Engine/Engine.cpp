@@ -67,7 +67,7 @@ void Engine::Render() {
 
 	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform_);
 	directX_.DrawSpriteRender(viewMatrixSprite, projectionMatrixSprite, transformSprite_);
-	directX_.CreateDrawSphereResource(sphereData_, viewMatrix, projectionMatrix, transformSphere_);
+	directX_.CreateDrawSphereResource(sphereData_, viewMatrix, projectionMatrix, transformSphere_, changeTexture_);
 	ImGui::ShowDemoWindow();
 
 	
@@ -78,6 +78,7 @@ void Engine::Render() {
 	ImGui::SliderFloat3("Sphere Position", &transformSphere_.translation.x, -10.0f, 10.0f);
 	ImGui::SliderFloat3("Sphere Scale", &transformSphere_.scale.x, 0.1f, 10.0f);
 	ImGui::SliderFloat3("Camera Position", &cameraData_.position.x, -10.0f, 10.0f);
+	ImGui::Checkbox("Change Sphere Texture", &changeTexture_);
 	ImGui::End();
 	camera_.SetPosition(cameraData_.position);
 	imgui_.EndFrame(&directX_);

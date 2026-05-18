@@ -35,6 +35,7 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	CreateDSVDescriptorHeap();
 	CreateRTV();
 	CreateFence();
+	SetDescriptorSizes();
 
 	LoadTextureResource("Resources/texture.png", "Resources/monsterBall.png");
 	CreateDescriptorRange();
@@ -53,7 +54,6 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 
 	CreateVertexTransformMatrixResource();
 
-	SetDescriptorSizes();
 	GetCPUDescriptorHandle(rtvDescriptorHeap_.Get(), descriptorSizeRTV_, 0);
 
 
@@ -93,7 +93,7 @@ void DirectXManager::Finalize() {
 	materialResource_.Reset();
 	vertexResourceSprite_.Reset();
 	transformationMatrixResourceSprite_.Reset();
-	vertexResourceSphere_.Reset();		
+	vertexResourceSphere_.Reset();
 
 	graphicsPipelineState_.Reset();
 	rootSignature_.Reset();
@@ -590,7 +590,7 @@ void DirectXManager::LoadTextureResource(const std::string& filePath1, const std
 	Logger::Log("Texture loaded successfully\n");
 }
 
-void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata,const DirectX::TexMetadata& metadata2, ComPtr<ID3D12Resource> textureResource, ComPtr<ID3D12Resource> textureResource2) {
+void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, const DirectX::TexMetadata& metadata2, ComPtr<ID3D12Resource> textureResource, ComPtr<ID3D12Resource> textureResource2) {
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 	srvDesc.Format = metadata.format;
 	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
@@ -601,9 +601,6 @@ void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metada
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = GetGPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 1);
 
 	UINT incrementSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	textureSrvHandleCPU.ptr += device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	textureSrvHandleGPU.ptr += device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
 	device_->CreateShaderResourceView(textureResource.Get(), &srvDesc, textureSrvHandleCPU);
 	textureSrvHandle_ = textureSrvHandleGPU;
 
@@ -952,19 +949,19 @@ void DirectXManager::SetVertexSpriteResource() {
 
 	vertexDataSprite[1].position = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
 	vertexDataSprite[1].texcoord = Vector2(0.0f, 0.0f);
-	
+
 	vertexDataSprite[2].position = Vector4(640.0f, 360.0f, 0.0f, 1.0f);
 	vertexDataSprite[2].texcoord = Vector2(1.0f, 1.0f);
-	
+
 	vertexDataSprite[3].position = Vector4(-0.0f, -0.0f, 0.0f, 1.0f);
 	vertexDataSprite[3].texcoord = Vector2(0.0f, 0.0f);
-	
+
 	vertexDataSprite[4].position = Vector4(640.0f, 0.0f, 0.0f, 1.0f);
 	vertexDataSprite[4].texcoord = Vector2(1.0f, 0.0f);
-	
+
 	vertexDataSprite[5].position = Vector4(640.0f, 360.0f, 0.0f, 1.0f);
 	vertexDataSprite[5].texcoord = Vector2(1.0f, 1.0f);
-	
+
 	vertexResourceSprite_->Unmap(0, nullptr);
 }
 
@@ -972,8 +969,6 @@ void DirectXManager::CreateVertexTransformMatrixResource() {
 	transformationMatrixResourceSprite_ = CreateBufferResource(sizeof(Matrix4x4));
 	transformationMatrixResourceSprite_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixDataSprite_));
 	*transformationMatrixDataSprite_ = MatrixMath::Identity();
-
-
 }
 
 
@@ -996,14 +991,14 @@ void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& pr
 	SetPipelineCommands();
 	RecordDrawCommands();
 }
-void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection,const Transform& transform) {
+void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform,bool changeTexture) {
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
 	*wvpData_ = worldMatrix * view * projection;
-	const uint32_t Ksubdivision = 50;
+	const uint32_t Ksubdivision = 30;
 	const float kLonEvery = DirectX::XM_2PI / Ksubdivision;
 	const float kLatEvery = DirectX::XM_PI / Ksubdivision;
 
-   // Sphere uses a dedicated vertex buffer. Without this, vertexData remains nullptr and will crash on write.
+	// Sphere uses a dedicated vertex buffer. Without this, vertexData remains nullptr and will crash on write.
 	sphereVertexCount_ = Ksubdivision * Ksubdivision * 6;
 	const size_t bufferSize = sizeof(VertexData) * static_cast<size_t>(sphereVertexCount_);
 	vertexResourceSphere_ = CreateBufferResource(bufferSize);
@@ -1027,7 +1022,7 @@ void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, cons
 
 			Vector3 a, b, c, d;
 
-			
+
 
 			a = Vector3(
 				sphereData.radius * cosf(lat) * cosf(lon),
@@ -1107,7 +1102,7 @@ void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, cons
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle2_);
+	commandList_->SetGraphicsRootDescriptorTable(2, changeTexture ? textureSrvHandle_ : textureSrvHandle2_);
 	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
 	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(sphereVertexCount_, 1, 0, 0);
@@ -1137,7 +1132,7 @@ void DirectXManager::RecordDrawCommands() {
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle2_);
+	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle_);
 	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
 	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(6, 1, 0, 0);
@@ -1160,7 +1155,7 @@ D3D12_GPU_DESCRIPTOR_HANDLE DirectXManager::GetGPUDescriptorHandle(ID3D12Descrip
 }
 
 void DirectXManager::SetDescriptorSizes() {
-	const uint32_t descriptorSizeSRV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	const uint32_t descriptorSizeRTV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	const uint32_t descriptorSizeDSV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+	descriptorSizeSRV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	descriptorSizeRTV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	descriptorSizeDSV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 }

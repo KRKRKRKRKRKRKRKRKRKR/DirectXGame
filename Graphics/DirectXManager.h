@@ -35,7 +35,7 @@ public:
 	// ===== 描画関連 =====
 	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
 	void DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
-	void CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
+	void CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform,bool changeTexture);
 
 	// =====  ゲッター =====
 	ID3D12Device* GetDevice() const { return device_.Get(); }
@@ -232,4 +232,6 @@ private:
 	uint32_t descriptorSizeSRV_;
 	uint32_t descriptorSizeRTV_;
 	uint32_t descriptorSizeDSV_;
+
+
 };

@@ -34,6 +34,8 @@ private:
 
 	Transform transformSphere_;
 	SphereData sphereData_;
+	bool changeTexture_ = false;
+
 	CameraData cameraData_;
 
 };
