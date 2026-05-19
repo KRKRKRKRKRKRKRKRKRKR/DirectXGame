@@ -1,5 +1,14 @@
 #pragma once
 
+/*
+デバイスとスワップチェーンの管理（基盤）
+コマンドリストとキューの管理
+ディスクリプタヒープの管理
+テクスチャやバッファのリソース管理
+シェーダーコンパイルとパイプラインステート（PSO）の構築
+特定の図形（三角形、スプライト、球）の描画処理と頂点データの保持
+*/
+
 #include <Windows.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
@@ -136,6 +145,7 @@ private:
 	void SetVertexSpriteResource();
 	void CreateVertexTransformMatrixResource();
 
+	void SetDescriptorSizes();
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index);
 	D3D12_GPU_DESCRIPTOR_HANDLE GetGPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index);
 
@@ -228,7 +238,6 @@ private:
 	uint32_t sphereVertexCount_ = 0;
 
 
-	void SetDescriptorSizes();
 	uint32_t descriptorSizeSRV_;
 	uint32_t descriptorSizeRTV_;
 	uint32_t descriptorSizeDSV_;

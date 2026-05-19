@@ -116,9 +116,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Externals\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="Externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
+    <ClCompile Include="Graphics\Device\DeviceManager.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
-    <ClCompile Include="Graphics\Renderer\Primitive\PrimitiveRenderer.cpp" />
-    <ClCompile Include="Graphics\Renderer\Texture\Texture.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
@@ -137,9 +137,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Externals\imgui\imstb_rectpack.h" />
     <ClInclude Include="Externals\imgui\imstb_textedit.h" />
     <ClInclude Include="Externals\imgui\imstb_truetype.h" />
+    <ClInclude Include="Graphics\DescriptorHeaps\DescriptorHeaps.h" />
+    <ClInclude Include="Graphics\Device\DeviceManager.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
-    <ClInclude Include="Graphics\Renderer\Primitive\PrimitiveRenderer.h" />
-    <ClInclude Include="Graphics\Renderer\Texture\Texture.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />

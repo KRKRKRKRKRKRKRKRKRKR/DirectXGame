@@ -26,11 +26,20 @@
     <Filter Include="Graphics">
       <UniqueIdentifier>{15f6e967-c2a8-4c30-a51b-1e610e33e60b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Graphics\Renderer">
-      <UniqueIdentifier>{0dd4f975-e789-4334-8cc0-b2b600e88112}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Camera">
       <UniqueIdentifier>{7a962575-8638-44a3-9710-054aa4cadee2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\ShaderCompiler">
+      <UniqueIdentifier>{d3ca7eac-7e1f-4595-8080-e5f3ce8e96c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\DescriptorManager">
+      <UniqueIdentifier>{76b64d5c-9ec1-4b07-b7dc-4d6d715fea69}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\DeviceManager">
+      <UniqueIdentifier>{a9de1c2c-2c2c-49e8-ac46-e580355ba376}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\PipelineStateManager">
+      <UniqueIdentifier>{36ba55ff-6998-4cc6-b104-67e0719e2c57}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -77,12 +86,6 @@
     <ClCompile Include="Externals\imgui\imguiManager.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\Renderer\Primitive\PrimitiveRenderer.cpp">
-      <Filter>Graphics\Renderer</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Renderer\Texture\Texture.cpp">
-      <Filter>Graphics\Renderer</Filter>
-    </ClCompile>
     <ClCompile Include="Camera\Camera.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
@@ -91,6 +94,18 @@
     </ClCompile>
     <ClCompile Include="Window\Window.cpp">
       <Filter>Window</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Device\DeviceManager.cpp">
+      <Filter>Graphics\DeviceManager</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\DescriptorHeaps\DescriptorManager.cpp">
+      <Filter>Graphics\DescriptorManager</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\PipelineStateManager\PipelineStateManager.cpp">
+      <Filter>Graphics\PipelineStateManager</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\ShaderCompiler\ShaderCompiler.cpp">
+      <Filter>Graphics\ShaderCompiler</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -145,12 +160,6 @@
     <ClInclude Include="Externals\imgui\imguiManager.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Renderer\Primitive\PrimitiveRenderer.h">
-      <Filter>Graphics\Renderer</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Renderer\Texture\Texture.h">
-      <Filter>Graphics\Renderer</Filter>
-    </ClInclude>
     <ClInclude Include="Camera\Camera.h">
       <Filter>Camera</Filter>
     </ClInclude>
@@ -159,6 +168,18 @@
     </ClInclude>
     <ClInclude Include="Window\Window.h">
       <Filter>Window</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Device\DeviceManager.h">
+      <Filter>Graphics\DeviceManager</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\DescriptorHeaps\DescriptorManager.h">
+      <Filter>Graphics\DescriptorManager</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\PipelineStateManager\PipelineStateManager.h">
+      <Filter>Graphics\PipelineStateManager</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\ShaderCompiler\ShaderCompiler.h">
+      <Filter>Graphics\ShaderCompiler</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
