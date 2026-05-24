@@ -4,10 +4,43 @@
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
 #include <cassert>
+#include <algorithm>
 #include <format>
+#include <cstring>
+
+namespace {
+	constexpr uint32_t AlignUp(uint32_t value, uint32_t alignment) {
+		return (value + (alignment - 1)) & ~(alignment - 1);
+	}
+}
 
 DirectXManager::~DirectXManager() {
 	Finalize();
+}
+
+uint32_t DirectXManager::AllocateWvpIndex() {
+	if (wvpAllocatedCount_ >= kMaxWvpCount) {
+		Logger::Log("WVP pool is full (kMaxWvpCount reached)\n");
+		return UINT32_MAX;
+	}
+	return wvpAllocatedCount_++;
+}
+
+void DirectXManager::SetWvpMatrix(uint32_t index, const Matrix4x4& matrix) {
+	if (!wvpMappedData_ || !wvpResource_) {
+		return;
+	}
+	if (index >= kMaxWvpCount) {
+		return;
+	}
+	std::memcpy(wvpMappedData_ + static_cast<size_t>(index) * wvpStride_, &matrix, sizeof(Matrix4x4));
+}
+
+D3D12_GPU_VIRTUAL_ADDRESS DirectXManager::GetWvpGpuAddress(uint32_t index) const {
+	if (!wvpResource_ || index >= kMaxWvpCount) {
+		return 0;
+	}
+	return wvpResource_->GetGPUVirtualAddress() + static_cast<UINT64>(index) * wvpStride_;
 }
 
 //===========================================
@@ -30,20 +63,15 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 
 	CreateSwapChain(hwnd);
 	GetSwapChainResources();
-	CreateRTVDescriptorHeap();
-	CreateSRVDescriptorHeap();
-	CreateDSVDescriptorHeap();
-	CreateRTV();
+	descriptorHeaps_.Initialize(device_.Get());
+	descriptorHeaps_.CreateRTV(device_.Get(), swapChainResources_[0].Get(), swapChainResources_[1].Get());
 	CreateFence();
-	SetDescriptorSizes();
 
-	LoadTextureResource("Resources/texture.png", "Resources/monsterBall.png");
-	CreateDescriptorRange();
-	CreateStaticSamplers();
-
+	InitializeTexture();
+	shaderCompiler_.InitializeDXC();
 	// Primitive 描画の初期化
-	InitializeDXC();
-	CreatePSO();
+	pipline_.Initialize(device_.Get(), &shaderCompiler_);
+	
 
 	CreateVertexResource();
 	CreateMaterialResource();
@@ -53,8 +81,6 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	SetVertexSpriteResource();
 
 	CreateVertexTransformMatrixResource();
-
-	GetCPUDescriptorHandle(rtvDescriptorHeap_.Get(), descriptorSizeRTV_, 0);
 
 
 	Logger::Log("Complete Initialize DirectXManager\n");
@@ -76,17 +102,11 @@ void DirectXManager::Finalize() {
 	// マッピング解除
 	if (wvpResource_) {
 		wvpResource_->Unmap(0, nullptr);
-		wvpData_ = nullptr;
+		wvpMappedData_ = nullptr;
 		wvpResource_.Reset();
 	}
 
-	// テクスチャのリソース解放
-	if (isTextureLoaded_) {
-		textureResource_.Reset();
-		depthStencilResource_.Reset();
-		intermediateResource_.Reset();
-		isTextureLoaded_ = false;
-	}
+
 
 	// 描画関連リソース解放
 	vertexResource_.Reset();
@@ -103,15 +123,11 @@ void DirectXManager::Finalize() {
 	signatureBlob_.Reset();
 	errorBlob_.Reset();
 
-	includeHandler_.Reset();
-	dxcCompiler_.Reset();
-	dxcUtils_.Reset();
+	textureManager_.Finalize();
 
 	for (auto& res : swapChainResources_) { res.Reset(); }
 
-	rtvDescriptorHeap_.Reset();
-	srvDescriptorHeap_.Reset();
-	dsvDescriptorHeap_.Reset();
+	descriptorHeaps_.Finalize();
 
 	swapChain_.Reset();
 	commandList_.Reset();
@@ -139,10 +155,11 @@ void DirectXManager::Finalize() {
 void DirectXManager::BeginFrame() {
 	backBufferIndex_ = swapChain_->GetCurrentBackBufferIndex();
 	BeginTransitionBarrier();
-	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, nullptr);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
+	commandList_->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
 	float clearColor[] = { 0.1f,0.25f,0.5f,0.1f };
-	commandList_->ClearRenderTargetView(rtvHandles_[backBufferIndex_], clearColor, 0, nullptr);
-	ID3D12DescriptorHeap* descriptorHeaps[] = { srvDescriptorHeap_.Get() };
+	commandList_->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeaps_.GetSRVDescriptorHeap() };
 	commandList_->SetDescriptorHeaps(1, descriptorHeaps);
 }
 
@@ -331,54 +348,6 @@ void DirectXManager::GetSwapChainResources() {
 	assert(SUCCEEDED(hr));
 }
 
-//===========================================
-//Descriptor Heapの作成
-//===========================================
-ComPtr<ID3D12DescriptorHeap> DirectXManager::CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible) {
-	ComPtr<ID3D12DescriptorHeap> descriptorHeap = nullptr;
-	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc{};
-	descriptorHeapDesc.Type = heapType;
-	descriptorHeapDesc.NumDescriptors = numDescriptors;
-	descriptorHeapDesc.Flags = shaderVisible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE : D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-
-	HRESULT hr = device->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&descriptorHeap));
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateDescriptorHeap\n");
-	}
-
-	assert(SUCCEEDED(hr));
-
-	return descriptorHeap;
-}
-
-void DirectXManager::CreateRTVDescriptorHeap() {
-	rtvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
-}
-
-void DirectXManager::CreateSRVDescriptorHeap() {
-	srvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
-}
-
-void DirectXManager::CreateDSVDescriptorHeap() {
-	dsvDescriptorHeap_ = CreateDescriptorHeap(device_.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
-}
-
-//===========================================
-//Render Target Viewの作成
-//===========================================
-void DirectXManager::CreateRTV() {
-	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
-	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvStartHandle = rtvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-	rtvHandles_[0] = rtvStartHandle;
-	device_->CreateRenderTargetView(swapChainResources_[0].Get(), &rtvDesc, rtvHandles_[0]);
-	rtvHandles_[1].ptr = rtvHandles_[0].ptr + device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	device_->CreateRenderTargetView(swapChainResources_[1].Get(), &rtvDesc, rtvHandles_[1]);
-}
 
 //===========================================
 //同期オブジェクトの作成
@@ -441,188 +410,7 @@ void DirectXManager::WaitForGPUCompletion() {
 	assert(SUCCEEDED(hr));
 }
 
-//===========================================
-//リソース管理
-//===========================================
-ComPtr<ID3D12Resource> DirectXManager::CreateTextureResource(const DirectX::TexMetadata& metadata) {
-	D3D12_RESOURCE_DESC resourceDesc{};
-	resourceDesc.Width = UINT(metadata.width);
-	resourceDesc.Height = UINT(metadata.height);
-	resourceDesc.MipLevels = UINT16(metadata.mipLevels);
-	resourceDesc.DepthOrArraySize = UINT16(metadata.arraySize);
-	resourceDesc.Format = metadata.format;
-	resourceDesc.SampleDesc.Count = 1;
-	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION(metadata.dimension);
 
-	D3D12_HEAP_PROPERTIES heapProperties{};
-	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-	heapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	heapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-
-	ID3D12Resource* resource = nullptr;
-	HRESULT hr = device_->CreateCommittedResource(&heapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resource));
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateCommittedResource\n");
-	}
-	assert(SUCCEEDED(hr));
-	return resource;
-}
-
-ComPtr<ID3D12Resource> DirectXManager::CreateBufferResource(size_t sizeInBytes) {
-	ComPtr<ID3D12Resource> resource = nullptr;
-	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
-	uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
-	D3D12_RESOURCE_DESC vertexBufferResourceDesc{};
-	vertexBufferResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	vertexBufferResourceDesc.Width = sizeInBytes;
-	vertexBufferResourceDesc.Height = 1;
-	vertexBufferResourceDesc.DepthOrArraySize = 1;
-	vertexBufferResourceDesc.MipLevels = 1;
-	vertexBufferResourceDesc.SampleDesc.Count = 1;
-	vertexBufferResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-	HRESULT hr = device_->CreateCommittedResource(
-		&uploadHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&vertexBufferResourceDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&resource)
-	);
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateCommittedResource\n");
-	}
-	assert(SUCCEEDED(hr));
-	return resource;
-}
-
-ComPtr<ID3D12Resource> DirectXManager::UploadTextureData(ComPtr<ID3D12Resource> textureResource, const DirectX::ScratchImage& mipImages) {
-	std::vector<D3D12_SUBRESOURCE_DATA> subresources;
-	DirectX::PrepareUpload(device_.Get(), mipImages.GetImages(), mipImages.GetImageCount(), mipImages.GetMetadata(), subresources);
-	uint64_t intermediateSize = GetRequiredIntermediateSize(textureResource.Get(), 0, UINT(subresources.size()));
-	ComPtr<ID3D12Resource> intermediateResource = CreateBufferResource(intermediateSize);
-	UpdateSubresources(commandList_.Get(), textureResource.Get(), intermediateResource.Get(), 0, 0, UINT(subresources.size()), subresources.data());
-
-	D3D12_RESOURCE_BARRIER barrier{};
-	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	barrier.Transition.pResource = textureResource.Get();
-	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
-	commandList_->ResourceBarrier(1, &barrier);
-	return intermediateResource;
-}
-
-ComPtr<ID3D12Resource> DirectXManager::CreateDepthStencilTextureResource(int32_t width, int32_t height) {
-	D3D12_RESOURCE_DESC resourceDesc{};
-	resourceDesc.Width = UINT(width);
-	resourceDesc.Height = UINT(height);
-	resourceDesc.MipLevels = 1;
-	resourceDesc.DepthOrArraySize = 1;
-	resourceDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	resourceDesc.SampleDesc.Count = 1;
-	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	resourceDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-	D3D12_HEAP_PROPERTIES heapProperties{};
-	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-	D3D12_CLEAR_VALUE depthClearValue{};
-	depthClearValue.DepthStencil.Depth = 1.0f;
-	depthClearValue.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-
-	ID3D12Resource* resource = nullptr;
-	HRESULT hr = device_->CreateCommittedResource(
-		&heapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&resourceDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE,
-		&depthClearValue,
-		IID_PPV_ARGS(&resource));
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateCommittedResource\n");
-	}
-	assert(SUCCEEDED(hr));
-	return resource;
-}
-
-//===========================================
-//テクスチャロード
-//===========================================
-DirectX::ScratchImage DirectXManager::LoadTexture(const std::string& filePath) {
-	DirectX::ScratchImage image{};
-	std::wstring filePathW = StringUtils::ConvertString(filePath);
-	HRESULT hr = DirectX::LoadFromWICFile(filePathW.c_str(), DirectX::WIC_FLAGS_DEFAULT_SRGB, nullptr, image);
-	if (FAILED(hr)) {
-		Logger::Log(std::format("Failed LoadFromWICFile : {}\n", filePath));
-	}
-	assert(SUCCEEDED(hr));
-
-	DirectX::ScratchImage mipImage{};
-	hr = DirectX::GenerateMipMaps(image.GetImages(), image.GetImageCount(), image.GetMetadata(), DirectX::TEX_FILTER_SRGB, 0, mipImage);
-	if (FAILED(hr)) {
-		Logger::Log(std::format("Failed GenerateMipMaps : {}\n", filePath));
-	}
-	assert(SUCCEEDED(hr));
-
-	return mipImage;
-}
-
-void DirectXManager::LoadTextureResource(const std::string& filePath1, const std::string& filePath2) {
-	DirectX::ScratchImage mipImages = LoadTexture(filePath1);
-	const DirectX::TexMetadata& metadata = mipImages.GetMetadata();
-	textureResource_ = CreateTextureResource(metadata);
-	depthStencilResource_ = CreateDepthStencilTextureResource(windowWidth_, windowHeight_);
-	intermediateResource_ = UploadTextureData(textureResource_, mipImages);
-
-	DirectX::ScratchImage mipImages2 = LoadTexture(filePath2);
-	const DirectX::TexMetadata& metadata2 = mipImages2.GetMetadata();
-	textureResource2_ = CreateTextureResource(metadata2);
-	intermediateResource2_ = UploadTextureData(textureResource2_, mipImages2);
-
-	WaitForGPUCompletion();
-	CreateShaderResourceView(metadata, metadata2, textureResource_, textureResource2_);
-	DepthShaderResourceView();
-
-	isTextureLoaded_ = true;
-	Logger::Log("Texture loaded successfully\n");
-}
-
-void DirectXManager::CreateShaderResourceView(const DirectX::TexMetadata& metadata, const DirectX::TexMetadata& metadata2, ComPtr<ID3D12Resource> textureResource, ComPtr<ID3D12Resource> textureResource2) {
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-	srvDesc.Format = metadata.format;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = UINT(metadata.mipLevels);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU = GetCPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 1);
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU = GetGPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 1);
-
-	UINT incrementSize = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	device_->CreateShaderResourceView(textureResource.Get(), &srvDesc, textureSrvHandleCPU);
-	textureSrvHandle_ = textureSrvHandleGPU;
-
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc2{};
-	srvDesc2.Format = metadata2.format;
-	srvDesc2.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc2.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc2.Texture2D.MipLevels = UINT(metadata2.mipLevels);
-
-	D3D12_CPU_DESCRIPTOR_HANDLE textureSrvHandleCPU2 = GetCPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 2);
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandleGPU2 = GetGPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, 2);
-	device_->CreateShaderResourceView(textureResource2.Get(), &srvDesc2, textureSrvHandleCPU2);
-	textureSrvHandle2_ = textureSrvHandleGPU2;
-}
-
-void DirectXManager::DepthShaderResourceView() {
-	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
-	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
-	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	device_->CreateDepthStencilView(depthStencilResource_.Get(), &dsvDesc, dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
-	dsvHandle_ = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-}
 
 //===========================================
 //状態遷移バリア
@@ -642,247 +430,11 @@ void DirectXManager::EndTransitionBarrier() {
 	commandList_->ResourceBarrier(1, &barrier_);
 }
 
-//===========================================	
-//パイプライン設定
-//===========================================
-void DirectXManager::CreateDescriptorRange() {
-	descriptorRange_[0].BaseShaderRegister = 0;
-	descriptorRange_[0].NumDescriptors = 1;
-	descriptorRange_[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-	descriptorRange_[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-}
-
-void DirectXManager::CreateStaticSamplers() {
-	staticSamplers_[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-	staticSamplers_[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers_[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers_[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers_[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	staticSamplers_[0].MaxLOD = D3D12_FLOAT32_MAX;
-	staticSamplers_[0].ShaderRegister = 0;
-	staticSamplers_[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-}
-
-//==================================================================
-//DXC関連 (Unified from PrimitiveRenderer)
-//==================================================================
-void DirectXManager::InitializeDXC() {
-	HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&dxcUtils_));
-	if (FAILED(hr)) {
-		Logger::Log("Failed DxcCreateInstance for IDxcUtils\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&dxcCompiler_));
-	if (FAILED(hr)) {
-		Logger::Log("Failed DxcCreateInstance for IDxcCompiler3\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	hr = dxcUtils_->CreateDefaultIncludeHandler(&includeHandler_);
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateDefaultIncludeHandler\n");
-	}
-	assert(SUCCEEDED(hr));
-}
-
-IDxcBlob* DirectXManager::CompileShader(const std::wstring& filePath, const wchar_t* profile) {
-	IDxcBlobEncoding* shaderSource = nullptr;
-	IDxcResult* shaderResult = nullptr;
-	LoadHLSLFile(filePath, profile, shaderSource);
-	ExecuteCompile(filePath, profile, shaderSource, shaderResult);
-	LogCompileErrors(shaderResult);
-
-	IDxcBlob* blob = GetShaderBlob(filePath, profile, shaderResult);
-
-	if (shaderResult) { shaderResult->Release(); }
-	if (shaderSource) { shaderSource->Release(); }
-
-	return blob;
-}
-
-void DirectXManager::LoadHLSLFile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource) {
-	Logger::Log(StringUtils::ConvertString(std::format(L"Begin CompileShader, path: {}, profile: {}\n", filePath, profile)));
-	HRESULT hr = dxcUtils_->LoadFile(filePath.c_str(), nullptr, &shaderSource);
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed LoadFile\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	shaderSourceBuffer_.Ptr = shaderSource->GetBufferPointer();
-	shaderSourceBuffer_.Size = shaderSource->GetBufferSize();
-	shaderSourceBuffer_.Encoding = DXC_CP_UTF8;
-}
-
-void DirectXManager::ExecuteCompile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource, IDxcResult*& shaderResult) {
-	LPCWSTR arguments[] = {
-		filePath.c_str(),
-		L"-E", L"main",
-		L"-T", profile,
-		L"-Zi",L"-Qembed_debug",
-		L"-Od",
-		L"-Zpr",
-	};
-
-	HRESULT hr = dxcCompiler_->Compile(
-		&shaderSourceBuffer_,
-		arguments,
-		_countof(arguments),
-		includeHandler_.Get(),
-		IID_PPV_ARGS(&shaderResult)
-	);
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed Compile\n");
-	}
-	assert(SUCCEEDED(hr));
-}
-
-void DirectXManager::LogCompileErrors(IDxcResult* shaderResult) {
-	IDxcBlobUtf8* shaderError = nullptr;
-	shaderResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&shaderError), nullptr);
-	if (shaderError != nullptr && shaderError->GetStringLength() != 0) {
-		Logger::Log(StringUtils::ConvertString(std::format("Shader Compile Error: {}\n", shaderError->GetStringPointer())));
-		assert(false);
-	}
-	if (shaderError) {
-		shaderError->Release();
-	}
-}
-
-IDxcBlob* DirectXManager::GetShaderBlob(const std::wstring& filePath, const wchar_t* profile, IDxcResult* shaderResult) {
-	IDxcBlob* shaderBlob = nullptr;
-	HRESULT hr = shaderResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderBlob), nullptr);
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed GetOutput for shader blob\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	Logger::Log(StringUtils::ConvertString(std::format(L"Complete CompileShader, path: {}, profile: {}\n", filePath, profile)));
-	return shaderBlob;
-}
-
-//==================================================================
-// PSO関連 (Unified from PrimitiveRenderer)
-//==================================================================
-void DirectXManager::CreatePSO() {
-	CreateRootSignature();
-	InputLayout();
-	BlendState();
-	RasterizerState();
-	VertexShader();
-	PixelShader();
-	DepthStencilState();
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
-	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc_;
-	graphicsPipelineStateDesc.VS = { vertexShaderBlob_->GetBufferPointer(), vertexShaderBlob_->GetBufferSize() };
-	graphicsPipelineStateDesc.PS = { pixelShaderBlob_->GetBufferPointer(), pixelShaderBlob_->GetBufferSize() };
-	graphicsPipelineStateDesc.BlendState = blendDesc_;
-	graphicsPipelineStateDesc.RasterizerState = rasterizerDesc_;
-
-	graphicsPipelineStateDesc.NumRenderTargets = 1;
-	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-
-	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-
-	graphicsPipelineStateDesc.SampleDesc.Count = 1;
-	graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
-
-	graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc_;
-	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-
-	HRESULT hr = device_->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState_));
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateGraphicsPipelineState\n");
-	}
-	assert(SUCCEEDED(hr));
-}
-
-void DirectXManager::CreateRootSignature() {
-	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
-	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-
-	D3D12_ROOT_PARAMETER rootParameters[3] = {};
-	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootParameters[0].Descriptor.ShaderRegister = 0;
-
-	rootParameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	rootParameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-	rootParameters[1].Descriptor.ShaderRegister = 0;
-
-	rootParameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	rootParameters[2].DescriptorTable.pDescriptorRanges = descriptorRange_;
-	rootParameters[2].DescriptorTable.NumDescriptorRanges = DESCRIPTOR_RANGE_COUNT;
-
-	descriptionRootSignature.pParameters = rootParameters;
-	descriptionRootSignature.NumParameters = _countof(rootParameters);
-
-	descriptionRootSignature.pStaticSamplers = staticSamplers_;
-	descriptionRootSignature.NumStaticSamplers = STATIC_SAMPLER_COUNT;
-
-	HRESULT hr = D3D12SerializeRootSignature(&descriptionRootSignature, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob_, &errorBlob_);
-	if (FAILED(hr)) {
-		Logger::Log(reinterpret_cast<char*>(errorBlob_->GetBufferPointer()));
-	}
-	assert(SUCCEEDED(hr));
-
-	hr = device_->CreateRootSignature(0, signatureBlob_->GetBufferPointer(), signatureBlob_->GetBufferSize(), IID_PPV_ARGS(&rootSignature_));
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateRootSignature\n");
-	}
-	assert(SUCCEEDED(hr));
-}
-
-void DirectXManager::InputLayout() {
-	inputElementDescs_[0].SemanticName = "POSITION";
-	inputElementDescs_[0].SemanticIndex = 0;
-	inputElementDescs_[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	inputElementDescs_[0].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-	inputElementDescs_[1].SemanticName = "TEXCOORD";
-	inputElementDescs_[1].SemanticIndex = 0;
-	inputElementDescs_[1].Format = DXGI_FORMAT_R32G32_FLOAT;
-	inputElementDescs_[1].AlignedByteOffset = D3D12_APPEND_ALIGNED_ELEMENT;
-	inputLayoutDesc_.pInputElementDescs = inputElementDescs_;
-	inputLayoutDesc_.NumElements = _countof(inputElementDescs_);
-}
-
-void DirectXManager::BlendState() {
-	blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-}
-
-void DirectXManager::RasterizerState() {
-	rasterizerDesc_.CullMode = D3D12_CULL_MODE_BACK;
-	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
-}
-
-void DirectXManager::VertexShader() {
-	vertexShaderBlob_.Attach(CompileShader(L"Object3D.VS.hlsl", L"vs_6_0"));
-	assert(vertexShaderBlob_ != nullptr);
-}
-
-void DirectXManager::PixelShader() {
-	pixelShaderBlob_.Attach(CompileShader(L"Object3D.PS.hlsl", L"ps_6_0"));
-	assert(pixelShaderBlob_ != nullptr);
-}
-
-void DirectXManager::DepthStencilState() {
-	depthStencilDesc_.DepthEnable = true;
-	depthStencilDesc_.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-}
-
 //==================================================================
 //描画リソース作成 
 //==================================================================
 void DirectXManager::CreateVertexResource() {
-	vertexResource_ = CreateBufferResource(sizeof(VertexData) * 6);
+	vertexResource_ = textureManager_.CreateBufferResource(sizeof(VertexData) * 6);
 	CreateVertexBufferView();
 	WriteVertexResource();
 }
@@ -919,7 +471,7 @@ void DirectXManager::WriteVertexResource() {
 }
 
 void DirectXManager::CreateMaterialResource() {
-	materialResource_ = CreateBufferResource(sizeof(Vector4));
+	materialResource_ = textureManager_.CreateBufferResource(sizeof(Vector4));
 	Vector4* materialData = nullptr;
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -927,13 +479,19 @@ void DirectXManager::CreateMaterialResource() {
 }
 
 void DirectXManager::CreateTransformationMatrix() {
-	wvpResource_ = CreateBufferResource(sizeof(Matrix4x4));
-	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
-	*wvpData_ = MatrixMath::Identity();
+	wvpStride_ = AlignUp(static_cast<uint32_t>(sizeof(Matrix4x4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+	wvpResource_ = textureManager_.CreateBufferResource(static_cast<size_t>(wvpStride_) * kMaxWvpCount);
+	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
+
+	wvpAllocatedCount_ = 0;
+	AllocateWvpIndex(); // triangle
+	AllocateWvpIndex(); // sphere
+	SetWvpMatrix(kTriangleWvpIndex, MatrixMath::Identity());
+	SetWvpMatrix(kSphereWvpIndex, MatrixMath::Identity());
 }
 
 void DirectXManager::CreateVertexSpriteResource() {
-	vertexResourceSprite_ = CreateBufferResource(sizeof(VertexData) * 6);
+	vertexResourceSprite_ = textureManager_.CreateBufferResource(sizeof(VertexData) * 6);
 	vertexBufferViewSprite_.BufferLocation = vertexResourceSprite_->GetGPUVirtualAddress();
 	vertexBufferViewSprite_.SizeInBytes = sizeof(VertexData) * 6;
 	vertexBufferViewSprite_.StrideInBytes = sizeof(VertexData);
@@ -966,7 +524,7 @@ void DirectXManager::SetVertexSpriteResource() {
 }
 
 void DirectXManager::CreateVertexTransformMatrixResource() {
-	transformationMatrixResourceSprite_ = CreateBufferResource(sizeof(Matrix4x4));
+	transformationMatrixResourceSprite_ = textureManager_.CreateBufferResource(sizeof(Matrix4x4));
 	transformationMatrixResourceSprite_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixDataSprite_));
 	*transformationMatrixDataSprite_ = MatrixMath::Identity();
 }
@@ -975,9 +533,9 @@ void DirectXManager::CreateVertexTransformMatrixResource() {
 //==================================================================
 //描画関連 (Unified from PrimitiveRenderer)
 //==================================================================
-void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
+void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, uint32_t wvpIndex) {
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
-	*wvpData_ = worldMatrix * view * projection;
+	SetWvpMatrix(wvpIndex, worldMatrix * view * projection);
 
 	ViewportScissorRect(windowWidth_, windowHeight_);
 	SetPipelineCommands();
@@ -991,9 +549,9 @@ void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& pr
 	SetPipelineCommands();
 	RecordDrawCommands();
 }
-void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform,bool changeTexture) {
+void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, bool changeTexture, uint32_t wvpIndex) {
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
-	*wvpData_ = worldMatrix * view * projection;
+	SetWvpMatrix(wvpIndex, worldMatrix * view * projection);
 	const uint32_t Ksubdivision = 30;
 	const float kLonEvery = DirectX::XM_2PI / Ksubdivision;
 	const float kLatEvery = DirectX::XM_PI / Ksubdivision;
@@ -1001,7 +559,7 @@ void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, cons
 	// Sphere uses a dedicated vertex buffer. Without this, vertexData remains nullptr and will crash on write.
 	sphereVertexCount_ = Ksubdivision * Ksubdivision * 6;
 	const size_t bufferSize = sizeof(VertexData) * static_cast<size_t>(sphereVertexCount_);
-	vertexResourceSphere_ = CreateBufferResource(bufferSize);
+	vertexResourceSphere_ = textureManager_.CreateBufferResource(bufferSize);
 	vertexBufferViewSphere_.BufferLocation = vertexResourceSphere_->GetGPUVirtualAddress();
 	vertexBufferViewSphere_.SizeInBytes = static_cast<UINT>(bufferSize);
 	vertexBufferViewSphere_.StrideInBytes = sizeof(VertexData);
@@ -1101,10 +659,18 @@ void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, cons
 	commandList_->IASetVertexBuffers(0, 1, &vertexBufferViewSphere_);
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootDescriptorTable(2, changeTexture ? textureSrvHandle_ : textureSrvHandle2_);
-	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
-	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	commandList_->SetGraphicsRootConstantBufferView(1, GetWvpGpuAddress(wvpIndex));
+
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = changeTexture ?
+		textureManager_.GetSrvGpuHandle(TextureID::Texture2) :
+		textureManager_.GetSrvGpuHandle(TextureID::Texture1);
+
+	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = descriptorHeaps_.GetDSVHandle();
+	commandList_->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
+	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(sphereVertexCount_, 1, 0, 0);
 }
 void DirectXManager::ViewportScissorRect(int32_t width, int32_t height) {
@@ -1123,39 +689,42 @@ void DirectXManager::ViewportScissorRect(int32_t width, int32_t height) {
 void DirectXManager::SetPipelineCommands() {
 	commandList_->RSSetViewports(1, &viewport_);
 	commandList_->RSSetScissorRects(1, &scissorRect_);
-	commandList_->SetGraphicsRootSignature(rootSignature_.Get());
-	commandList_->SetPipelineState(graphicsPipelineState_.Get());
+	commandList_->SetGraphicsRootSignature(pipline_.GetRootSignature());
+	commandList_->SetPipelineState(pipline_.GetPipelineState());
 }
 
 void DirectXManager::RecordDrawCommands() {
 	commandList_->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle_);
-	commandList_->OMSetRenderTargets(1, &rtvHandles_[backBufferIndex_], false, &dsvHandle_);
-	commandList_->ClearDepthStencilView(dsvHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	commandList_->SetGraphicsRootConstantBufferView(1, GetWvpGpuAddress(kTriangleWvpIndex));
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager_.GetSrvGpuHandle(TextureID::Texture3);
+	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = descriptorHeaps_.GetDSVHandle();
+	commandList_->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
+	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(6, 1, 0, 0);
 	commandList_->IASetVertexBuffers(0, 1, &vertexBufferViewSprite_);
 	commandList_->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite_->GetGPUVirtualAddress());
 	commandList_->DrawInstanced(6, 1, 0, 0);
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE DirectXManager::GetCPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index) {
-	D3D12_CPU_DESCRIPTOR_HANDLE handleCPU = descriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	handleCPU.ptr += (descriptorSize * index);
-	return handleCPU;
-}
+void DirectXManager::InitializeTexture() {
+	textureManager_.SetDevice(device_.Get());
+	textureManager_.SetCommandList(commandList_.Get());
 
+	textureManager_.LoadTextureResourceFromFile(TextureID::Texture2, "Resources/s.png");
+	textureManager_.LoadTextureResourceFromFile(TextureID::Texture1, "Resources/f.png");
+	textureManager_.LoadTextureResourceFromFile(TextureID::Texture3, "Resources/s.png");
+	textureManager_.CreateDepthStencilBuffer(TextureID::DepthStencil, windowWidth_, windowHeight_);
 
-D3D12_GPU_DESCRIPTOR_HANDLE DirectXManager::GetGPUDescriptorHandle(ID3D12DescriptorHeap* descriptorHeap, uint32_t descriptorSize, uint32_t index) {
-	D3D12_GPU_DESCRIPTOR_HANDLE handleGPU = descriptorHeap->GetGPUDescriptorHandleForHeapStart();
-	handleGPU.ptr += (descriptorSize * index);
-	return handleGPU;
-}
+	WaitForGPUCompletion();
 
-void DirectXManager::SetDescriptorSizes() {
-	descriptorSizeSRV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	descriptorSizeRTV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	descriptorSizeDSV_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+	textureManager_.CreateShaderResourceView(TextureID::Texture2, &descriptorHeaps_);
+	textureManager_.CreateShaderResourceView(TextureID::Texture1, &descriptorHeaps_);
+	textureManager_.CreateShaderResourceView(TextureID::Texture3, &descriptorHeaps_);
+	textureManager_.CreateDepthStencilView(TextureID::DepthStencil, &descriptorHeaps_);
+
+	Logger::Log("Textures initialized successfully\n");
 }

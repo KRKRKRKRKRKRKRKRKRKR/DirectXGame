@@ -107,6 +107,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   <ItemGroup>
     <ClCompile Include="Camera\Camera.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
+    <ClCompile Include="DescriptorHeaps.cpp" />
+    <ClCompile Include="DirectX.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Externals\imgui\imgui.cpp" />
     <ClCompile Include="Externals\imgui\imguiManager.cpp" />
@@ -118,8 +120,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
     <ClCompile Include="Graphics\Renderer\Primitive\PrimitiveRenderer.cpp" />
-    <ClCompile Include="Graphics\Renderer\Texture\Texture.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Pipline.cpp" />
+    <ClCompile Include="ShaderCompiler.cpp" />
+    <ClCompile Include="TextureManager.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
     <ClCompile Include="Window\Window.cpp" />
@@ -127,6 +131,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   <ItemGroup>
     <ClInclude Include="Camera\Camera.h" />
     <ClInclude Include="Debug\Debug.h" />
+    <ClInclude Include="DescriptorHeaps.h" />
+    <ClInclude Include="DirectX.h" />
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Externals\imgui\imconfig.h" />
     <ClInclude Include="Externals\imgui\imgui.h" />
@@ -139,11 +145,13 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
     <ClInclude Include="Graphics\Renderer\Primitive\PrimitiveRenderer.h" />
-    <ClInclude Include="Graphics\Renderer\Texture\Texture.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />
     <ClInclude Include="Math\VectorMath.h" />
+    <ClInclude Include="Pipline.h" />
+    <ClInclude Include="ShaderCompiler.h" />
+    <ClInclude Include="TextureManager.h" />
     <ClInclude Include="Utils\Logger.h" />
     <ClInclude Include="Utils\StringUtils.h" />
     <ClInclude Include="Window\Window.h" />
