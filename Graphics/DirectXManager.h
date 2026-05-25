@@ -16,6 +16,8 @@
 #include "../Pipline.h"
 #include "../DescriptorHeaps.h"
 #include "../TextureManager.h"
+#include "../Triangle.h"
+
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -149,22 +151,9 @@ private:
 	static constexpr UINT STATIC_SAMPLER_COUNT = 1;
 	D3D12_STATIC_SAMPLER_DESC staticSamplers_[STATIC_SAMPLER_COUNT] = {};
 
-	// ===== PSO 関連 =====
-	ComPtr<ID3DBlob> signatureBlob_ = nullptr;
-	ComPtr<ID3DBlob> errorBlob_ = nullptr;
-	ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
-	ComPtr<IDxcBlob> vertexShaderBlob_ = nullptr;
-	ComPtr<IDxcBlob> pixelShaderBlob_ = nullptr;
-	ComPtr<ID3D12PipelineState> graphicsPipelineState_ = nullptr;
-
-	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[2] = {};
-	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc_ = {};
-	D3D12_BLEND_DESC blendDesc_ = {};
-	D3D12_RASTERIZER_DESC rasterizerDesc_ = {};
-	D3D12_DEPTH_STENCIL_DESC depthStencilDesc_ = {};
+	// ===== PSO 関連 ====
 
 	// ===== 描画用リソース =====
-	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 	ComPtr<ID3D12Resource> materialResource_ = nullptr;
     ComPtr<ID3D12Resource> wvpResource_ = nullptr;
 	ComPtr<ID3D12Resource> vertexResourceSprite_ = nullptr;
@@ -190,4 +179,7 @@ private:
 	ShaderCompiler shaderCompiler_;
 	Pipline pipline_;
 	TextureManager textureManager_;
+	std::unique_ptr<Triangle> triangle_;
+	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
+
 };

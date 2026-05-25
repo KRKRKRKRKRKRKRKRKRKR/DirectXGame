@@ -124,6 +124,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Pipline.cpp" />
     <ClCompile Include="ShaderCompiler.cpp" />
     <ClCompile Include="TextureManager.cpp" />
+    <ClCompile Include="Triangle.cpp" />
+    <ClCompile Include="TriangleBatch.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
     <ClCompile Include="Window\Window.cpp" />
@@ -145,6 +147,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
     <ClInclude Include="Graphics\Renderer\Primitive\PrimitiveRenderer.h" />
+    <ClInclude Include="IDrawable.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />
@@ -152,6 +155,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Pipline.h" />
     <ClInclude Include="ShaderCompiler.h" />
     <ClInclude Include="TextureManager.h" />
+    <ClInclude Include="Triangle.h" />
+    <ClInclude Include="TriangleBatch.h" />
     <ClInclude Include="Utils\Logger.h" />
     <ClInclude Include="Utils\StringUtils.h" />
     <ClInclude Include="Window\Window.h" />

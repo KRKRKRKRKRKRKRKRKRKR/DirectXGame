@@ -94,6 +94,8 @@
     <ClCompile Include="Pipline.cpp" />
     <ClCompile Include="DescriptorHeaps.cpp" />
     <ClCompile Include="TextureManager.cpp" />
+    <ClCompile Include="Triangle.cpp" />
+    <ClCompile Include="TriangleBatch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\DirectXManager.h">
@@ -164,6 +166,9 @@
     <ClInclude Include="Pipline.h" />
     <ClInclude Include="DescriptorHeaps.h" />
     <ClInclude Include="TextureManager.h" />
+    <ClInclude Include="IDrawable.h" />
+    <ClInclude Include="Triangle.h" />
+    <ClInclude Include="TriangleBatch.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Object3d.VS.hlsl" />

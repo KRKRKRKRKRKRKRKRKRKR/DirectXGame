@@ -71,7 +71,10 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	shaderCompiler_.InitializeDXC();
 	// Primitive 描画の初期化
 	pipline_.Initialize(device_.Get(), &shaderCompiler_);
-	
+
+
+	triangle_ = std::make_unique<Triangle>();
+	triangle_->Initialize(device_.Get(), &textureManager_, pipline_.GetRootSignature(), pipline_.GetPipelineState());
 
 	CreateVertexResource();
 	CreateMaterialResource();
@@ -109,19 +112,12 @@ void DirectXManager::Finalize() {
 
 
 	// 描画関連リソース解放
-	vertexResource_.Reset();
 	materialResource_.Reset();
 	vertexResourceSprite_.Reset();
 	transformationMatrixResourceSprite_.Reset();
 	vertexResourceSphere_.Reset();
 
-	graphicsPipelineState_.Reset();
-	rootSignature_.Reset();
-
-	vertexShaderBlob_.Reset();
-	pixelShaderBlob_.Reset();
-	signatureBlob_.Reset();
-	errorBlob_.Reset();
+	triangle_.reset();
 
 	textureManager_.Finalize();
 
@@ -156,9 +152,11 @@ void DirectXManager::BeginFrame() {
 	backBufferIndex_ = swapChain_->GetCurrentBackBufferIndex();
 	BeginTransitionBarrier();
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
-	commandList_->OMSetRenderTargets(1, &rtvHandle, false, nullptr);
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = descriptorHeaps_.GetDSVHandle();
+	commandList_->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
 	float clearColor[] = { 0.1f,0.25f,0.5f,0.1f };
 	commandList_->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeaps_.GetSRVDescriptorHeap() };
 	commandList_->SetDescriptorHeaps(1, descriptorHeaps);
 }
@@ -534,12 +532,27 @@ void DirectXManager::CreateVertexTransformMatrixResource() {
 //描画関連 (Unified from PrimitiveRenderer)
 //==================================================================
 void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, uint32_t wvpIndex) {
-	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
-	SetWvpMatrix(wvpIndex, worldMatrix * view * projection);
+	if (!triangle_) {
+		Logger::Log("Triangle is not initialized\n");
+		return;
+	}
 
+	// ワールド行列を計算
+	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(
+		transform.scale, transform.rotation, transform.translation);
+
+	// WVP 行列を計算して三角形に設定
+	Matrix4x4 wvpMatrix = worldMatrix * view * projection;
+	triangle_->SetWvpMatrix(wvpMatrix);
+
+	// ビューポートとシザーレクトを設定
 	ViewportScissorRect(windowWidth_, windowHeight_);
+
+	// パイプラインコマンドを設定
 	SetPipelineCommands();
-	RecordDrawCommands();
+
+	// Triangle の Draw を呼び出し
+	triangle_->Draw(commandList_.Get());
 }
 
 void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
@@ -667,10 +680,6 @@ void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, cons
 
 	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
 
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = descriptorHeaps_.GetDSVHandle();
-	commandList_->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
-	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	commandList_->DrawInstanced(sphereVertexCount_, 1, 0, 0);
 }
 void DirectXManager::ViewportScissorRect(int32_t width, int32_t height) {
@@ -689,22 +698,24 @@ void DirectXManager::ViewportScissorRect(int32_t width, int32_t height) {
 void DirectXManager::SetPipelineCommands() {
 	commandList_->RSSetViewports(1, &viewport_);
 	commandList_->RSSetScissorRects(1, &scissorRect_);
-	commandList_->SetGraphicsRootSignature(pipline_.GetRootSignature());
-	commandList_->SetPipelineState(pipline_.GetPipelineState());
-}
 
+	if (triangle_) {
+		commandList_->SetGraphicsRootSignature(triangle_->GetRootSignature());
+		commandList_->SetPipelineState(triangle_->GetPipelineState());
+	}
+
+	// テクスチャ SRV ハンドルを設定
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle =
+		textureManager_.GetSrvGpuHandle(TextureID::Texture3);
+	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
+}
 void DirectXManager::RecordDrawCommands() {
-	commandList_->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootConstantBufferView(1, GetWvpGpuAddress(kTriangleWvpIndex));
+
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager_.GetSrvGpuHandle(TextureID::Texture3);
 	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = descriptorHeaps_.GetDSVHandle();
-	commandList_->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
-	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-	commandList_->DrawInstanced(6, 1, 0, 0);
+
 	commandList_->IASetVertexBuffers(0, 1, &vertexBufferViewSprite_);
 	commandList_->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite_->GetGPUVirtualAddress());
 	commandList_->DrawInstanced(6, 1, 0, 0);
