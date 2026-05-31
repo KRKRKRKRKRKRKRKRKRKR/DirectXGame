@@ -158,6 +158,38 @@ void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix) {
 	std::memcpy(wvpMappedData_, &wvpMatrix, sizeof(Matrix4x4));
 }
 
+void Triangle::SetViewportAndScissorRect(int32_t width, int32_t height) {
+	viewport_.Width = static_cast<float>(width);
+	viewport_.Height = static_cast<float>(height);
+	viewport_.TopLeftX = 0;
+	viewport_.TopLeftY = 0;
+	viewport_.MinDepth = 0.0f;
+	viewport_.MaxDepth = 1.0f;
+	scissorRect_.left = 0;
+	scissorRect_.right = width;
+	scissorRect_.top = 0;
+	scissorRect_.bottom = height;
+}
+
+void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager) {
+	if (!commandList || !textureManager) {
+		Logger::Log("Triangle::SetPipelineCommands : Invalid parameters\n");
+		return;
+	}
+
+	// ビューポートとシザーレクトを設定
+	commandList->RSSetViewports(1, &viewport_);
+	commandList->RSSetScissorRects(1, &scissorRect_);
+
+	// ルートシグネチャとパイプラインステートを設定
+	commandList->SetGraphicsRootSignature(rootSignature_);
+	commandList->SetPipelineState(pipelineState_);
+
+	// テクスチャ SRV ハンドルを設定（デフォルト: Texture3）
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager->GetSrvGpuHandle(TextureID::Texture3);
+	commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
+}
+
 void Triangle::Draw(ID3D12GraphicsCommandList* commandList) {
 	if (!commandList) {
 		Logger::Log("Triangle::Draw : Invalid command list\n");
@@ -170,16 +202,13 @@ void Triangle::Draw(ID3D12GraphicsCommandList* commandList) {
 	// プリミティブトポロジーを設定（三角形リスト）
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	// ルートシグネチャとパイプラインステートはDirectXManagerが設定済みと仮定
 	// マテリアルバッファをセット（ルートパラメータ0）
 	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
 	// WVP 行列をセット（ルートパラメータ1）
 	commandList->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
 
-	// テクスチャをセット（ルートパラメータ2）
-	// 注: テクスチャハンドルは DirectXManager が設定すると仮定
-	// ここでは省略（必要に応じて SetGraphicsRootDescriptorTable を呼び出し）
+	// テクスチャセットはSetPipelineCommands()で既に設定済み
 
 	// 描画コマンド（6頂点）
 	commandList->DrawInstanced(6, 1, 0, 0);

@@ -23,6 +23,12 @@ public:
 	// ワールド・ビュー・プロジェクション行列を設定
 	void SetWvpMatrix(const Matrix4x4& wvpMatrix);
 
+	// ビューポート・シザーレクトを設定
+	void SetViewportAndScissorRect(int32_t width, int32_t height);
+
+	// パイプラインコマンドを設定
+	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager);
+
 	// IDrawable 実装
 	void Draw(ID3D12GraphicsCommandList* commandList) override;
 	uint32_t GetWvpIndex() const override { return wvpIndex_; }
@@ -32,6 +38,8 @@ public:
 	// ゲッター
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const { return vertexBufferView_; }
 	ComPtr<ID3D12Resource> GetVertexResource() const { return vertexResource_; }
+	const D3D12_VIEWPORT& GetViewport() const { return viewport_; }
+	const D3D12_RECT& GetScissorRect() const { return scissorRect_; }
 
 private:
 	// 頂点バッファ関連
@@ -46,6 +54,10 @@ private:
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
 	uint8_t* wvpMappedData_ = nullptr;
 	uint32_t wvpStride_ = 0;
+
+	// ビューポート・シザーレクト
+	D3D12_VIEWPORT viewport_{};
+	D3D12_RECT scissorRect_{};
 
 	// パイプライン参照
 	ID3D12RootSignature* rootSignature_ = nullptr;
