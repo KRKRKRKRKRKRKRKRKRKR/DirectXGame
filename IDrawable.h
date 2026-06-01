@@ -11,10 +11,7 @@ public:
 	virtual ~IDrawable() = default;
 
 	// GPU コマンドリストへの描画命令を記録
-	virtual void Draw(ID3D12GraphicsCommandList* commandList) = 0;
-
-	// WVP 行列インデックスを取得（行列プーリング用）
-	virtual uint32_t GetWvpIndex() const = 0;
+	virtual void Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) = 0;
 
 	// 描画パイプラインの設定を取得
 	virtual ID3D12RootSignature* GetRootSignature() const = 0;

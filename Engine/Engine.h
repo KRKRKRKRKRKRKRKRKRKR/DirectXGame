@@ -1,9 +1,7 @@
 #pragma once
 #include "../Window/Window.h"
 #include "../Graphics/DirectXManager.h"
-
 #include "../Math/MathTypes.h"
-
 #include "../Camera/Camera.h"
 #include "../Externals/imgui/imguiManager.h"
 
@@ -28,7 +26,8 @@ private:
 	Camera camera_;
 	ImGuiManager imgui_;
 
-	Transform transform_;
+	Transform transform1_;
+	Transform transform2_;
 
 	Transform transformSprite_;
 

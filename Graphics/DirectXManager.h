@@ -41,7 +41,7 @@ public:
 	void EndFrame();
 
 	// ===== 描画関連 =====
-    void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, uint32_t wvpIndex = 0);
+	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
 	void DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
  void CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, bool changeTexture, uint32_t wvpIndex = 1);
 
@@ -111,6 +111,7 @@ private:
 	bool initialized_ = false;
 	bool comInitialized_ = false;
 	bool isTextureLoaded_ = false;
+	uint32_t currentTriangleWvpIndex_ = 0;
 
 	// ===== DXGI & Device Members =====
 	ComPtr<IDXGIFactory7> dxgiFactory_ = nullptr;

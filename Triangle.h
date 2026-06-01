@@ -21,7 +21,7 @@ public:
 		ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState);
 
 	// ワールド・ビュー・プロジェクション行列を設定
-	void SetWvpMatrix(const Matrix4x4& wvpMatrix);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix,uint32_t wvpIndex);
 
 	// ビューポート・シザーレクトを設定
 	void SetViewportAndScissorRect(int32_t width, int32_t height);
@@ -30,8 +30,7 @@ public:
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager);
 
 	// IDrawable 実装
-	void Draw(ID3D12GraphicsCommandList* commandList) override;
-	uint32_t GetWvpIndex() const override { return wvpIndex_; }
+	void Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) ;
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
 	ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
 
@@ -49,8 +48,8 @@ private:
 	// マテリアル・テクスチャ関連
 	ComPtr<ID3D12Resource> materialResource_ = nullptr;
 
-	// 行列プーリング関連
-	uint32_t wvpIndex_ = 0;
+
+	// WVP 行列関連
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
 	uint8_t* wvpMappedData_ = nullptr;
 	uint32_t wvpStride_ = 0;
@@ -65,6 +64,11 @@ private:
 
 	// テクスチャ マネージャー参照
 	TextureManager* textureManager_ = nullptr;
+
+	// 描画定数
+	const uint32_t kMaxInstanceCount = 1024;
+
+	const int kVertexCount = 12;
 
 	// 内部初期化関数
 	void CreateVertexResource(ID3D12Device* device);

@@ -132,7 +132,7 @@ void Pipline::BlendState() {
 
 //PSOのRasterizerStateの設定
 void Pipline::RasterizerState() {
-	rasterizerDesc_.CullMode = D3D12_CULL_MODE_BACK;
+	rasterizerDesc_.CullMode = D3D12_CULL_MODE_NONE;
 	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
 }
 

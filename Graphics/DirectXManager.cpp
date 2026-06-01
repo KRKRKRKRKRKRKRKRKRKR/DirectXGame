@@ -149,6 +149,7 @@ void DirectXManager::Finalize() {
 //フレーム管理
 //===========================================
 void DirectXManager::BeginFrame() {
+	currentTriangleWvpIndex_ = 0; // フレームごとにインデックスをリセット
 	backBufferIndex_ = swapChain_->GetCurrentBackBufferIndex();
 	BeginTransitionBarrier();
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
@@ -531,19 +532,21 @@ void DirectXManager::CreateVertexTransformMatrixResource() {
 //==================================================================
 //描画関連 (Unified from PrimitiveRenderer)
 //==================================================================
-void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, uint32_t wvpIndex) {
+void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
 	if (!triangle_) {
 		Logger::Log("Triangle is not initialized\n");
 		return;
 	}
 
 	// ワールド行列を計算
-	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(
-		transform.scale, transform.rotation, transform.translation);
+	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
+
+	// フレームごとのインデックスを自動割り当て
+	uint32_t wvpIndex = currentTriangleWvpIndex_++;
 
 	// WVP 行列を計算して三角形に設定
 	Matrix4x4 wvpMatrix = worldMatrix * view * projection;
-	triangle_->SetWvpMatrix(wvpMatrix);
+	triangle_->SetWvpMatrix(wvpMatrix, wvpIndex);
 
 	// ビューポートとシザーレクトを設定
 	ViewportScissorRect(windowWidth_, windowHeight_);
@@ -552,7 +555,7 @@ void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& 
 	SetPipelineCommands();
 
 	// Triangle の Draw を呼び出し
-	triangle_->Draw(commandList_.Get());
+	triangle_->Draw(commandList_.Get(), wvpIndex);
 }
 
 void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
@@ -726,8 +729,8 @@ void DirectXManager::InitializeTexture() {
 	textureManager_.SetCommandList(commandList_.Get());
 
 	textureManager_.LoadTextureResourceFromFile(TextureID::Texture2, "Resources/s.png");
-	textureManager_.LoadTextureResourceFromFile(TextureID::Texture1, "Resources/f.png");
-	textureManager_.LoadTextureResourceFromFile(TextureID::Texture3, "Resources/s.png");
+	textureManager_.LoadTextureResourceFromFile(TextureID::Texture1, "Resources/t.png");
+	textureManager_.LoadTextureResourceFromFile(TextureID::Texture3, "Resources/t.png");
 	textureManager_.CreateDepthStencilBuffer(TextureID::DepthStencil, windowWidth_, windowHeight_);
 
 	WaitForGPUCompletion();

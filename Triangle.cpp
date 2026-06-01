@@ -48,8 +48,8 @@ void Triangle::Initialize(ID3D12Device* device, TextureManager* textureManager,
 }
 
 void Triangle::CreateVertexResource(ID3D12Device* device) {
-	// 三角形は6頂点（2つの三角形で1つの四角形を構成）
-	vertexResource_ = textureManager_->CreateBufferResource(sizeof(VertexData) * 6);
+
+	vertexResource_ = textureManager_->CreateBufferResource(sizeof(VertexData) * kVertexCount);
 
 	if (!vertexResource_) {
 		Logger::Log("Triangle::CreateVertexResource : Failed to create vertex buffer\n");
@@ -59,7 +59,7 @@ void Triangle::CreateVertexResource(ID3D12Device* device) {
 
 	// 頂点バッファビュー設定
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 6;
+	vertexBufferView_.SizeInBytes = sizeof(VertexData) * kVertexCount;
 	vertexBufferView_.StrideInBytes = sizeof(VertexData);
 }
 
@@ -86,12 +86,9 @@ void Triangle::CreateMaterialResource(ID3D12Device* device) {
 }
 
 void Triangle::CreateWvpMatrixResource(ID3D12Device* device) {
-	// WVP 行列プール用リソースを作成
-	// DirectXManager から提供される行列プールを使用するため、
-	// ここでは小さなローカル行列バッファのみ作成
 
 	wvpStride_ = AlignUp(static_cast<uint32_t>(sizeof(Matrix4x4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-	wvpResource_ = textureManager_->CreateBufferResource(static_cast<size_t>(wvpStride_) * 1);
+	wvpResource_ = textureManager_->CreateBufferResource(static_cast<size_t>(wvpStride_) * kMaxInstanceCount);
 
 	if (!wvpResource_) {
 		Logger::Log("Triangle::CreateWvpMatrixResource : Failed to create WVP buffer\n");
@@ -106,9 +103,9 @@ void Triangle::CreateWvpMatrixResource(ID3D12Device* device) {
 		return;
 	}
 
-	wvpIndex_ = 0;
 }
 
+//正四面体を作る
 void Triangle::WriteVertexData() {
 	if (!vertexResource_) {
 		Logger::Log("Triangle::WriteVertexData : Vertex resource is not initialized\n");
@@ -123,39 +120,48 @@ void Triangle::WriteVertexData() {
 		return;
 	}
 
-	// 三角形の頂点データ（2つの三角形で四角形を構成）
-	// 三角形1
-	vertexData[0].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
-	vertexData[0].texcoord = Vector2(0.0f, 1.0f);
+	// 正四面体の4つの頂点座標を定義
+	Vector4 posA = Vector4(0.0f, 0.5774f, 0.0f, 1.0f); // 上頂点
+	Vector4 posB = Vector4(-0.5f, -0.2887f, 0.2887f, 1.0f); // 手前左
+	Vector4 posC = Vector4(0.5f, -0.2887f, 0.2887f, 1.0f); // 手前右
+	Vector4 posD = Vector4(0.0f, -0.2887f, -0.5774f, 1.0f); // 奥
 
-	vertexData[1].position = Vector4(0.0f, 0.5f, 0.0f, 1.0f);
-	vertexData[1].texcoord = Vector2(0.5f, 0.0f);
+	// --- 面1: 底面 (B, D, C) ---
+	vertexData[0].position = posB;  vertexData[0].texcoord = Vector2(0.0f, 1.0f);
+	vertexData[1].position = posD;  vertexData[1].texcoord = Vector2(0.5f, 0.0f);
+	vertexData[2].position = posC;  vertexData[2].texcoord = Vector2(1.0f, 1.0f);
 
-	vertexData[2].position = Vector4(0.5f, -0.5f, 0.0f, 1.0f);
-	vertexData[2].texcoord = Vector2(1.0f, 1.0f);
+	// --- 面2: 前面 (A, C, B) ---
+	vertexData[3].position = posA;  vertexData[3].texcoord = Vector2(0.5f, 0.0f);
+	vertexData[4].position = posC;  vertexData[4].texcoord = Vector2(1.0f, 1.0f);
+	vertexData[5].position = posB;  vertexData[5].texcoord = Vector2(0.0f, 1.0f);
 
-	// 三角形2
-	vertexData[3].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
-	vertexData[3].texcoord = Vector2(0.0f, 1.0f);
+	// --- 面3: 左側面 (A, B, D) ---
+	vertexData[6].position = posA;  vertexData[6].texcoord = Vector2(0.5f, 0.0f);
+	vertexData[7].position = posB;  vertexData[7].texcoord = Vector2(0.0f, 1.0f);
+	vertexData[8].position = posD;  vertexData[8].texcoord = Vector2(1.0f, 1.0f);
 
-	vertexData[4].position = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
-	vertexData[4].texcoord = Vector2(0.5f, 0.0f);
+	// --- 面4: 右側面 (A, D, C) ---
+	vertexData[9].position = posA; vertexData[9].texcoord = Vector2(0.5f, 0.0f);
+	vertexData[10].position = posD; vertexData[10].texcoord = Vector2(0.0f, 1.0f);
+	vertexData[11].position = posC; vertexData[11].texcoord = Vector2(1.0f, 1.0f);
 
-	vertexData[5].position = Vector4(0.5f, -0.5f, -0.5f, 1.0f);
-	vertexData[5].texcoord = Vector2(1.0f, 1.0f);
+
+
 
 	vertexResource_->Unmap(0, nullptr);
 
 	Logger::Log("Triangle vertex data written successfully\n");
 }
 
-void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix) {
+void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix,uint32_t wvpIndex) {
 	if (!wvpMappedData_ || !wvpResource_) {
 		Logger::Log("Triangle::SetWvpMatrix : WVP resource is not initialized\n");
 		return;
 	}
 
-	std::memcpy(wvpMappedData_, &wvpMatrix, sizeof(Matrix4x4));
+	char* destination = reinterpret_cast<char*>(wvpMappedData_) + wvpIndex * wvpStride_;
+	std::memcpy(destination, &wvpMatrix, sizeof(Matrix4x4));
 }
 
 void Triangle::SetViewportAndScissorRect(int32_t width, int32_t height) {
@@ -186,11 +192,11 @@ void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, Textu
 	commandList->SetPipelineState(pipelineState_);
 
 	// テクスチャ SRV ハンドルを設定（デフォルト: Texture3）
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager->GetSrvGpuHandle(TextureID::Texture3);
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager->GetSrvGpuHandle(TextureID::Texture1);
 	commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
 }
 
-void Triangle::Draw(ID3D12GraphicsCommandList* commandList) {
+void Triangle::Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) {
 	if (!commandList) {
 		Logger::Log("Triangle::Draw : Invalid command list\n");
 		return;
@@ -205,11 +211,11 @@ void Triangle::Draw(ID3D12GraphicsCommandList* commandList) {
 	// マテリアルバッファをセット（ルートパラメータ0）
 	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
-	// WVP 行列をセット（ルートパラメータ1）
-	commandList->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress());
+	D3D12_GPU_VIRTUAL_ADDRESS wvpAddress = wvpResource_->GetGPUVirtualAddress() + (wvpStride_ * wvpIndex);
 
-	// テクスチャセットはSetPipelineCommands()で既に設定済み
+	// WVP 行列をセット（ルートパラメータ1）
+	commandList->SetGraphicsRootConstantBufferView(1,wvpAddress);
 
 	// 描画コマンド（6頂点）
-	commandList->DrawInstanced(6, 1, 0, 0);
+	commandList->DrawInstanced(kVertexCount, 1, 0, 0);
 }
