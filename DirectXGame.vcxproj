@@ -104,6 +104,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera\Camera.cpp" />
+    <ClCompile Include="CreateParticle.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Externals\imgui\imgui.cpp" />
@@ -120,6 +121,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Graphics\Pipline\Pipline.cpp" />
     <ClCompile Include="Graphics\ShaderCompiler\ShaderCompiler.cpp" />
     <ClCompile Include="Graphics\Texture\TextureManager.cpp" />
+    <ClCompile Include="InputDevice\InputDevice.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
@@ -127,6 +129,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera\Camera.h" />
+    <ClInclude Include="CreateParticle.h" />
     <ClInclude Include="Debug\Debug.h" />
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Externals\imgui\imconfig.h" />
@@ -145,6 +148,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Graphics\Pipline\Pipline.h" />
     <ClInclude Include="Graphics\ShaderCompiler\ShaderCompiler.h" />
     <ClInclude Include="Graphics\Texture\TextureManager.h" />
+    <ClInclude Include="InputDevice\InputDevice.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />

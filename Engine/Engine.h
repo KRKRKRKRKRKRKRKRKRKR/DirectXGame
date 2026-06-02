@@ -4,6 +4,7 @@
 #include "../Math/MathTypes.h"
 #include "../Camera/Camera.h"
 #include "../Externals/imgui/imguiManager.h"
+#include "../InputDevice/InputDevice.h"
 
 class Engine {
 public:
@@ -29,12 +30,8 @@ private:
 	Transform transform1_;
 	Transform transform2_;
 
-	Transform transformSprite_;
-
-	Transform transformSphere_;
-	SphereData sphereData_;
-	bool changeTexture_ = false;
-
 	CameraData cameraData_;
+
+	void CameraControl();
 
 };

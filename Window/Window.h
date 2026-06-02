@@ -19,7 +19,7 @@ public:
 	HWND    GetHWND()        const { return hwnd_; }
 	int32_t GetClientWidth() const { return clientWidth_; }
 	int32_t GetClientHeight()const { return clientHeight_; }
-
+	HINSTANCE GetInstance()     const { return wc_.hInstance; }
 private:
 	// ウィンドウプロシージャはstaticである必要がある
 	static LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg,

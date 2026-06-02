@@ -50,6 +50,12 @@
     <Filter Include="HLSL">
       <UniqueIdentifier>{1468e40e-d21c-4e52-a632-942cfb664c74}</UniqueIdentifier>
     </Filter>
+    <Filter Include="CreateParticle">
+      <UniqueIdentifier>{1ae814be-f1c9-4116-a59a-3f997b132a67}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="InputDevice">
+      <UniqueIdentifier>{49fbe7e4-120a-44fd-ab1e-c539293462e0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
@@ -118,6 +124,12 @@
     </ClCompile>
     <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp">
       <Filter>Graphics\Object\Triangle</Filter>
+    </ClCompile>
+    <ClCompile Include="CreateParticle.cpp">
+      <Filter>CreateParticle</Filter>
+    </ClCompile>
+    <ClCompile Include="InputDevice\InputDevice.cpp">
+      <Filter>InputDevice</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -198,6 +210,12 @@
     </ClInclude>
     <ClInclude Include="Graphics\Object\Triangle\Triangle.h">
       <Filter>Graphics\Object\Triangle</Filter>
+    </ClInclude>
+    <ClInclude Include="CreateParticle.h">
+      <Filter>CreateParticle</Filter>
+    </ClInclude>
+    <ClInclude Include="InputDevice\InputDevice.h">
+      <Filter>InputDevice</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

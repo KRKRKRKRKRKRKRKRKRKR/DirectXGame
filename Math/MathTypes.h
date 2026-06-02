@@ -19,7 +19,7 @@ struct VertexData {
 struct CameraData {
 	Vector3 position = {0.0f, 0.0f, -5.0f};
 	Vector3 rotation = {0.0f,0.0f,0.0f};
-	float fovY = 45.0f;
+	float fov = 45.0f;
 	float nearClip = 0.1f;
 	float farClip = 100.0f;
 };

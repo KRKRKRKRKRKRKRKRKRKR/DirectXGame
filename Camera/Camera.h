@@ -18,7 +18,7 @@ public:
 
 	void SetPosition(const Vector3& position) { cameraData_.position = position; }
 	void SetRotation(const Vector3& rotation) { cameraData_.rotation = rotation; }
-	void SetFovY(float fovY) { cameraData_.fovY = fovY; }
+	void SetFov(float fov) { cameraData_.fov = fov; }
 
 private:
 	CameraData cameraData_;
