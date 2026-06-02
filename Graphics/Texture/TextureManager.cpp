@@ -1,8 +1,8 @@
 #include "TextureManager.h"
-#include "DescriptorHeaps.h"
-#include "Utils/Logger.h"
-#include "Utils/StringUtils.h"
-#include "Externals/DirectXTex/d3dx12.h"
+#include "../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../Utils/Logger.h"
+#include "../../Utils/StringUtils.h"
+#include "../../Externals/DirectXTex/d3dx12.h"
 #include <cassert>
 #include <format>
 

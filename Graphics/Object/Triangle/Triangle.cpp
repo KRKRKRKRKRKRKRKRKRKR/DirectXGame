@@ -1,6 +1,6 @@
 #include "Triangle.h"
-#include "../DirectXGame/TextureManager.h"
-#include "../DirectXGame/Utils/Logger.h"
+#include "../../Texture/TextureManager.h"
+#include "../../../Utils/Logger.h"
 
 
 #include <cassert>

@@ -1,6 +1,6 @@
 #include "ShaderCompiler.h"
-#include "Utils/Logger.h"
-#include "Utils/StringUtils.h"
+#include "../../Utils/Logger.h"
+#include "../../Utils/StringUtils.h"
 #include <cassert>
 #include <format>
 #pragma region DXCの初期化

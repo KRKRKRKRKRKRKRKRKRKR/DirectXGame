@@ -26,18 +26,36 @@
     <Filter Include="Graphics">
       <UniqueIdentifier>{15f6e967-c2a8-4c30-a51b-1e610e33e60b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Graphics\Renderer">
-      <UniqueIdentifier>{0dd4f975-e789-4334-8cc0-b2b600e88112}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Camera">
       <UniqueIdentifier>{7a962575-8638-44a3-9710-054aa4cadee2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\DescriptorHeaps">
+      <UniqueIdentifier>{db832cf3-c188-4eb2-ba58-53c9a065fe26}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Object">
+      <UniqueIdentifier>{8c66a6fb-8f10-42f5-a9ab-cd5a982a4ed8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Pipline">
+      <UniqueIdentifier>{fb973968-cccf-417a-b642-5c297f807172}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\ShaderCompiler">
+      <UniqueIdentifier>{64c4a9c3-1eed-4a5f-8e9e-ef36da0f5f31}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Texture">
+      <UniqueIdentifier>{9a5294f9-d774-4c22-bd8a-d813273adf25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Object\Triangle">
+      <UniqueIdentifier>{b90b7f8f-c12e-4f53-be30-b48083f3e761}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="HLSL">
+      <UniqueIdentifier>{1468e40e-d21c-4e52-a632-942cfb664c74}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
-    <None Include="Object3d.hlsli" />
-    <None Include="README.md" />
-    <None Include="PrimitiveRendererのフロー.md" />
+    <None Include="HLSL\Object3d.hlsli">
+      <Filter>HLSL</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -77,9 +95,6 @@
     <ClCompile Include="Externals\imgui\imguiManager.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\Renderer\Primitive\PrimitiveRenderer.cpp">
-      <Filter>Graphics\Renderer</Filter>
-    </ClCompile>
     <ClCompile Include="Camera\Camera.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
@@ -89,13 +104,21 @@
     <ClCompile Include="Window\Window.cpp">
       <Filter>Window</Filter>
     </ClCompile>
-    <ClCompile Include="DirectX.cpp" />
-    <ClCompile Include="ShaderCompiler.cpp" />
-    <ClCompile Include="Pipline.cpp" />
-    <ClCompile Include="DescriptorHeaps.cpp" />
-    <ClCompile Include="TextureManager.cpp" />
-    <ClCompile Include="Triangle.cpp" />
-    <ClCompile Include="TriangleBatch.cpp" />
+    <ClCompile Include="Graphics\DescriptorHeaps\DescriptorHeaps.cpp">
+      <Filter>Graphics\DescriptorHeaps</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Texture\TextureManager.cpp">
+      <Filter>Graphics\Texture</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\ShaderCompiler\ShaderCompiler.cpp">
+      <Filter>Graphics\ShaderCompiler</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Pipline\Pipline.cpp">
+      <Filter>Graphics\Pipline</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp">
+      <Filter>Graphics\Object\Triangle</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\DirectXManager.h">
@@ -149,9 +172,6 @@
     <ClInclude Include="Externals\imgui\imguiManager.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Renderer\Primitive\PrimitiveRenderer.h">
-      <Filter>Graphics\Renderer</Filter>
-    </ClInclude>
     <ClInclude Include="Camera\Camera.h">
       <Filter>Camera</Filter>
     </ClInclude>
@@ -161,23 +181,36 @@
     <ClInclude Include="Window\Window.h">
       <Filter>Window</Filter>
     </ClInclude>
-    <ClInclude Include="DirectX.h" />
-    <ClInclude Include="ShaderCompiler.h" />
-    <ClInclude Include="Pipline.h" />
-    <ClInclude Include="DescriptorHeaps.h" />
-    <ClInclude Include="TextureManager.h" />
-    <ClInclude Include="IDrawable.h" />
-    <ClInclude Include="Triangle.h" />
-    <ClInclude Include="TriangleBatch.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Object3d.VS.hlsl" />
-    <FxCompile Include="Object3d.PS.hlsl" />
+    <ClInclude Include="Graphics\DescriptorHeaps\DescriptorHeaps.h">
+      <Filter>Graphics\DescriptorHeaps</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Texture\TextureManager.h">
+      <Filter>Graphics\Texture</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\ShaderCompiler\ShaderCompiler.h">
+      <Filter>Graphics\ShaderCompiler</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Pipline\Pipline.h">
+      <Filter>Graphics\Pipline</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Object\IDrawable.h">
+      <Filter>Graphics\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Object\Triangle\Triangle.h">
+      <Filter>Graphics\Object\Triangle</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">
       <Filter>imgui</Filter>
     </Text>
-    <Text Include="DirectXManagerのフロー.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="HLSL\Object3d.PS.hlsl">
+      <Filter>HLSL</Filter>
+    </FxCompile>
+    <FxCompile Include="HLSL\Object3d.VS.hlsl">
+      <Filter>HLSL</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

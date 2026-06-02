@@ -1,7 +1,7 @@
 #pragma once
 #include <d3d12.h>
 #include <wrl.h>
-#include "../DirectXGame/Math/MathTypes.h"
+#include "../../Externals/DirectXTex/DirectXTex.h"
 
 using Microsoft::WRL::ComPtr;
 

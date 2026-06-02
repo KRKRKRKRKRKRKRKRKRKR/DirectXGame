@@ -12,11 +12,11 @@
 #include "../Externals/DirectXTex/d3dx12.h"
 #include "../Math/MathTypes.h"
 
-#include "../ShaderCompiler.h"
-#include "../Pipline.h"
-#include "../DescriptorHeaps.h"
-#include "../TextureManager.h"
-#include "../Triangle.h"
+#include "../Graphics/ShaderCompiler/ShaderCompiler.h"
+#include "../Graphics/Pipline/Pipline.h"
+#include "../Graphics/DescriptorHeaps/DescriptorHeaps.h"
+#include "../Graphics/Texture/TextureManager.h"
+#include "../Graphics/Object/Triangle/Triangle.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")

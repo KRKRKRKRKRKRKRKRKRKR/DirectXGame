@@ -3,8 +3,8 @@
 #include <d3d12.h>
 #include <wrl.h>
 #include <cstdint>
-#include "IDrawable.h"
-#include "../DirectXGame/Math/MathTypes.h"
+#include "../IDrawable.h"
+#include "../../../Math/MathTypes.h"
 
 using Microsoft::WRL::ComPtr;
 
