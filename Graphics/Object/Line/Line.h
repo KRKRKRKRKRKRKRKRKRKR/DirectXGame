@@ -10,44 +10,53 @@ using Microsoft::WRL::ComPtr;
 
 class TextureManager;
 
-// 三角形描画オブジェクト
-class Triangle : public IDrawable {
+// ライン描画オブジェクト（始点・終点の2点指定）
+class Line : public IDrawable {
 public:
-	Triangle() = default;
-	virtual ~Triangle();
+	Line() = default;
+	virtual ~Line();
 
 	// 初期化（DirectXManager から呼び出し）
 	void Initialize(ID3D12Device* device, TextureManager* textureManager,
 		ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState);
 
 	// ワールド・ビュー・プロジェクション行列を設定
-	void SetWvpMatrix(const Matrix4x4& wvpMatrix,uint32_t wvpIndex);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex);
+
+	// ライン始点・終点を設定
+	void SetLine(const Vector3& start, const Vector3& end, uint32_t lineIndex);
+
+	// ライン色を設定（RGBA, 0.0f〜1.0f）
+	void SetColor(const Vector4& color);
 
 	// ビューポート・シザーレクトを設定
 	void SetViewportAndScissorRect(int32_t width, int32_t height);
 
 	// パイプラインコマンドを設定
-	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager);
+	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList);
 
 	// IDrawable 実装
-	void Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) ;
+	void Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) override;
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
 	ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
 
 	// ゲッター
-	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const { return vertexBufferView_; }
-	ComPtr<ID3D12Resource> GetVertexResource() const { return vertexResource_; }
 	const D3D12_VIEWPORT& GetViewport() const { return viewport_; }
 	const D3D12_RECT& GetScissorRect() const { return scissorRect_; }
 
 private:
+	// 頂点データ（位置のみ、テクスチャなし）
+	struct VertexData {
+		Vector4 position;
+	};
+
 	// 頂点バッファ関連
 	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
+	VertexData* vertexMappedData_ = nullptr;
 
-	// マテリアル・テクスチャ関連
+	// マテリアル（色）関連
 	ComPtr<ID3D12Resource> materialResource_ = nullptr;
-
 
 	// WVP 行列関連
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
@@ -62,17 +71,16 @@ private:
 	ID3D12RootSignature* rootSignature_ = nullptr;
 	ID3D12PipelineState* pipelineState_ = nullptr;
 
-	// テクスチャ マネージャー参照
+	// テクスチャマネージャー参照
 	TextureManager* textureManager_ = nullptr;
 
 	// 描画定数
-	const uint32_t kMaxInstanceCount = 1048576;
-
-	const int kVertexCount = 12;
+	// 1ライン = 頂点2つ、最大ライン数分まとめて確保
+	static constexpr uint32_t kVerticesPerLine = 2;
+	const uint32_t kMaxInstanceCount = 1024;
 
 	// 内部初期化関数
 	void CreateVertexResource(ID3D12Device* device);
 	void CreateMaterialResource(ID3D12Device* device);
 	void CreateWvpMatrixResource(ID3D12Device* device);
-	void WriteVertexData();
 };

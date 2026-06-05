@@ -191,7 +191,7 @@ void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, Textu
 	commandList->SetGraphicsRootSignature(rootSignature_);
 	commandList->SetPipelineState(pipelineState_);
 
-	// テクスチャ SRV ハンドルを設定（デフォルト: Texture3）
+	// テクスチャ SRV ハンドルを設定
 	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager->GetSrvGpuHandle(TextureID::Texture1);
 	commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
 }

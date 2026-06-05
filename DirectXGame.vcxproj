@@ -104,7 +104,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera\Camera.cpp" />
-    <ClCompile Include="CreateParticle.cpp" />
+    <ClCompile Include="TrailParticle3D.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Externals\imgui\imgui.cpp" />
@@ -117,7 +117,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
     <ClCompile Include="Graphics\DirectXManager.cpp" />
+    <ClCompile Include="Graphics\Object\Line\Line.cpp" />
     <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp" />
+    <ClCompile Include="Graphics\Pipline\LinePipline.cpp" />
     <ClCompile Include="Graphics\Pipline\Pipline.cpp" />
     <ClCompile Include="Graphics\ShaderCompiler\ShaderCompiler.cpp" />
     <ClCompile Include="Graphics\Texture\TextureManager.cpp" />
@@ -129,7 +131,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera\Camera.h" />
-    <ClInclude Include="CreateParticle.h" />
+    <ClInclude Include="TrailParticle3D.h" />
     <ClInclude Include="Debug\Debug.h" />
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Externals\imgui\imconfig.h" />
@@ -144,7 +146,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Graphics\DescriptorHeaps\DescriptorHeaps.h" />
     <ClInclude Include="Graphics\DirectXManager.h" />
     <ClInclude Include="Graphics\Object\IDrawable.h" />
+    <ClInclude Include="Graphics\Object\Line\Line.h" />
     <ClInclude Include="Graphics\Object\Triangle\Triangle.h" />
+    <ClInclude Include="Graphics\Pipline\LinePipline.h" />
     <ClInclude Include="Graphics\Pipline\Pipline.h" />
     <ClInclude Include="Graphics\ShaderCompiler\ShaderCompiler.h" />
     <ClInclude Include="Graphics\Texture\TextureManager.h" />
@@ -166,6 +170,14 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="HLSL\Line.PS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="HLSL\Line.VS.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="HLSL\Object3d.PS.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>

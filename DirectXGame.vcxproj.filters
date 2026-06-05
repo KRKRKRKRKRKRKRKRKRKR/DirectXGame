@@ -56,6 +56,9 @@
     <Filter Include="InputDevice">
       <UniqueIdentifier>{49fbe7e4-120a-44fd-ab1e-c539293462e0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Graphics\Object\Line">
+      <UniqueIdentifier>{d43f915d-8d7f-4237-973c-0f46e9a02726}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include=".editorconfig" />
@@ -125,12 +128,16 @@
     <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp">
       <Filter>Graphics\Object\Triangle</Filter>
     </ClCompile>
-    <ClCompile Include="CreateParticle.cpp">
+    <ClCompile Include="TrailParticle3D.cpp">
       <Filter>CreateParticle</Filter>
     </ClCompile>
     <ClCompile Include="InputDevice\InputDevice.cpp">
       <Filter>InputDevice</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics\Object\Line\Line.cpp">
+      <Filter>Graphics\Object\Line</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Pipline\LinePipline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\DirectXManager.h">
@@ -211,12 +218,16 @@
     <ClInclude Include="Graphics\Object\Triangle\Triangle.h">
       <Filter>Graphics\Object\Triangle</Filter>
     </ClInclude>
-    <ClInclude Include="CreateParticle.h">
+    <ClInclude Include="TrailParticle3D.h">
       <Filter>CreateParticle</Filter>
     </ClInclude>
     <ClInclude Include="InputDevice\InputDevice.h">
       <Filter>InputDevice</Filter>
     </ClInclude>
+    <ClInclude Include="Graphics\Object\Line\Line.h">
+      <Filter>Graphics\Object\Line</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Pipline\LinePipline.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">
@@ -228,6 +239,12 @@
       <Filter>HLSL</Filter>
     </FxCompile>
     <FxCompile Include="HLSL\Object3d.VS.hlsl">
+      <Filter>HLSL</Filter>
+    </FxCompile>
+    <FxCompile Include="HLSL\Line.PS.hlsl">
+      <Filter>HLSL</Filter>
+    </FxCompile>
+    <FxCompile Include="HLSL\Line.VS.hlsl">
       <Filter>HLSL</Filter>
     </FxCompile>
   </ItemGroup>

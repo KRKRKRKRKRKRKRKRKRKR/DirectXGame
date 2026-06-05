@@ -5,7 +5,9 @@
 #include "../Camera/Camera.h"
 #include "../Externals/imgui/imguiManager.h"
 #include "../InputDevice/InputDevice.h"
+#include "../TrailParticle3D.h"
 
+#include <random>
 class Engine {
 public:
 	Engine() = default;
@@ -28,10 +30,16 @@ private:
 	ImGuiManager imgui_;
 
 	Transform transform1_;
-	Transform transform2_;
+	Transform transform3_;
 
 	CameraData cameraData_;
 
 	void CameraControl();
+	void DrawGrid();
 
+	static constexpr int kMaxTriangles = 10;
+	Transform triangleTransforms_[kMaxTriangles];
+	TrailParticle3D trailParticles_[kMaxTriangles];
+	void DrawImGui();
+	TrailParticleParameter trailParam_; 
 };

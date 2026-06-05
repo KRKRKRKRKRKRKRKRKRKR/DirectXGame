@@ -71,11 +71,14 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	shaderCompiler_.InitializeDXC();
 	// Primitive 描画の初期化
 	pipline_.Initialize(device_.Get(), &shaderCompiler_);
-
+	linePipline_.Initialize(device_.Get(), &shaderCompiler_);
 
 	triangle_ = std::make_unique<Triangle>();
 	triangle_->Initialize(device_.Get(), &textureManager_, pipline_.GetRootSignature(), pipline_.GetPipelineState());
 
+	line_ = std::make_unique<Line>();
+	line_->Initialize(device_.Get(), &textureManager_, linePipline_.GetRootSignature(), linePipline_.GetPipelineState());
+	
 	CreateVertexResource();
 	CreateMaterialResource();
 	CreateTransformationMatrix();
@@ -117,7 +120,9 @@ void DirectXManager::Finalize() {
 	transformationMatrixResourceSprite_.Reset();
 	vertexResourceSphere_.Reset();
 
+	line_.reset();
 	triangle_.reset();
+	
 
 	textureManager_.Finalize();
 
@@ -150,12 +155,14 @@ void DirectXManager::Finalize() {
 //===========================================
 void DirectXManager::BeginFrame() {
 	currentTriangleWvpIndex_ = 0; // フレームごとにインデックスをリセット
+	currentLineWvpIndex_ = 0; // フレームごとにインデックスをリセット
+
 	backBufferIndex_ = swapChain_->GetCurrentBackBufferIndex();
 	BeginTransitionBarrier();
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = descriptorHeaps_.GetRTVHandle(backBufferIndex_);
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = descriptorHeaps_.GetDSVHandle();
 	commandList_->OMSetRenderTargets(1, &rtvHandle, false, &dsvHandle);
-	float clearColor[] = { 0.1f,0.25f,0.5f,0.1f };
+	float clearColor[] = { 0.0f,0.0f,0.0f,1.0f };
 	commandList_->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeaps_.GetSRVDescriptorHeap() };
@@ -548,15 +555,42 @@ void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& 
 	Matrix4x4 wvpMatrix = worldMatrix * view * projection;
 	triangle_->SetWvpMatrix(wvpMatrix, wvpIndex);
 
-	// ビューポートとシザーレクトを設定
-	ViewportScissorRect(windowWidth_, windowHeight_);
+	triangle_->SetViewportAndScissorRect(windowWidth_, windowHeight_);
 
-	// パイプラインコマンドを設定
-	SetPipelineCommands();
+	triangle_->SetPipelineCommands(commandList_.Get(), &textureManager_);
 
 	// Triangle の Draw を呼び出し
 	triangle_->Draw(commandList_.Get(), wvpIndex);
 }
+
+void DirectXManager::DrawLineRender(const Matrix4x4& view, const Matrix4x4& projection, const Vector3& start, const Vector3& end, const Vector4& color) {
+	if (!line_) {
+		Logger::Log("Line is not initialized\n");
+		return;
+	}
+	if (!line_) {
+		Logger::Log("DrawLineRender : Line is not initialized\n");
+		return;
+	}
+
+	uint32_t wvpIndex = currentLineWvpIndex_++;
+
+	// ラインはワールド変換なし、VP行列のみ
+	Matrix4x4 vpMatrix = view * projection;
+	line_->SetWvpMatrix(vpMatrix, wvpIndex);
+
+	// 始点・終点をセット
+	line_->SetLine(start, end, wvpIndex);
+
+	// 色をセット
+	line_->SetColor(color);
+
+	// パイプライン設定と描画
+	line_->SetViewportAndScissorRect(windowWidth_, windowHeight_);
+	line_->SetPipelineCommands(commandList_.Get());
+	line_->Draw(commandList_.Get(), wvpIndex);
+}
+
 
 void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
