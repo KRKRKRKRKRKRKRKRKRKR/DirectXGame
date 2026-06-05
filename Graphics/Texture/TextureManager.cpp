@@ -332,3 +332,8 @@ void TextureManager::Finalize() {
 bool TextureManager::ValidateTextureID(TextureID id) const {
 	return static_cast<uint32_t>(id) < static_cast<uint32_t>(TextureID::Count);
 }
+
+void TextureManager::InitializeDepthStencil(int32_t width, int32_t height, DescriptorHeaps* heaps) {
+	depthStencilResource_ = CreateDepthStencilTextureResource(width, height);
+	heaps->CreateDSV(device_, depthStencilResource_.Get());
+}

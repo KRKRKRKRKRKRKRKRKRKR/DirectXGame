@@ -539,7 +539,7 @@ void DirectXManager::CreateVertexTransformMatrixResource() {
 //==================================================================
 //描画関連 (Unified from PrimitiveRenderer)
 //==================================================================
-void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
+void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, const Vector4& color, TextureID textureID) {
 	if (!triangle_) {
 		Logger::Log("Triangle is not initialized\n");
 		return;
@@ -553,11 +553,14 @@ void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& 
 
 	// WVP 行列を計算して三角形に設定
 	Matrix4x4 wvpMatrix = worldMatrix * view * projection;
+	
+	triangle_->SetColor(color, wvpIndex); // 色を設定
+
 	triangle_->SetWvpMatrix(wvpMatrix, wvpIndex);
 
 	triangle_->SetViewportAndScissorRect(windowWidth_, windowHeight_);
 
-	triangle_->SetPipelineCommands(commandList_.Get(), &textureManager_);
+	triangle_->SetPipelineCommands(commandList_.Get(), &textureManager_, textureID);
 
 	// Triangle の Draw を呼び出し
 	triangle_->Draw(commandList_.Get(), wvpIndex);
@@ -761,18 +764,18 @@ void DirectXManager::RecordDrawCommands() {
 void DirectXManager::InitializeTexture() {
 	textureManager_.SetDevice(device_.Get());
 	textureManager_.SetCommandList(commandList_.Get());
-
-	textureManager_.LoadTextureResourceFromFile(TextureID::Texture2, "Resources/s.png");
 	textureManager_.LoadTextureResourceFromFile(TextureID::Texture1, "Resources/t.png");
+	textureManager_.LoadTextureResourceFromFile(TextureID::Texture2, "Resources/s.png");
 	textureManager_.LoadTextureResourceFromFile(TextureID::Texture3, "Resources/t.png");
-	textureManager_.CreateDepthStencilBuffer(TextureID::DepthStencil, windowWidth_, windowHeight_);
+	textureManager_.LoadTextureResourceFromFile(TextureID::None, "Resources/White.png");
+	textureManager_.InitializeDepthStencil(windowWidth_, windowHeight_, &descriptorHeaps_);
 
 	WaitForGPUCompletion();
 
-	textureManager_.CreateShaderResourceView(TextureID::Texture2, &descriptorHeaps_);
 	textureManager_.CreateShaderResourceView(TextureID::Texture1, &descriptorHeaps_);
+	textureManager_.CreateShaderResourceView(TextureID::Texture2, &descriptorHeaps_);
 	textureManager_.CreateShaderResourceView(TextureID::Texture3, &descriptorHeaps_);
-	textureManager_.CreateDepthStencilView(TextureID::DepthStencil, &descriptorHeaps_);
+	textureManager_.CreateShaderResourceView(TextureID::None, &descriptorHeaps_);
 
 	Logger::Log("Textures initialized successfully\n");
 }

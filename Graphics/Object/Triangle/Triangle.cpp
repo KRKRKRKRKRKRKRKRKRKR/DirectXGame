@@ -13,15 +13,19 @@ namespace {
 }
 
 Triangle::~Triangle() {
-	// リソース解放
-	if (wvpResource_) {
+	if (wvpResource_ && wvpMappedData_) {  // wvpMappedData_ チェック追加
 		wvpResource_->Unmap(0, nullptr);
 		wvpMappedData_ = nullptr;
 		wvpResource_.Reset();
 	}
 
+	if (materialResource_ && materialMappedData_) {  // materialMappedData_ チェック追加
+		materialResource_->Unmap(0, nullptr);
+		materialMappedData_ = nullptr;
+		materialResource_.Reset();
+	}
+
 	vertexResource_.Reset();
-	materialResource_.Reset();
 }
 
 void Triangle::Initialize(ID3D12Device* device, TextureManager* textureManager,
@@ -64,7 +68,8 @@ void Triangle::CreateVertexResource(ID3D12Device* device) {
 }
 
 void Triangle::CreateMaterialResource(ID3D12Device* device) {
-	materialResource_ = textureManager_->CreateBufferResource(sizeof(Vector4));
+	materialStride_ = AlignUp(static_cast<uint32_t>(sizeof(Vector4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+	materialResource_ = textureManager_->CreateBufferResource(static_cast<size_t>(materialStride_) * kMaxInstanceCount);
 
 	if (!materialResource_) {
 		Logger::Log("Triangle::CreateMaterialResource : Failed to create material buffer\n");
@@ -72,17 +77,18 @@ void Triangle::CreateMaterialResource(ID3D12Device* device) {
 		return;
 	}
 
-	Vector4* materialData = nullptr;
-	HRESULT hr = materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
-	if (FAILED(hr) || !materialData) {
+	HRESULT hr = materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialMappedData_));
+	if (FAILED(hr) || !materialMappedData_) {
 		Logger::Log("Triangle::CreateMaterialResource : Failed to map material buffer\n");
 		assert(false);
 		return;
 	}
 
-	// デフォルト: 白色（R, G, B, A = 1.0）
-	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-	materialResource_->Unmap(0, nullptr);
+	// 全インスタンスを白で初期化
+	for (uint32_t i = 0; i < kMaxInstanceCount; i++) {
+		Vector4* data = reinterpret_cast<Vector4*>(materialMappedData_ + i * materialStride_);
+		*data = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
 }
 
 void Triangle::CreateWvpMatrixResource(ID3D12Device* device) {
@@ -90,18 +96,8 @@ void Triangle::CreateWvpMatrixResource(ID3D12Device* device) {
 	wvpStride_ = AlignUp(static_cast<uint32_t>(sizeof(Matrix4x4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 	wvpResource_ = textureManager_->CreateBufferResource(static_cast<size_t>(wvpStride_) * kMaxInstanceCount);
 
-	if (!wvpResource_) {
-		Logger::Log("Triangle::CreateWvpMatrixResource : Failed to create WVP buffer\n");
-		assert(false);
-		return;
-	}
-
 	HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
-	if (FAILED(hr) || !wvpMappedData_) {
-		Logger::Log("Triangle::CreateWvpMatrixResource : Failed to map WVP buffer\n");
-		assert(false);
-		return;
-	}
+	assert(SUCCEEDED(hr) && wvpMappedData_);
 
 }
 
@@ -146,15 +142,12 @@ void Triangle::WriteVertexData() {
 	vertexData[10].position = posD; vertexData[10].texcoord = Vector2(0.0f, 1.0f);
 	vertexData[11].position = posC; vertexData[11].texcoord = Vector2(1.0f, 1.0f);
 
-
-
-
 	vertexResource_->Unmap(0, nullptr);
 
 	Logger::Log("Triangle vertex data written successfully\n");
 }
 
-void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix,uint32_t wvpIndex) {
+void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex) {
 	if (!wvpMappedData_ || !wvpResource_) {
 		Logger::Log("Triangle::SetWvpMatrix : WVP resource is not initialized\n");
 		return;
@@ -177,7 +170,7 @@ void Triangle::SetViewportAndScissorRect(int32_t width, int32_t height) {
 	scissorRect_.bottom = height;
 }
 
-void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager) {
+void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager, TextureID textureID) {
 	if (!commandList || !textureManager) {
 		Logger::Log("Triangle::SetPipelineCommands : Invalid parameters\n");
 		return;
@@ -191,12 +184,12 @@ void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, Textu
 	commandList->SetGraphicsRootSignature(rootSignature_);
 	commandList->SetPipelineState(pipelineState_);
 
-	// テクスチャ SRV ハンドルを設定
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager->GetSrvGpuHandle(TextureID::Texture1);
+	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager->GetSrvGpuHandle(textureID);
 	commandList->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
 }
 
-void Triangle::Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) {
+
+void Triangle::Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) {
 	if (!commandList) {
 		Logger::Log("Triangle::Draw : Invalid command list\n");
 		return;
@@ -208,14 +201,18 @@ void Triangle::Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) {
 	// プリミティブトポロジーを設定（三角形リスト）
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	// マテリアルバッファをセット（ルートパラメータ0）
-	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-
 	D3D12_GPU_VIRTUAL_ADDRESS wvpAddress = wvpResource_->GetGPUVirtualAddress() + (wvpStride_ * wvpIndex);
-
+	D3D12_GPU_VIRTUAL_ADDRESS materialAddress =
+		materialResource_->GetGPUVirtualAddress() + (materialStride_ * wvpIndex);
+	commandList->SetGraphicsRootConstantBufferView(0, materialAddress);
 	// WVP 行列をセット（ルートパラメータ1）
-	commandList->SetGraphicsRootConstantBufferView(1,wvpAddress);
+	commandList->SetGraphicsRootConstantBufferView(1, wvpAddress);
 
 	// 描画コマンド（6頂点）
 	commandList->DrawInstanced(kVertexCount, 1, 0, 0);
+}
+void Triangle::SetColor(const Vector4& color, uint32_t materialIndex) {
+	if (!materialMappedData_) return;
+	Vector4* data = reinterpret_cast<Vector4*>(materialMappedData_ + materialIndex * materialStride_);
+	*data = color;
 }

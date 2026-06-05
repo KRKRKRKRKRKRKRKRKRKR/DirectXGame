@@ -5,7 +5,7 @@
 #include <cstdint>
 #include "../IDrawable.h"
 #include "../../../Math/MathTypes.h"
-
+#include "../../Texture/TextureManager.h"
 using Microsoft::WRL::ComPtr;
 
 class TextureManager;
@@ -27,8 +27,9 @@ public:
 	void SetViewportAndScissorRect(int32_t width, int32_t height);
 
 	// パイプラインコマンドを設定
-	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager);
+	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager,TextureID textureID);
 
+	void SetColor(const Vector4& color,uint32_t materialIndex);
 	// IDrawable 実装
 	void Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) ;
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
@@ -47,6 +48,8 @@ private:
 
 	// マテリアル・テクスチャ関連
 	ComPtr<ID3D12Resource> materialResource_ = nullptr;
+	uint32_t materialStride_ = 0;
+	uint8_t* materialMappedData_ = nullptr;
 
 
 	// WVP 行列関連

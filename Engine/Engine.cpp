@@ -18,10 +18,9 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	transform1_.rotation = { 0.0f, 0.0f, 0.0f };
 	transform1_.translation = { 0.0f, 0.0f, 0.0f };
 
-	//transform3は上下を逆さまにする
-	transform3_.scale = { 1.0f, 1.0f, 1.0f };
-	transform3_.rotation = { 3.14159f, 0.0f, 0.0f };
-	transform3_.translation = { 0.0f, 0.0f, 0.0f };
+	transform2_.scale = { 1.0f, 1.0f, 1.0f };
+	transform2_.rotation = { 3.14159f, 0.0f, 0.0f };
+	transform2_.translation = { 0.0f, 0.0f, 0.0f };
 
 	cameraData_.position = Vector3(0.0f, 0.5f, -5.0f);
 
@@ -40,7 +39,7 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	for (int i = 0; i < kMaxTriangles; i++) {
 		triangleTransforms_[i].scale = Vector3(1.0f, 1.0f, 1.0f);
 		triangleTransforms_[i].rotation = Vector3(0.0f, 0.0f, 0.0f);
-		triangleTransforms_[i].translation = Vector3(0.0f, 30.0f - (i * 3.0f), 0.0f);
+		triangleTransforms_[i].translation = Vector3(0.0f, 70.0f - (i * 3.0f), 0.0f);
 		trailParticles_[i].Init(trailParam_);
 	}
 
@@ -66,7 +65,7 @@ void Engine::Finalize() {
 
 void Engine::Update() {
 	transform1_.rotation.y += 1.0f;
-	transform3_.rotation.y -= 1.0f;
+	transform2_.rotation.y -= 1.0f;
 	CameraControl();
 	for (int i = 0; i < kMaxTriangles; i++) {
 		trailParticles_[i].Update(triangleTransforms_[i].translation, triangleTransforms_[i].rotation);
@@ -85,10 +84,10 @@ void Engine::Render() {
 	Matrix4x4 viewMatrixSprite = MatrixMath::Identity();
 	Matrix4x4 projectionMatrixSprite = TransformMath::MakeOrthographicMatrix(0, 0, static_cast<float>(window_.GetClientWidth()), static_cast<float>(window_.GetClientHeight()), 0.1f, 100.0f);
 
-	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform1_);
-	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform3_);
+	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform1_, Vector4(1.0f, 1.0f, 1.0f, 1.0f), TextureID::None);
+	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform2_, Vector4(1.0f, 0.0f, 0.0f, 1.0f), TextureID::None);
 
-	directX_.DrawLineRender(viewMatrix, projectionMatrix, transform1_.translation, transform3_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+	directX_.DrawLineRender(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
 
 	DrawGrid();
 
@@ -101,7 +100,7 @@ void Engine::Render() {
 			t.scale = Vector3(p.scale, p.scale, p.scale);
 			t.rotation = p.rotation;
 			t.translation = p.position;
-			directX_.DrawTriangleRender(viewMatrix, projectionMatrix, t);
+			directX_.DrawTriangleRender(viewMatrix, projectionMatrix, t,p.color, textureID_);
 		}
 	}
 
@@ -208,6 +207,7 @@ void Engine::DrawImGui() {
 	bool changed = false;
 
 	ImGui::SeparatorText("Trail");
+	changed |= ImGui::SliderFloat3("Fixed Start Pos", &trailParam_.fixedStartPos.x, -50.0f, 50.0f);
 	changed |= ImGui::SliderFloat("Fall Speed", &trailParam_.fallSpeed, 0.01f, 2.0f);
 	changed |= ImGui::SliderFloat("Goal Area Radius", &trailParam_.goalAreaRadius, 0.0f, 30.0f);
 	changed |= ImGui::SliderFloat("Goal Y", &trailParam_.goalY, -10.0f, 10.0f);
@@ -219,6 +219,9 @@ void Engine::DrawImGui() {
 	changed |= ImGui::SliderFloat("Spawn Distance", &trailParam_.spawnDistance, 0.01f, 2.0f);
 	changed |= ImGui::SliderFloat("Spawn Radius", &trailParam_.spawnRadius, 0.0f, 2.0f);
 	changed |= ImGui::SliderFloat("Rotation Speed", &trailParam_.rotationSpeed, -0.2f, 0.2f);
+	changed |= ImGui::ColorEdit4("Color Start", &trailParam_.colorStart.x);
+	changed |= ImGui::ColorEdit4("Color End", &trailParam_.colorEnd.x);
+	changed |= ImGui::Combo("Texture", reinterpret_cast<int*>(&textureID_), "None\0Texture1\0");
 
 	// パラメータが変わったら全員に反映
 	if (changed) {
@@ -227,7 +230,6 @@ void Engine::DrawImGui() {
 		}
 	}
 
-
-
 	ImGui::End();
+	
 }

@@ -9,7 +9,7 @@
 using Microsoft::WRL::ComPtr;
 
 enum class TextureID : uint32_t {
-	DepthStencil,
+	None = 0,
 	Texture1,
 	Texture2,
 	Texture3,
@@ -58,6 +58,8 @@ public:
 	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle(TextureID id) const;
 	D3D12_CPU_DESCRIPTOR_HANDLE GetSrvCpuHandle(TextureID id) const;
 	uint32_t GetDescriptorHeapIndex(TextureID id) const;
+	ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
+
 	bool IsLoaded(TextureID id) const;
 
 	// === クリーンアップ ===
@@ -67,11 +69,12 @@ public:
 	void SetDevice(ID3D12Device* device) { device_ = device; }
 	void SetCommandList(ID3D12GraphicsCommandList* cmdList) { commandList_ = cmdList; }
 
+	void InitializeDepthStencil(int32_t width, int32_t height,DescriptorHeaps* heaps);
 private:
 	std::map<TextureID, TextureResource> textures_;
 	ID3D12Device* device_ = nullptr;
 	ID3D12GraphicsCommandList* commandList_ = nullptr;
 	uint32_t nextDescriptorIndex_ = 0;
-
+	ComPtr<ID3D12Resource> depthStencilResource_ = nullptr;
 	bool ValidateTextureID(TextureID id) const;
 };

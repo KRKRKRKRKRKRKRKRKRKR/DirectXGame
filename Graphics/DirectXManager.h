@@ -43,7 +43,7 @@ public:
 	void EndFrame();
 
 	// ===== 描画関連 =====
-	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
+	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, const Vector4& color, TextureID textureID);
 	void DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
 	void CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, bool changeTexture, uint32_t wvpIndex = 1);
 	void DrawLineRender(const Matrix4x4& view, const Matrix4x4& projection, const Vector3& start, const Vector3& end, const Vector4& color);
@@ -187,6 +187,9 @@ private:
 
 	std::unique_ptr<Triangle> triangle_;
 	uint32_t currentTriangleWvpIndex_ = 0;
+
+	uint32_t materialStride_ = 0;
+	uint8_t* materialMappedData_ = nullptr;
 
 	std::unique_ptr<Line> line_;
 	uint32_t currentLineWvpIndex_ = 0;
