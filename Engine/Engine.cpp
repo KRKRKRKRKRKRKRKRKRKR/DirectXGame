@@ -16,11 +16,11 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 
 	transform1_.scale = { 1.0f, 1.0f, 1.0f };
 	transform1_.rotation = { 0.0f, 0.0f, 0.0f };
-	transform1_.translation = { 0.0f, 0.0f, 0.0f };
+	transform1_.translation = { 0.0f, 15.0f, 0.0f };
 
 	transform2_.scale = { 1.0f, 1.0f, 1.0f };
 	transform2_.rotation = { 3.14159f, 0.0f, 0.0f };
-	transform2_.translation = { 0.0f, 0.0f, 0.0f };
+	transform2_.translation = { 0.0f, 15.0f, 0.0f };
 
 	cameraData_.position = Vector3(0.0f, 0.5f, -5.0f);
 
@@ -84,8 +84,8 @@ void Engine::Render() {
 	Matrix4x4 viewMatrixSprite = MatrixMath::Identity();
 	Matrix4x4 projectionMatrixSprite = TransformMath::MakeOrthographicMatrix(0, 0, static_cast<float>(window_.GetClientWidth()), static_cast<float>(window_.GetClientHeight()), 0.1f, 100.0f);
 
-	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform1_, Vector4(1.0f, 1.0f, 1.0f, 1.0f), TextureID::None);
-	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform2_, Vector4(1.0f, 0.0f, 0.0f, 1.0f), TextureID::None);
+	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform1_, Vector4(1.0f, 1.0f, 0.0f, 1.0f), TextureID::None);
+	directX_.DrawTriangleRender(viewMatrix, projectionMatrix, transform2_, Vector4(1.0f, 1.0f, 0.0f, 1.0f), TextureID::None);
 
 	directX_.DrawLineRender(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
 
@@ -196,6 +196,10 @@ void Engine::DrawGrid() {
 
 void Engine::DrawImGui() {
 
+	ImGui::Begin("FPS");
+	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+	ImGui::End();
+
 	ImGui::Begin("Camera");
 	ImGui::Text("move wasd");
 	ImGui::Text("rotate mouse rightbutton + move mouse");
@@ -213,7 +217,7 @@ void Engine::DrawImGui() {
 	changed |= ImGui::SliderFloat("Goal Y", &trailParam_.goalY, -10.0f, 10.0f);
 
 	ImGui::SeparatorText("Particle");
-	changed |= ImGui::SliderFloat("Life Time", &trailParam_.lifeTimeMax, 5.0f, 120.0f);
+	changed |= ImGui::SliderFloat("Life Time", &trailParam_.lifeTimeMax, 5.0f, 1200.0f);
 	changed |= ImGui::SliderFloat("Size Start", &trailParam_.sizeStart, 0.1f, 3.0f);
 	changed |= ImGui::SliderFloat("Size End", &trailParam_.sizeEnd, 0.0f, 3.0f);
 	changed |= ImGui::SliderFloat("Spawn Distance", &trailParam_.spawnDistance, 0.01f, 2.0f);

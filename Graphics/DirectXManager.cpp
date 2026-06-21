@@ -548,7 +548,11 @@ void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& 
 	// ワールド行列を計算
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
 
-	// フレームごとのインデックスを自動割り当て
+	// フレームごとのインデックスを自動割り当て（バッファ上限チェック）
+	if (currentTriangleWvpIndex_ >= Triangle::kMaxInstanceCount) {
+		Logger::Log("DrawTriangleRender: WVP buffer full, skipping draw\n");
+		return;
+	}
 	uint32_t wvpIndex = currentTriangleWvpIndex_++;
 
 	// WVP 行列を計算して三角形に設定

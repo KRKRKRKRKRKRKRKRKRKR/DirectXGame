@@ -16,6 +16,9 @@ public:
 	Triangle() = default;
 	virtual ~Triangle();
 
+	// kMaxTriangles(20) × maxParticles(100) + 直接描画分 = 最大2002
+	static constexpr uint32_t kMaxInstanceCount = 4096;
+
 	// 初期化（DirectXManager から呼び出し）
 	void Initialize(ID3D12Device* device, TextureManager* textureManager,
 		ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState);
@@ -69,9 +72,7 @@ private:
 	TextureManager* textureManager_ = nullptr;
 
 	// 描画定数
-	const uint32_t kMaxInstanceCount = 1048576;
-
-	const int kVertexCount = 12;
+	static constexpr int kVertexCount = 12;
 
 	// 内部初期化関数
 	void CreateVertexResource(ID3D12Device* device);
