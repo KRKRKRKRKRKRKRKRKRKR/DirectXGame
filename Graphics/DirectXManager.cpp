@@ -70,14 +70,14 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	InitializeTexture();
 	shaderCompiler_.InitializeDXC();
 	// Primitive 描画の初期化
-	pipline_.Initialize(device_.Get(), &shaderCompiler_);
-	linePipline_.Initialize(device_.Get(), &shaderCompiler_);
+	pipeline_.Initialize(device_.Get(), &shaderCompiler_);
+	linePipeline_.Initialize(device_.Get(), &shaderCompiler_);
 
 	triangle_ = std::make_unique<Triangle>();
-	triangle_->Initialize(device_.Get(), &textureManager_, pipline_.GetRootSignature(), pipline_.GetPipelineState());
+	triangle_->Initialize(device_.Get(), &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
 
 	line_ = std::make_unique<Line>();
-	line_->Initialize(device_.Get(), &textureManager_, linePipline_.GetRootSignature(), linePipline_.GetPipelineState());
+	line_->Initialize(device_.Get(), &textureManager_, linePipeline_.GetRootSignature(), linePipeline_.GetPipelineState());
 	
 	CreateVertexResource();
 	CreateMaterialResource();

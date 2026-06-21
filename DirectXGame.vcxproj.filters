@@ -35,9 +35,6 @@
     <Filter Include="Graphics\Object">
       <UniqueIdentifier>{8c66a6fb-8f10-42f5-a9ab-cd5a982a4ed8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Graphics\Pipline">
-      <UniqueIdentifier>{fb973968-cccf-417a-b642-5c297f807172}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Graphics\ShaderCompiler">
       <UniqueIdentifier>{64c4a9c3-1eed-4a5f-8e9e-ef36da0f5f31}</UniqueIdentifier>
     </Filter>
@@ -58,6 +55,9 @@
     </Filter>
     <Filter Include="Graphics\Object\Line">
       <UniqueIdentifier>{d43f915d-8d7f-4237-973c-0f46e9a02726}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Graphics\Pipeline">
+      <UniqueIdentifier>{fb973968-cccf-417a-b642-5c297f807172}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -122,9 +122,6 @@
     <ClCompile Include="Graphics\ShaderCompiler\ShaderCompiler.cpp">
       <Filter>Graphics\ShaderCompiler</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\Pipline\Pipline.cpp">
-      <Filter>Graphics\Pipline</Filter>
-    </ClCompile>
     <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp">
       <Filter>Graphics\Object\Triangle</Filter>
     </ClCompile>
@@ -137,9 +134,14 @@
     <ClCompile Include="Graphics\Object\Line\Line.cpp">
       <Filter>Graphics\Object\Line</Filter>
     </ClCompile>
-    <ClCompile Include="Graphics\Pipline\LinePipline.cpp" />
     <ClCompile Include="Utils\DeltaTime.cpp">
       <Filter>Utils</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Pipeline\LinePipeline.cpp">
+      <Filter>Graphics\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Pipeline\Pipeline.cpp">
+      <Filter>Graphics\Pipeline</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -212,9 +214,6 @@
     <ClInclude Include="Graphics\ShaderCompiler\ShaderCompiler.h">
       <Filter>Graphics\ShaderCompiler</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Pipline\Pipline.h">
-      <Filter>Graphics\Pipline</Filter>
-    </ClInclude>
     <ClInclude Include="Graphics\Object\IDrawable.h">
       <Filter>Graphics\Object</Filter>
     </ClInclude>
@@ -230,9 +229,14 @@
     <ClInclude Include="Graphics\Object\Line\Line.h">
       <Filter>Graphics\Object\Line</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Pipline\LinePipline.h" />
     <ClInclude Include="Utils\DeltaTime.h">
       <Filter>Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Pipeline\LinePipeline.h">
+      <Filter>Graphics\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Pipeline\Pipeline.h">
+      <Filter>Graphics\Pipeline</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

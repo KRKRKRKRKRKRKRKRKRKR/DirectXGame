@@ -10,10 +10,10 @@ using Microsoft::WRL::ComPtr;
 
 class ShaderCompiler;
 
-class LinePipline {
+class LinePipeline {
 public:
-	LinePipline() = default;
-	~LinePipline() = default;
+	LinePipeline() = default;
+	~LinePipeline() = default;
 
 	void Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler);
 

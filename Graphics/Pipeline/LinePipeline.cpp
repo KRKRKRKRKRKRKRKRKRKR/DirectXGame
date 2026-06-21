@@ -1,15 +1,15 @@
-#include "LinePipline.h"
+#include "LinePipeline.h"
 #include "../ShaderCompiler/ShaderCompiler.h"
 #include "../../Utils/Logger.h"
 #include <cassert>
 
-void LinePipline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler) {
+void LinePipeline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler) {
 	device_ = device;
 	shaderCompiler_ = shaderCompiler;
 	CreatePSO();
 }
 
-void LinePipline::CreatePSO() {
+void LinePipeline::CreatePSO() {
 	CreateRootSignature();
 	InputLayout();
 	BlendState();
@@ -45,7 +45,7 @@ void LinePipline::CreatePSO() {
 	assert(SUCCEEDED(hr));
 }
 
-void LinePipline::CreateRootSignature() {
+void LinePipeline::CreateRootSignature() {
 	// Lineはテクスチャ不要なのでルートパラメータは2つのみ
 	// [0] マテリアル（色） CBV  → PixelShader  b0
 	// [1] WVP行列         CBV  → VertexShader b0
@@ -80,7 +80,7 @@ void LinePipline::CreateRootSignature() {
 	assert(SUCCEEDED(hr));
 }
 
-void LinePipline::InputLayout() {
+void LinePipeline::InputLayout() {
 	// ★ Triangleとの差分②: POSITIONのみ（TEXCOORDなし）
 	inputElementDescs_[0].SemanticName = "POSITION";
 	inputElementDescs_[0].SemanticIndex = 0;
@@ -91,27 +91,27 @@ void LinePipline::InputLayout() {
 	inputLayoutDesc_.NumElements = 1;
 }
 
-void LinePipline::BlendState() {
+void LinePipeline::BlendState() {
 	blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 }
 
-void LinePipline::RasterizerState() {
+void LinePipeline::RasterizerState() {
 	rasterizerDesc_.CullMode = D3D12_CULL_MODE_NONE;
 	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
 }
 
-void LinePipline::VertexShader() {
+void LinePipeline::VertexShader() {
 	// ★ Triangleとの差分③: Line専用シェーダー
 	vertexShaderBlob_.Attach(shaderCompiler_->CompileShader(L"HLSL/Line.VS.hlsl", L"vs_6_0"));
 	assert(vertexShaderBlob_ != nullptr);
 }
 
-void LinePipline::PixelShader() {
+void LinePipeline::PixelShader() {
 	pixelShaderBlob_.Attach(shaderCompiler_->CompileShader(L"HLSL/Line.PS.hlsl", L"ps_6_0"));
 	assert(pixelShaderBlob_ != nullptr);
 }
 
-void LinePipline::DepthStencilState() {
+void LinePipeline::DepthStencilState() {
 	depthStencilDesc_.DepthEnable = TRUE;
 	depthStencilDesc_.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
 	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;

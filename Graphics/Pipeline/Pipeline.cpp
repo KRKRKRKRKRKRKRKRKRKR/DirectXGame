@@ -1,10 +1,10 @@
-#include "Pipline.h"
+#include "Pipeline.h"
 #include "../ShaderCompiler/ShaderCompiler.h"
 #include "../../Utils/Logger.h"
 #include <cassert>
 
 //Piplineの初期化
-void Pipline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler) {
+void Pipeline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler) {
 	device_ = device;
     shaderCompiler_ = shaderCompiler;
 	CreateDescriptorRange();
@@ -14,7 +14,7 @@ void Pipline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler) {
 
 #pragma region Piplineの設定
 //パイプラインの設定
-void Pipline::CreateDescriptorRange() {
+void Pipeline::CreateDescriptorRange() {
 	descriptorRange_[0].BaseShaderRegister = 0;
 	descriptorRange_[0].NumDescriptors = 1;
 	descriptorRange_[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
@@ -22,7 +22,7 @@ void Pipline::CreateDescriptorRange() {
 }
 
 //サンプラーの設定
-void Pipline::CreateStaticSamplers() {
+void Pipeline::CreateStaticSamplers() {
 	staticSamplers_[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 	staticSamplers_[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 	staticSamplers_[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -36,7 +36,7 @@ void Pipline::CreateStaticSamplers() {
 
 #pragma region PSOの設定
 //PSOの作成
-void Pipline::CreatePSO() {
+void Pipeline::CreatePSO() {
 	CreateRootSignature();
 	InputLayout();
 	BlendState();
@@ -73,7 +73,7 @@ void Pipline::CreatePSO() {
 
 #pragma region PSOの内部関数
 //PSOのルートシグネチャの作成
-void Pipline::CreateRootSignature() {
+void Pipeline::CreateRootSignature() {
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
 	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
@@ -112,7 +112,7 @@ void Pipline::CreateRootSignature() {
 }
 
 //PSOのInputLayoutの設定
-void Pipline::InputLayout() {
+void Pipeline::InputLayout() {
 	inputElementDescs_[0].SemanticName = "POSITION";
 	inputElementDescs_[0].SemanticIndex = 0;
 	inputElementDescs_[0].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -126,30 +126,30 @@ void Pipline::InputLayout() {
 }
 
 //PSOのBlendStateの設定
-void Pipline::BlendState() {
+void Pipeline::BlendState() {
 	blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 }
 
 //PSOのRasterizerStateの設定
-void Pipline::RasterizerState() {
+void Pipeline::RasterizerState() {
 	rasterizerDesc_.CullMode = D3D12_CULL_MODE_NONE;
 	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
 }
 
 //PSOのVertexShaderの設定
-void Pipline::VertexShader() {
+void Pipeline::VertexShader() {
 	vertexShaderBlob_.Attach(shaderCompiler_->CompileShader(L"HLSL/Object3D.VS.hlsl", L"vs_6_0"));
 	assert(vertexShaderBlob_ != nullptr);
 }
 
 //PSOのPixelShaderの設定
-void Pipline::PixelShader() {
+void Pipeline::PixelShader() {
 	pixelShaderBlob_.Attach(shaderCompiler_->CompileShader(L"HLSL/Object3D.PS.hlsl", L"ps_6_0"));
 	assert(pixelShaderBlob_ != nullptr);
 }
 
 //PSOのDepthStencilStateの設定
-void Pipline::DepthStencilState() {
+void Pipeline::DepthStencilState() {
 	depthStencilDesc_.DepthEnable = TRUE;
 	depthStencilDesc_.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
 	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;

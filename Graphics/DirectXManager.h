@@ -13,8 +13,8 @@
 #include "../Math/MathTypes.h"
 
 #include "../Graphics/ShaderCompiler/ShaderCompiler.h"
-#include "../Graphics/Pipline/Pipline.h"
-#include "../Graphics/Pipline/LinePipline.h"
+#include "../Graphics/Pipeline/Pipeline.h"
+#include "../Graphics/Pipeline/LinePipeline.h"
 #include "../Graphics/DescriptorHeaps/DescriptorHeaps.h"
 #include "../Graphics/Texture/TextureManager.h"
 #include "../Graphics/Object/Triangle/Triangle.h"
@@ -182,8 +182,8 @@ private:
 
 
 	ShaderCompiler shaderCompiler_;
-	Pipline pipline_;
-		LinePipline linePipline_;
+	Pipeline pipeline_;
+		LinePipeline linePipeline_;
 	TextureManager textureManager_;
 
 	std::unique_ptr<Triangle> triangle_;

@@ -6,10 +6,10 @@
 using Microsoft::WRL::ComPtr;
 
 class ShaderCompiler;
-class Pipline {
+class Pipeline {
 public:
-	Pipline() = default;
-	~Pipline() = default;
+	Pipeline() = default;
+	~Pipeline() = default;
 
 	//Piplineの初期化
 	void Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler);
