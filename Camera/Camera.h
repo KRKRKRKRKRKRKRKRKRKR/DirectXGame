@@ -19,7 +19,7 @@ public:
 	void SetPosition(const Vector3& position) { cameraData_.position = position; }
 	void SetRotation(const Vector3& rotation) { cameraData_.rotation = rotation; }
 	void SetFov(float fov) { cameraData_.fov = fov; }
-
+	void HandleInput(float deltaTime); //入力処理
 private:
 	CameraData cameraData_;
 };

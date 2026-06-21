@@ -33,9 +33,7 @@ private:
 	Transform transform1_;
 	Transform transform2_;
 
-	CameraData cameraData_;
 	TextureID textureID_ = TextureID::None;
-	void CameraControl();
 	void DrawGrid();
 
 	static constexpr int kMaxTriangles = 20;
