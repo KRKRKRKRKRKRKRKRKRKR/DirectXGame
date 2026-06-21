@@ -176,10 +176,6 @@ void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, Textu
 		return;
 	}
 
-	// ビューポートとシザーレクトを設定
-	commandList->RSSetViewports(1, &viewport_);
-	commandList->RSSetScissorRects(1, &scissorRect_);
-
 	// ルートシグネチャとパイプラインステートを設定
 	commandList->SetGraphicsRootSignature(rootSignature_);
 	commandList->SetPipelineState(pipelineState_);

@@ -195,8 +195,6 @@ void Line::SetPipelineCommands(ID3D12GraphicsCommandList* commandList) {
 		return;
 	}
 
-	commandList->RSSetViewports(1, &viewport_);
-	commandList->RSSetScissorRects(1, &scissorRect_);
 	commandList->SetGraphicsRootSignature(rootSignature_);
 	commandList->SetPipelineState(pipelineState_);
 

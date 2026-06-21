@@ -88,7 +88,7 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 
 	CreateVertexTransformMatrixResource();
 
-
+	ViewportScissorRect(windowWidth_, windowHeight_);
 	Logger::Log("Complete Initialize DirectXManager\n");
 	initialized_ = true;
 }
@@ -167,6 +167,9 @@ void DirectXManager::BeginFrame() {
 	commandList_->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	ID3D12DescriptorHeap* descriptorHeaps[] = { descriptorHeaps_.GetSRVDescriptorHeap() };
 	commandList_->SetDescriptorHeaps(1, descriptorHeaps);
+	commandList_->RSSetViewports(1, &viewport_);
+	commandList_->RSSetScissorRects(1, &scissorRect_);
+
 }
 
 void DirectXManager::EndFrame() {
