@@ -43,7 +43,9 @@ public:
 	// ゲッター
 	const D3D12_VIEWPORT& GetViewport() const { return viewport_; }
 	const D3D12_RECT& GetScissorRect() const { return scissorRect_; }
-
+	
+	// 内部描画関数（複数ラインをまとめて描画）
+	void DrawBatch(ID3D12GraphicsCommandList* commandList,uint32_t startVertex,uint32_t lineCount,uint32_t wvpIndex);
 private:
 	// 頂点データ（位置のみ、テクスチャなし）
 	struct VertexData {

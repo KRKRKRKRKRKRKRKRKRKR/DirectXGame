@@ -783,3 +783,32 @@ void DirectXManager::InitializeTexture() {
 
 	Logger::Log("Textures initialized successfully\n");
 }
+
+
+void DirectXManager::InitializeGridLines() {
+	const float halfSize = 50.0f;
+	const float step = 1.0f;
+	uint32_t lineIndex = 0;
+
+	for (float x = -halfSize; x <= halfSize; x += step) {
+		line_->SetLine({ x, 0.0f, -halfSize }, { x, 0.0f, halfSize }, lineIndex++);
+	}
+	for (float z = -halfSize; z <= halfSize; z += step) {
+		line_->SetLine({ -halfSize, 0.0f, z }, { halfSize, 0.0f, z }, lineIndex++);
+	}
+}
+
+void DirectXManager::DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection) {
+	if (!line_) {
+		Logger::Log("DrawGridBatch : Line is not initialized\n");
+		return;
+	}
+	// グリッド用は固定のwvpIndex=0を使う（毎フレーム同じスロットを上書き）
+	const uint32_t kGridWvpIndex = 0;
+	Matrix4x4 vpMatrix = view * projection;
+	line_->SetWvpMatrix(vpMatrix, kGridWvpIndex);
+
+	line_->SetViewportAndScissorRect(windowWidth_, windowHeight_);
+	line_->SetPipelineCommands(commandList_.Get());
+	line_->DrawBatch(commandList_.Get(), 0, 202, kGridWvpIndex);
+}

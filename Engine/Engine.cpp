@@ -13,7 +13,7 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	Debug::SetupInfoQueue(directX_.GetDevice());
 	camera_.Initialize({0.0f, 0.5f, -5.0f});
 	imgui_.Initialize(window_.GetHWND(), &directX_);
-
+	directX_.InitializeGridLines();
 	transform1_.scale = { 1.0f, 1.0f, 1.0f };
 	transform1_.rotation = { 0.0f, 0.0f, 0.0f };
 	transform1_.translation = { 0.0f, 15.0f, 0.0f };
@@ -107,30 +107,10 @@ void Engine::Render() {
 }
 
 void Engine::DrawGrid() {
-	const float halfSize = 50.0f;
-	const float step = 1.0f;
-	const Vector4 colorNormal = { 0.4f, 0.4f, 0.4f, 1.0f };
-	const Vector4 colorAxis = { 0.7f, 0.7f, 0.7f, 1.0f }; // 軸線は少し明るく
-
 	float aspectRatio = camera_.GetAspeRatio(window_.GetClientWidth(), window_.GetClientHeight());
 	Matrix4x4 viewMatrix = camera_.GetViewMatrix();
 	Matrix4x4 projMatrix = camera_.GetProjectionMatrix(aspectRatio);
-
-	// Z方向に伸びる線（X軸方向に並べる）
-	for (float x = -halfSize; x <= halfSize; x += step) {
-		Vector3 start = { x, 0.0f, -halfSize };
-		Vector3 end = { x, 0.0f,  halfSize };
-		const Vector4& color = (x == 0.0f) ? colorAxis : colorNormal;
-		directX_.DrawLineRender(viewMatrix, projMatrix, start, end, color);
-	}
-
-	// X方向に伸びる線（Z軸方向に並べる）
-	for (float z = -halfSize; z <= halfSize; z += step) {
-		Vector3 start = { -halfSize, 0.0f, z };
-		Vector3 end = { halfSize, 0.0f, z };
-		const Vector4& color = (z == 0.0f) ? colorAxis : colorNormal;
-		directX_.DrawLineRender(viewMatrix, projMatrix, start, end, color);
-	}
+	directX_.DrawGridBatch(viewMatrix, projMatrix);
 }
 
 void Engine::DrawImGui() {

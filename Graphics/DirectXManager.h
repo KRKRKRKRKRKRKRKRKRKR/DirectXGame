@@ -65,6 +65,8 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return descriptorHeaps_.GetDSVHandle(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle() const { return descriptorHeaps_.GetRTVHandle(backBufferIndex_); }
 	UINT GetBackBufferIndex() const { return backBufferIndex_; }
+	void InitializeGridLines();
+	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
 
 private:
 	int32_t windowWidth_ = 0;
@@ -176,7 +178,6 @@ private:
 	uint32_t sphereVertexCount_ = 0;
 	float sphereGeometryRadius_ = 0.0f;
 	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
-
 
 
 

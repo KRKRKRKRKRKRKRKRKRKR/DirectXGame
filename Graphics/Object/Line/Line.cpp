@@ -224,3 +224,26 @@ void Line::Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) {
 	// 2頂点、startVertex から描画
 	commandList->DrawInstanced(kVerticesPerLine, 1, startVertex, 0);
 }
+
+
+// ============================================================
+// 複数ラインをまとめて描画
+// ============================================================
+
+void Line::DrawBatch(ID3D12GraphicsCommandList* commandList, uint32_t startVertex, uint32_t lineCount, uint32_t wvpIndex) {
+	if (!commandList) {
+		Logger::Log("Line::DrawBatch : Invalid command list\n");
+		return;
+	}
+	if (lineCount == 0 || startVertex + lineCount * kVerticesPerLine > kMaxInstanceCount * kVerticesPerLine) {
+		Logger::Log("Line::DrawBatch : Invalid line count or start vertex\n");
+		assert(false);
+		return;
+	}
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+	D3D12_GPU_VIRTUAL_ADDRESS wvpAddress = wvpResource_->GetGPUVirtualAddress() + (wvpStride_ * wvpIndex);
+	commandList->SetGraphicsRootConstantBufferView(1, wvpAddress);
+	commandList->DrawInstanced(kVerticesPerLine * lineCount, 1, startVertex, 0);
+}
