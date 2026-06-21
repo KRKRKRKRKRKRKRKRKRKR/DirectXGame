@@ -6,6 +6,7 @@
 #include "../Externals/imgui/imguiManager.h"
 #include "../InputDevice/InputDevice.h"
 #include "../TrailParticle3D.h"
+#include "../Utils/DeltaTime.h"
 
 #include <random>
 class Engine {
@@ -20,7 +21,7 @@ public:
 	void Finalize();
 
 private:
-	void Update();
+	void Update(float deltaTime);
 
 	void Render();
 
@@ -42,4 +43,5 @@ private:
 	TrailParticle3D trailParticles_[kMaxTriangles];
 	void DrawImGui();
 	TrailParticleParameter trailParam_; 
+	DeltaTime deltaTime_;
 };

@@ -138,6 +138,9 @@
       <Filter>Graphics\Object\Line</Filter>
     </ClCompile>
     <ClCompile Include="Graphics\Pipline\LinePipline.cpp" />
+    <ClCompile Include="Utils\DeltaTime.cpp">
+      <Filter>Utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Graphics\DirectXManager.h">
@@ -228,6 +231,9 @@
       <Filter>Graphics\Object\Line</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\Pipline\LinePipline.h" />
+    <ClInclude Include="Utils\DeltaTime.h">
+      <Filter>Utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">

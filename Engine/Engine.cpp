@@ -43,14 +43,16 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 		trailParticles_[i].Init(trailParam_);
 	}
 
+	deltaTime_.Start();
 }
 
 void Engine::Run() {
 	while (window_.ProcessMessage()) {
 		InputDevice::GetInstance().Update();
+		deltaTime_.Update();
 		directX_.BeginFrame();
 		imgui_.BeginFrame();
-		Update();
+		Update(deltaTime_.GetDeltaTime());
 		Render();
 		imgui_.EndFrame(&directX_);
 		directX_.EndFrame();
@@ -63,9 +65,9 @@ void Engine::Finalize() {
 	directX_.Finalize();
 }
 
-void Engine::Update() {
-	transform1_.rotation.y += 1.0f;
-	transform2_.rotation.y -= 1.0f;
+void Engine::Update(float deltaTime) {
+	transform1_.rotation.y += 60.0f * deltaTime;
+	transform2_.rotation.y -= 60.0f * deltaTime;
 	CameraControl();
 	for (int i = 0; i < kMaxTriangles; i++) {
 		trailParticles_[i].Update(triangleTransforms_[i].translation, triangleTransforms_[i].rotation);
@@ -198,6 +200,7 @@ void Engine::DrawImGui() {
 
 	ImGui::Begin("FPS");
 	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+	ImGui::Text("frameTime: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
 	ImGui::End();
 
 	ImGui::Begin("Camera");
