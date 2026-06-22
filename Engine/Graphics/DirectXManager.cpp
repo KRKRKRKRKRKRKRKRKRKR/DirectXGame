@@ -19,30 +19,7 @@ DirectXManager::~DirectXManager() {
 	Finalize();
 }
 
-uint32_t DirectXManager::AllocateWvpIndex() {
-	if (wvpAllocatedCount_ >= kMaxWvpCount) {
-		Logger::Log("WVP pool is full (kMaxWvpCount reached)\n");
-		return UINT32_MAX;
-	}
-	return wvpAllocatedCount_++;
-}
 
-void DirectXManager::SetWvpMatrix(uint32_t index, const Matrix4x4& matrix) {
-	if (!wvpMappedData_ || !wvpResource_) {
-		return;
-	}
-	if (index >= kMaxWvpCount) {
-		return;
-	}
-	std::memcpy(wvpMappedData_ + static_cast<size_t>(index) * wvpStride_, &matrix, sizeof(Matrix4x4));
-}
-
-D3D12_GPU_VIRTUAL_ADDRESS DirectXManager::GetWvpGpuAddress(uint32_t index) const {
-	if (!wvpResource_ || index >= kMaxWvpCount) {
-		return 0;
-	}
-	return wvpResource_->GetGPUVirtualAddress() + static_cast<UINT64>(index) * wvpStride_;
-}
 
 //===========================================
 //ライフサイクル
@@ -86,11 +63,6 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	sphere_ = std::make_unique<Sphere>();
 	sphere_->Initialize(device_.Get(), &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
 
-	CreateVertexResource();
-	CreateMaterialResource();
-	CreateTransformationMatrix();
-
-
 
 	ViewportScissorRect(windowWidth_, windowHeight_);
 
@@ -111,20 +83,7 @@ void DirectXManager::Finalize() {
 		Logger::Log("Wait for GPU completion in Finalize\n");
 	}
 
-	// マッピング解除
-	if (wvpResource_) {
-		wvpResource_->Unmap(0, nullptr);
-		wvpMappedData_ = nullptr;
-		wvpResource_.Reset();
-	}
 
-
-
-	// 描画関連リソース解放
-	materialResource_.Reset();
-	line_.reset();
-	triangle_.reset();
-	
 
 	textureManager_.Finalize();
 
@@ -444,62 +403,6 @@ void DirectXManager::EndTransitionBarrier() {
 //==================================================================
 //描画リソース作成 
 //==================================================================
-void DirectXManager::CreateVertexResource() {
-	vertexResource_ = ResourceFactory::CreateBufferResource(device_.Get(), sizeof(VertexData) * 6);
-	CreateVertexBufferView();
-	WriteVertexResource();
-}
-
-void DirectXManager::CreateVertexBufferView() {
-	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
-	vertexBufferView_.SizeInBytes = sizeof(VertexData) * 6;
-	vertexBufferView_.StrideInBytes = sizeof(VertexData);
-}
-
-void DirectXManager::WriteVertexResource() {
-	VertexData* vertexData = nullptr;
-	vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
-
-	vertexData[0].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
-	vertexData[0].texcoord = Vector2(0.0f, 1.0f);
-
-	vertexData[1].position = Vector4(0.0f, 0.5f, 0.0f, 1.0f);
-	vertexData[1].texcoord = Vector2(0.5f, 0.0f);
-
-	vertexData[2].position = Vector4(0.5f, -0.5f, 0.0f, 1.0f);
-	vertexData[2].texcoord = Vector2(1.0f, 1.0f);
-
-	vertexData[3].position = Vector4(-0.5f, -0.5f, 0.0f, 1.0f);
-	vertexData[3].texcoord = Vector2(0.0f, 1.0f);
-
-	vertexData[4].position = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
-	vertexData[4].texcoord = Vector2(0.5f, 0.0f);
-
-	vertexData[5].position = Vector4(0.5f, -0.5f, -0.5f, 1.0f);
-	vertexData[5].texcoord = Vector2(1.0f, 1.0f);
-
-	vertexResource_->Unmap(0, nullptr);
-}
-
-void DirectXManager::CreateMaterialResource() {
-	materialResource_ = ResourceFactory::CreateBufferResource(device_.Get(), sizeof(Vector4));
-	Vector4* materialData = nullptr;
-	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
-	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-	materialResource_->Unmap(0, nullptr);
-}
-
-void DirectXManager::CreateTransformationMatrix() {
-	wvpStride_ = AlignUp(static_cast<uint32_t>(sizeof(Matrix4x4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-	wvpResource_ = ResourceFactory::CreateBufferResource(device_.Get(), static_cast<size_t>(wvpStride_) * kMaxWvpCount);
-	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
-
-	wvpAllocatedCount_ = 0;
-	AllocateWvpIndex(); // triangle
-	AllocateWvpIndex(); // sphere
-	SetWvpMatrix(kTriangleWvpIndex, MatrixMath::Identity());
-}
-
 
 
 //==================================================================

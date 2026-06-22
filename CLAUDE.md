@@ -306,16 +306,15 @@ void Engine::Run() {
 WVP 行列（ワールド・ビュー・プロジェクション行列）の GPU バッファが3箇所に存在している:
 - `Triangle` 内: `wvpResource_`, `wvpMappedData_`
 - `Line` 内: `wvpResource_`, `wvpMappedData_`
-- `DirectXManager` 内: `wvpResource_`, `wvpMappedData_`（スプライト・球用）
+- `DirectXManager` 内: `wvpResource_`, `wvpMappedData_`（スプライト・球用）← 削除済み
 
-Sprite / Sphere クラスを作った後（Task 10・11 完了後）は、
-DirectXManager の WVP バッファは不要になるので削除できる。
-
-**やること（Task 10・11 完了後）**
-1. `DirectXManager` の `wvpResource_` / `wvpMappedData_` / `wvpStride_` を削除
-2. `AllocateWvpIndex()` / `SetWvpMatrix()` / `GetWvpGpuAddress()` を削除
-3. `CreateTransformationMatrix()` を削除
-4. `kTriangleWvpIndex` / `kSphereWvpIndex` などの定数を削除
+**実装状況**
+✅ 完了
+- `wvpResource_` / `wvpMappedData_` / `wvpStride_` / `wvpAllocatedCount_` を削除
+- `AllocateWvpIndex()` / `SetWvpMatrix()` / `GetWvpGpuAddress()` を削除
+- `CreateTransformationMatrix()` / `CreateVertexResource()` / `CreateMaterialResource()` 等を削除
+- `materialResource_` / `vertexResource_` / `vertexBufferView_` / `materialStride_` 等を削除
+- `kTriangleWvpIndex` / `kMaxWvpCount` を削除
 
 ---
 

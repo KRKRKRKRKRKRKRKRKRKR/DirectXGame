@@ -20,6 +20,7 @@
 #include "Object/Triangle/Triangle.h"
 #include "Object/Line/Line.h"
 #include "Object/Sphere/Sphere.h"
+#include "ResourceFactory/ResourceFactory.h"
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -37,7 +38,7 @@ public:
 	//===== ライフサイクル =====
 	void Initialize(HWND hwnd, int32_t width, int32_t height);
 	void Finalize();
-
+	
 	// ===== フレーム管理 =====
 	void BeginFrame();
 	void EndFrame();
@@ -47,11 +48,6 @@ public:
 	void DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
 	void DrawLineRender(const Matrix4x4& view, const Matrix4x4& projection, const Vector3& start, const Vector3& end, const Vector4& color);
 	void DrawSphereRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, TextureID textureID);
-
-
-	uint32_t AllocateWvpIndex();
-	void SetWvpMatrix(uint32_t index, const Matrix4x4& matrix);
-	D3D12_GPU_VIRTUAL_ADDRESS GetWvpGpuAddress(uint32_t index) const;
 
 	// =====  ゲッター =====
 	ID3D12Device* GetDevice() const { return device_.Get(); }
@@ -101,12 +97,7 @@ private:
 
 
 	// ===== 描画リソース作成 =====
-	void CreateVertexResource();
-	void CreateMaterialResource();
-	void CreateVertexBufferView();
-	void WriteVertexResource();
 	void ViewportScissorRect(int32_t width, int32_t height);
-	void CreateTransformationMatrix();
 
 
 	// ===== 状態フラグ =====
@@ -133,7 +124,7 @@ private:
 	DescriptorHeaps descriptorHeaps_;
 
 
-
+	
 
 	void InitializeTexture();
 
@@ -156,16 +147,8 @@ private:
 	// ===== PSO 関連 ====
 
 	// ===== 描画用リソース =====
-	ComPtr<ID3D12Resource> materialResource_ = nullptr;
-	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
-	uint8_t* wvpMappedData_ = nullptr;
-	uint32_t wvpStride_ = 0;
-	uint32_t wvpAllocatedCount_ = 0;
-	static constexpr uint32_t kTriangleWvpIndex = 0;
-	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 
 
 
@@ -176,9 +159,6 @@ private:
 
 	std::unique_ptr<Triangle> triangle_;
 	uint32_t currentTriangleWvpIndex_ = 0;
-
-	uint32_t materialStride_ = 0;
-	uint8_t* materialMappedData_ = nullptr;
 
 	std::unique_ptr<Line> line_;
 	uint32_t currentLineWvpIndex_ = 0;
