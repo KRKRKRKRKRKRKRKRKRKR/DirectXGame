@@ -77,12 +77,14 @@ void DirectXManager::Finalize() {
 	}
 	initialized_ = false;
 
-	// GPU処理完了を待つ
-	if (commandQueue_ && commandAllocator_ && commandList_ && fence_ && fenceEvent_) {
-		WaitForGPUCompletion();
-		Logger::Log("Wait for GPU completion in Finalize\n");
+	if (commandQueue_ && fence_ && fenceEvent_) {
+		fenceValue_++;
+		commandQueue_->Signal(fence_.Get(), fenceValue_);
+		if (fence_->GetCompletedValue() < fenceValue_) {
+			fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+			WaitForSingleObject(fenceEvent_, INFINITE);
+		}
 	}
-
 
 
 	textureManager_.Finalize();
@@ -115,6 +117,14 @@ void DirectXManager::Finalize() {
 //フレーム管理
 //===========================================
 void DirectXManager::BeginFrame() {
+	if (fence_->GetCompletedValue() < fenceValue_) {
+		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
+		WaitForSingleObject(fenceEvent_, INFINITE);
+	}
+	HRESULT hr = commandAllocator_->Reset();
+	assert(SUCCEEDED(hr));
+	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
+	assert(SUCCEEDED(hr));
 	currentTriangleWvpIndex_ = 0; // フレームごとにインデックスをリセット
 	currentLineWvpIndex_ = 0; // フレームごとにインデックスをリセット
 
@@ -138,6 +148,7 @@ void DirectXManager::EndFrame() {
 	EndTransitionBarrier();
 
 	HRESULT hr = commandList_->Close();
+
 	if (FAILED(hr)) {
 		Logger::Log("Failed Close CommandList\n");
 	}
@@ -145,26 +156,9 @@ void DirectXManager::EndFrame() {
 
 	ID3D12CommandList* commandLists[] = { commandList_.Get() };
 	commandQueue_->ExecuteCommandLists(1, commandLists);
-	swapChain_->Present(1, 0);
 	fenceValue_++;
 	commandQueue_->Signal(fence_.Get(), fenceValue_);
-	if (fence_->GetCompletedValue() < fenceValue_) {
-		fence_->SetEventOnCompletion(fenceValue_, fenceEvent_);
-		WaitForSingleObject(fenceEvent_, INFINITE);
-	}
-
-	hr = commandAllocator_->Reset();
-	if (FAILED(hr)) {
-		Logger::Log("Failed Reset CommandAllocator\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
-	if (FAILED(hr)) {
-		Logger::Log("Failed Reset CommandList\n");
-	}
-	assert(SUCCEEDED(hr));
-
+	swapChain_->Present(1, 0);
 }
 
 //===========================================
@@ -366,18 +360,6 @@ void DirectXManager::WaitForGPUCompletion() {
 		}
 		WaitForSingleObject(fenceEvent_, INFINITE);
 	}
-
-	hr = commandAllocator_->Reset();
-	if (FAILED(hr)) {
-		Logger::Log("Failed Reset CommandAllocator\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	hr = commandList_->Reset(commandAllocator_.Get(), nullptr);
-	if (FAILED(hr)) {
-		Logger::Log("Failed Reset CommandList\n");
-	}
-	assert(SUCCEEDED(hr));
 }
 
 
