@@ -4,7 +4,7 @@
 
 DirectX12 を使った自作ゲームエンジン。最終目標は **Race the Sun** クローンの制作。
 「なぜ動くのかを理解しながら作る」が基本方針。ブラックボックスを極力排除する。
-**コードの書き換えは自分で行う。Claude はやり方・理由の説明とCLAUDE.mdの更新のみ行う。**
+
 
 ## 最終目標
 
@@ -32,7 +32,8 @@ DirectXManager  ← DirectX全般（God Class、要分割）
 Camera          ← ビュー・プロジェクション行列
 InputDevice     ← DirectInput（キーボード・マウス）
 Window          ← Win32ウィンドウ
-TrailParticle3D ← パーティクルシステム（ルートに置かれている）
+Particle/
+  └─ TrailParticle3D ← パーティクルシステム
 ```
 
 ---
@@ -43,6 +44,10 @@ TrailParticle3D ← パーティクルシステム（ルートに置かれてい
   - 根拠: kMaxTriangles(20) × maxParticles(100) + 2 = 最大2002。4096は余裕を持たせた値
   - `public static constexpr` に変更して DirectXManager からアクセス可能に
   - `DrawTriangleRender` に上限チェック追加（超えたらスキップ＆ログ）
+
+- **Task 7完了**: `TrailParticle3D` を `Particle/` フォルダに移動
+  - `TrailParticle3D.h/.cpp` をプロジェクトルートから `Particle/` へ移動
+  - `Engine/Engine.h` のインクルードパスを `"../Particle/TrailParticle3D.h"` に修正
 
 ---
 
@@ -267,7 +272,46 @@ Engine はカメラに「更新しろ」と言うだけでいい。
 
 ---
 
-## Task 8: Engine と Game クラスの分離
+## Task 8: Engine/ フォルダへの基盤クラス集約
+
+**なぜやるか**
+`Camera/`・`Window/`・`InputDevice/` がプロジェクトルートに散らばっている。
+これらはすべてエンジン基盤のクラスなので `Engine/` の下にまとめると構造が明確になる。
+Task 9（Game クラス作成）の前にやっておくと、Game のインクルードパスも最初から正しく書ける。
+
+**移動するもの**
+- `Camera/` → `Engine/Camera/`
+- `Window/` → `Engine/Window/`
+- `InputDevice/` → `Engine/InputDevice/`
+
+**インクルードパスの変更**
+`Engine/Engine.h` の3行のみ変更（他は変わらない）:
+```cpp
+// Before
+#include "../Camera/Camera.h"
+#include "../Window/Window.h"
+#include "../InputDevice/InputDevice.h"
+
+// After
+#include "Camera/Camera.h"
+#include "Window/Window.h"
+#include "InputDevice/InputDevice.h"
+```
+
+`Engine/Camera/Camera.cpp` の InputDevice インクルードは変わらない:
+```cpp
+#include "../InputDevice/InputDevice.h"  // Camera と InputDevice が同階層なのでそのまま
+```
+
+**やること（手順）**
+1. エクスプローラーで `Camera/`・`Window/`・`InputDevice/` フォルダを `Engine/` の中に移動
+2. Visual Studio のソリューションエクスプローラーで「除外」→「既存項目として追加」で再登録
+3. `Engine/Engine.h` の3行のインクルードパスを修正
+4. ビルドして確認
+
+---
+
+## Task 9: Engine と Game クラスの分離
 
 **なぜやるか**
 現状 `Engine` クラスが「エンジン基盤（Window・DirectX・Camera・ImGui）」と
@@ -324,7 +368,7 @@ void Engine::Run() {
 
 ---
 
-## Task 9: Sprite を IDrawable に統合（Sprite クラス作成）
+## Task 10: Sprite を IDrawable に統合（Sprite クラス作成）
 
 **なぜやるか**
 現状 Sprite（スプライト）の描画は `DirectXManager` が直接 commandList に書き込んでいる。
@@ -361,7 +405,7 @@ Sprite クラスができたら `DirectXManager` の以下を削除する:
 
 ---
 
-## Task 10: Sphere を IDrawable に統合（Sphere クラス作成）
+## Task 11: Sphere を IDrawable に統合（Sphere クラス作成）
 
 **なぜやるか**
 Sprite と同じ理由。`CreateDrawSphereResource()` という名前からして設計が中途半端で、
@@ -389,7 +433,7 @@ Initialize で1回だけ作れば毎フレームは Draw するだけでいい�
 
 ---
 
-## Task 11: DescriptorHeaps の GetTextureSrvHandle 新旧API 統合
+## Task 12: DescriptorHeaps の GetTextureSrvHandle 新旧API 統合
 
 **なぜやるか**
 `DescriptorHeaps.h` に以下が混在している:
@@ -407,7 +451,7 @@ GetTextureSrvHandleByIndex(uint32_t) // 新しいAPI
 
 ---
 
-## Task 12: TextureManager::CreateBufferResource の責務整理
+## Task 13: TextureManager::CreateBufferResource の責務整理
 
 **なぜやるか**
 `TextureManager::CreateBufferResource()` はテクスチャとは無関係な
@@ -428,7 +472,7 @@ GetTextureSrvHandleByIndex(uint32_t) // 新しいAPI
 
 ---
 
-## Task 13: WVP 行列管理を Triangle/Line に統一
+## Task 14: WVP 行列管理を Triangle/Line に統一
 
 **なぜやるか**
 WVP 行列（ワールド・ビュー・プロジェクション行列）の GPU バッファが3箇所に存在している:
@@ -436,10 +480,10 @@ WVP 行列（ワールド・ビュー・プロジェクション行列）の GPU
 - `Line` 内: `wvpResource_`, `wvpMappedData_`
 - `DirectXManager` 内: `wvpResource_`, `wvpMappedData_`（スプライト・球用）
 
-Sprite / Sphere クラスを作った後（Task 9・10 完了後）は、
+Sprite / Sphere クラスを作った後（Task 10・11 完了後）は、
 DirectXManager の WVP バッファは不要になるので削除できる。
 
-**やること（Task 9・10 完了後）**
+**やること（Task 10・11 完了後）**
 1. `DirectXManager` の `wvpResource_` / `wvpMappedData_` / `wvpStride_` を削除
 2. `AllocateWvpIndex()` / `SetWvpMatrix()` / `GetWvpGpuAddress()` を削除
 3. `CreateTransformationMatrix()` を削除
@@ -447,7 +491,7 @@ DirectXManager の WVP バッファは不要になるので削除できる。
 
 ---
 
-## Task 14: Present(1,0) + Fence ダブル同期問題の解決
+## Task 15: Present(1,0) + Fence ダブル同期問題の解決
 
 **なぜやるか**
 `DirectXManager::EndFrame()` で:
@@ -476,7 +520,7 @@ WaitForSingleObject(fenceEvent_, INFINITE); // ② GPU完了まで待つ
 
 ---
 
-## Task 15: DirectXManager を Device/Renderer/CommandQueue に分割
+## Task 16: DirectXManager を Device/Renderer/CommandQueue に分割
 
 **なぜやるか（God Class 問題）**
 `DirectXManager` が現在担っている責務:
@@ -498,8 +542,66 @@ Renderer           ← BeginFrame/EndFrame、DrawXxx の呼び出し
                      （Device/Command/SwapChain を内包）
 ```
 
-**注意**: これは最も大きいリファクタリング。Task 9・10・13 が完了してから行う。
+**注意**: これは最も大きいリファクタリング。Task 10・11・14 が完了してから行う。
 `DirectXManager` の不要なメンバが減った状態でやると作業量が大幅に減る。
+
+---
+
+## Task 17: Camera タイポ修正 `GetAspeRatio` → `GetAspectRatio`
+
+**なぜやるか**
+Task 6 で `Pipline` → `Pipeline` を直したのと同じ理由。
+`Aspect` のスペルミスで `e` が抜けている。呼び出し元も含めて統一する。
+
+**どのファイルを触るか**
+- `Engine/Camera/Camera.h` のメソッド宣言
+- `Engine/Camera/Camera.cpp` の実装
+- `Engine/Engine.cpp` の呼び出し箇所（`GetAspeRatio` → `GetAspectRatio`）
+
+---
+
+## Task 18: `TrailParticle3D::Update` に deltaTime を追加
+
+**なぜやるか**
+Task 4 で Engine の transform 更新は FPS 非依存にしたが、
+`TrailParticle3D::Update()` は deltaTime を受け取っていないため、
+パーティクルの速度・寿命タイマーがまだ FPS に依存している。
+60FPS なら 60 回/秒、30FPS なら 30 回/秒呼ばれ、速度が変わってしまう。
+
+**どのファイルを触るか**
+- `Particle/TrailParticle3D.h` のシグネチャ変更
+- `Particle/TrailParticle3D.cpp` の内部ロジック修正
+- `Engine/Engine.cpp` の呼び出し元に deltaTime を渡す
+
+**変更内容**
+```cpp
+// Before
+void Update(Vector3& outTranslation, Vector3& outRotation);
+
+// After
+void Update(const Vector3& pos, const Vector3& rotation, float deltaTime);
+```
+第1・第2引数も `const Vector3&` に変更する。
+パーティクルは渡された pos/rotation を「読む」だけで、呼び出し元の値を書き換えるべきではない。
+内部の `lifeTimer` や速度の更新に `× deltaTime` を掛ける。
+
+---
+
+## Task 19: `Camera::Update()` の整理
+
+**なぜやるか**
+Task 5 以降、`Camera::HandleInput()` が内部で状態を更新しているため
+`Camera::Update()` は現在どこからも呼ばれていない（宣言だけ存在する空のメソッド）。
+使われていないメソッドが残っていると、読んだ人が「どこかで呼ばれているのか？」と混乱する。
+
+**やること**
+1. `Camera.h` と `Camera.cpp` から `Update()` を削除する
+2. ビルドしてエラーがないか確認
+
+**注意**
+将来 Game クラスがカメラを制御する必要が出たとき（プレイヤー追従など）は、
+`HandleInput()` とは別に `SetPosition()` / `SetRotation()` を使えばよい。
+現時点で未使用のメソッドは残さない。
 
 ---
 

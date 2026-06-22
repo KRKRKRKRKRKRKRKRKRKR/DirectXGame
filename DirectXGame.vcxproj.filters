@@ -47,9 +47,6 @@
     <Filter Include="HLSL">
       <UniqueIdentifier>{1468e40e-d21c-4e52-a632-942cfb664c74}</UniqueIdentifier>
     </Filter>
-    <Filter Include="CreateParticle">
-      <UniqueIdentifier>{1ae814be-f1c9-4116-a59a-3f997b132a67}</UniqueIdentifier>
-    </Filter>
     <Filter Include="InputDevice">
       <UniqueIdentifier>{49fbe7e4-120a-44fd-ab1e-c539293462e0}</UniqueIdentifier>
     </Filter>
@@ -58,6 +55,9 @@
     </Filter>
     <Filter Include="Graphics\Pipeline">
       <UniqueIdentifier>{fb973968-cccf-417a-b642-5c297f807172}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Particle">
+      <UniqueIdentifier>{38855aa0-c01c-46c4-956c-1bf1429379af}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -125,9 +125,6 @@
     <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp">
       <Filter>Graphics\Object\Triangle</Filter>
     </ClCompile>
-    <ClCompile Include="TrailParticle3D.cpp">
-      <Filter>CreateParticle</Filter>
-    </ClCompile>
     <ClCompile Include="InputDevice\InputDevice.cpp">
       <Filter>InputDevice</Filter>
     </ClCompile>
@@ -142,6 +139,9 @@
     </ClCompile>
     <ClCompile Include="Graphics\Pipeline\Pipeline.cpp">
       <Filter>Graphics\Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="Particle\TrailParticle3D.cpp">
+      <Filter>Particle</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -220,9 +220,6 @@
     <ClInclude Include="Graphics\Object\Triangle\Triangle.h">
       <Filter>Graphics\Object\Triangle</Filter>
     </ClInclude>
-    <ClInclude Include="TrailParticle3D.h">
-      <Filter>CreateParticle</Filter>
-    </ClInclude>
     <ClInclude Include="InputDevice\InputDevice.h">
       <Filter>InputDevice</Filter>
     </ClInclude>
@@ -237,6 +234,9 @@
     </ClInclude>
     <ClInclude Include="Graphics\Pipeline\Pipeline.h">
       <Filter>Graphics\Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="Particle\TrailParticle3D.h">
+      <Filter>Particle</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

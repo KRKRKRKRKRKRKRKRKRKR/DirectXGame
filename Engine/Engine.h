@@ -5,7 +5,7 @@
 #include "../Camera/Camera.h"
 #include "../Externals/imgui/imguiManager.h"
 #include "../InputDevice/InputDevice.h"
-#include "../TrailParticle3D.h"
+#include "../Particle/TrailParticle3D.h"
 #include "../Utils/DeltaTime.h"
 
 #include <random>

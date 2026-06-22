@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <random>
-#include "Math/MathTypes.h"
+#include "../Math/MathTypes.h"
 
 struct TrailParticleParameter {
 	// --- 軌道 ---

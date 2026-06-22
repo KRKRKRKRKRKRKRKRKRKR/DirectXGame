@@ -106,7 +106,6 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Camera\Camera.cpp" />
     <ClCompile Include="Graphics\Pipeline\LinePipeline.cpp" />
     <ClCompile Include="Graphics\Pipeline\Pipeline.cpp" />
-    <ClCompile Include="TrailParticle3D.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Externals\imgui\imgui.cpp" />
@@ -125,6 +124,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Graphics\Texture\TextureManager.cpp" />
     <ClCompile Include="InputDevice\InputDevice.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Particle\TrailParticle3D.cpp" />
     <ClCompile Include="Utils\DeltaTime.cpp" />
     <ClCompile Include="Utils\Logger.cpp" />
     <ClCompile Include="Utils\StringUtils.cpp" />
@@ -134,7 +134,6 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Camera\Camera.h" />
     <ClInclude Include="Graphics\Pipeline\LinePipeline.h" />
     <ClInclude Include="Graphics\Pipeline\Pipeline.h" />
-    <ClInclude Include="TrailParticle3D.h" />
     <ClInclude Include="Debug\Debug.h" />
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Externals\imgui\imconfig.h" />
@@ -158,6 +157,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />
     <ClInclude Include="Math\VectorMath.h" />
+    <ClInclude Include="Particle\TrailParticle3D.h" />
     <ClInclude Include="Utils\DeltaTime.h" />
     <ClInclude Include="Utils\Logger.h" />
     <ClInclude Include="Utils\StringUtils.h" />
