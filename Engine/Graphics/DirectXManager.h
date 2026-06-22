@@ -19,7 +19,7 @@
 #include "Texture/TextureManager.h"
 #include "Object/Triangle/Triangle.h"
 #include "Object/Line/Line.h"
-
+#include "Object/Sphere/Sphere.h"
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -45,9 +45,10 @@ public:
 	// ===== 描画関連 =====
 	void DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, const Vector4& color, TextureID textureID);
 	void DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
-	void CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, bool changeTexture, uint32_t wvpIndex = 1);
 	void DrawLineRender(const Matrix4x4& view, const Matrix4x4& projection, const Vector3& start, const Vector3& end, const Vector4& color);
-	
+	void DrawSphereRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, TextureID textureID);
+
+
 	uint32_t AllocateWvpIndex();
 	void SetWvpMatrix(uint32_t index, const Matrix4x4& matrix);
 	D3D12_GPU_VIRTUAL_ADDRESS GetWvpGpuAddress(uint32_t index) const;
@@ -61,7 +62,6 @@ public:
 	UINT GetDescriptorRangeCount() const { return DESCRIPTOR_RANGE_COUNT; }
 	const D3D12_STATIC_SAMPLER_DESC* GetStaticSamplers() const { return staticSamplers_; }
 	UINT GetStaticSamplerCount() const { return STATIC_SAMPLER_COUNT; }
-	D3D12_GPU_DESCRIPTOR_HANDLE GetTextureSrvHandle() const { return descriptorHeaps_.GetTextureSrvHandle(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return descriptorHeaps_.GetDSVHandle(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle() const { return descriptorHeaps_.GetRTVHandle(backBufferIndex_); }
 	UINT GetBackBufferIndex() const { return backBufferIndex_; }
@@ -107,7 +107,6 @@ private:
 	void WriteVertexResource();
 	void ViewportScissorRect(int32_t width, int32_t height);
 	void CreateTransformationMatrix();
-	void SetPipelineCommands();
 
 
 	// ===== 状態フラグ =====
@@ -159,18 +158,13 @@ private:
 	// ===== 描画用リソース =====
 	ComPtr<ID3D12Resource> materialResource_ = nullptr;
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
-	ComPtr<ID3D12Resource> vertexResourceSphere_ = nullptr;
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSphere_{};
 	uint8_t* wvpMappedData_ = nullptr;
 	uint32_t wvpStride_ = 0;
 	uint32_t wvpAllocatedCount_ = 0;
 	static constexpr uint32_t kTriangleWvpIndex = 0;
-	static constexpr uint32_t kSphereWvpIndex = 1;
-	uint32_t sphereVertexCount_ = 0;
-	float sphereGeometryRadius_ = 0.0f;
 	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 
 
@@ -190,4 +184,6 @@ private:
 	uint32_t currentLineWvpIndex_ = 0;
 
 	std::unique_ptr<Sprite> sprite_;
+	std::unique_ptr<Sphere> sphere_;
+
 };

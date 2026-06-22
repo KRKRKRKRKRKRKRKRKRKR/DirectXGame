@@ -263,49 +263,29 @@ void Engine::Run() {
 
 ---
 
-## Task 11: Sphere を IDrawable に統合（Sphere クラス作成）
+## Task 11: Sphere を IDrawable に統合（Sphere クラス作成）（✅ 完了）
 
-**なぜやるか**
-Sprite と同じ理由。`CreateDrawSphereResource()` という名前からして設計が中途半端で、
-毎フレーム GPU バッファを CreateBufferResource で確保し直している（非常に重い）。
-
-**どのファイルを触るか（新規作成）**
-- `Graphics/Object/Sphere/Sphere.h`
-- `Graphics/Object/Sphere/Sphere.cpp`
-
-**Sphere クラスの構造**
-```
-Sphere : IDrawable
-├─ Initialize(device, textureManager, rootSignature, pipelineState, subdivision)
-│   └─ 頂点データをここで1度だけ生成・GPUに転送
-├─ SetWvpMatrix(matrix, wvpIndex)
-├─ SetViewportAndScissorRect(width, height)
-├─ SetPipelineCommands(commandList, textureManager, textureID)
-└─ Draw(commandList, wvpIndex)
-```
-
-**なぜ Initialize で頂点を生成するか**
-現状 `CreateDrawSphereResource()` は毎フレーム呼ばれるたびに `CreateBufferResource()` で
-GPUバッファを確保し直している。球の形は変わらないのに毎フレーム確保・解放しているのは無駄。
-Initialize で1回だけ作れば毎フレームは Draw するだけでいい。
+**実装状況**
+✅ 完了
+- `Engine/Graphics/Object/Sphere/Sphere.h/.cpp` を新規作成
+- `Sphere : IDrawable` として実装。頂点データを `Initialize()` で1度だけ生成・GPU転送
+- subdivision=30, radius=1.0f で初期化（スケールは Transform で対応）
+- `DirectXManager` に `std::unique_ptr<Sphere> sphere_` を追加
+- `CreateDrawSphereResource()` → `DrawSphereRender()` に置き換え
+- `DirectXManager::SetPipelineCommands()` を削除（各クラスが自前で持つため不要に）
+- 古い Sphere 関連メンバ（`vertexResourceSphere_`, `vertexBufferViewSphere_`, `sphereVertexCount_`, `kSphereWvpIndex`）を削除
 
 ---
 
-## Task 12: DescriptorHeaps の GetTextureSrvHandle 新旧API 統合
+## Task 12: DescriptorHeaps の GetTextureSrvHandle 新旧API 統合（✅ 完了）
 
-**なぜやるか**
-`DescriptorHeaps.h` に以下が混在している:
-```cpp
-GetTextureSrvHandle()    // 古いAPI（何番目か不明）
-GetTextureSrvHandle2()   // 古いAPI（2って何？）
-GetTextureSrvHandleByIndex(uint32_t) // 新しいAPI
-```
-古いものと新しいものが両立しているので、どれを使えばいいか読んだ人が迷う。
-
-**やること**
-1. どこで `GetTextureSrvHandle()` と `GetTextureSrvHandle2()` が使われているか調べる
-2. すべて `GetTextureSrvHandleByIndex()` に置き換える
-3. 古い2つのメソッドとメンバ変数 `textureSrvHandle_` / `textureSrvHandle2_` を削除
+**実装状況**
+✅ 完了
+- `GetTextureSrvHandle()` / `GetTextureSrvHandle2()` はどこからも呼ばれていないことを確認
+- `DescriptorHeaps.h` から両メソッドとメンバ変数 `textureSrvHandle_` / `textureSrvHandle2_` を削除
+- `DescriptorHeaps.cpp` から両変数への代入を削除
+- `DirectXManager.h` の `GetTextureSrvHandle()` getter も削除
+- `GetTextureSrvHandleByIndex()` に統一
 
 ---
 

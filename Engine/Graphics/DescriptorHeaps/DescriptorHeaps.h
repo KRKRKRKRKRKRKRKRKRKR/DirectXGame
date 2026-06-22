@@ -23,8 +23,6 @@ public:
 	ID3D12DescriptorHeap* GetDSVDescriptorHeap() const { return dsvDescriptorHeap_.Get(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle(uint32_t index) const { return rtvHandles_[index]; }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return dsvHandle_; }
-	D3D12_GPU_DESCRIPTOR_HANDLE GetTextureSrvHandle() const { return textureSrvHandle_; }
-	D3D12_GPU_DESCRIPTOR_HANDLE GetTextureSrvHandle2() const { return textureSrvHandle2_; }
 
 	uint32_t GetDescriptorSizeSRV() const { return descriptorSizeSRV_; }
 	uint32_t GetDescriptorSizeRTV() const { return descriptorSizeRTV_; }
@@ -53,8 +51,6 @@ private:
 	ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_ = nullptr;
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2] = {};
 	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle_ = {};
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle_ = {};
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle2_ = {};
 	std::map<uint32_t, SrvHandle> textureSrvHandles_;
 	uint32_t descriptorSizeSRV_ = 0;
 	uint32_t descriptorSizeRTV_ = 0;

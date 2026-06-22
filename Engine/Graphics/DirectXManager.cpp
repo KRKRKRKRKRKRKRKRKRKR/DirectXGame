@@ -82,6 +82,9 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	sprite_ = std::make_unique<Sprite>();
 	sprite_->Initialize(device_.Get(), &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
 
+	sphere_ = std::make_unique<Sphere>();
+	sphere_->Initialize(device_.Get(), &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
+
 	CreateVertexResource();
 	CreateMaterialResource();
 	CreateTransformationMatrix();
@@ -118,9 +121,6 @@ void DirectXManager::Finalize() {
 
 	// 描画関連リソース解放
 	materialResource_.Reset();
-
-	vertexResourceSphere_.Reset();
-
 	line_.reset();
 	triangle_.reset();
 	
@@ -497,7 +497,6 @@ void DirectXManager::CreateTransformationMatrix() {
 	AllocateWvpIndex(); // triangle
 	AllocateWvpIndex(); // sphere
 	SetWvpMatrix(kTriangleWvpIndex, MatrixMath::Identity());
-	SetWvpMatrix(kSphereWvpIndex, MatrixMath::Identity());
 }
 
 
@@ -571,126 +570,14 @@ void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& pr
 	sprite_->SetPipelineCommands(commandList_.Get(), &textureManager_, TextureID::Texture3);
 	sprite_->Draw(commandList_.Get(), 0);
 }
-void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, bool changeTexture, uint32_t wvpIndex) {
+
+void DirectXManager::DrawSphereRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, TextureID textureID) {
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
-	SetWvpMatrix(wvpIndex, worldMatrix * view * projection);
-	const uint32_t Ksubdivision = 30;
-	const float kLonEvery = DirectX::XM_2PI / Ksubdivision;
-	const float kLatEvery = DirectX::XM_PI / Ksubdivision;
-
-	// Sphere uses a dedicated vertex buffer. Without this, vertexData remains nullptr and will crash on write.
-	sphereVertexCount_ = Ksubdivision * Ksubdivision * 6;
-	const size_t bufferSize = sizeof(VertexData) * static_cast<size_t>(sphereVertexCount_);
-	vertexResourceSphere_ = textureManager_.CreateBufferResource(bufferSize);
-	vertexBufferViewSphere_.BufferLocation = vertexResourceSphere_->GetGPUVirtualAddress();
-	vertexBufferViewSphere_.SizeInBytes = static_cast<UINT>(bufferSize);
-	vertexBufferViewSphere_.StrideInBytes = sizeof(VertexData);
-
-	VertexData* vertexData = nullptr;
-	HRESULT hr = vertexResourceSphere_->Map(0, nullptr, reinterpret_cast<void**>(&vertexData));
-	if (FAILED(hr) || vertexData == nullptr) {
-		Logger::Log("Failed Map vertexResourceSphere_\n");
-		return;
-	}
-
-	for (uint32_t latIndex = 0; latIndex < Ksubdivision; ++latIndex) {
-		float lat = -DirectX::XM_PIDIV2 + latIndex * kLatEvery;
-
-		for (uint32_t lonIndex = 0; lonIndex < Ksubdivision; ++lonIndex) {
-			uint32_t start = (latIndex * Ksubdivision + lonIndex) * 6;
-			float lon = lonIndex * kLonEvery;
-
-			Vector3 a, b, c, d;
-
-
-
-			a = Vector3(
-				sphereData.radius * cosf(lat) * cosf(lon),
-				sphereData.radius * sinf(lat),
-				sphereData.radius * cosf(lat) * sinf(lon)
-			);
-
-			b = Vector3(
-				sphereData.radius * cosf(lat + kLatEvery) * cosf(lon),
-				sphereData.radius * sinf(lat + kLatEvery),
-				sphereData.radius * cosf(lat + kLatEvery) * sinf(lon)
-			);
-
-			c = Vector3(
-				sphereData.radius * cosf(lat) * cosf(lon + kLonEvery),
-				sphereData.radius * sinf(lat),
-				sphereData.radius * cosf(lat) * sinf(lon + kLonEvery)
-			);
-
-			d = Vector3(
-				sphereData.radius * cosf(lat + kLatEvery) * cosf(lon + kLonEvery),
-				sphereData.radius * sinf(lat + kLatEvery),
-				sphereData.radius * cosf(lat + kLatEvery) * sinf(lon + kLonEvery)
-			);
-
-			vertexData[start + 0].position.x = a.x;
-			vertexData[start + 0].position.y = a.y;
-			vertexData[start + 0].position.z = a.z;
-			vertexData[start + 0].position.w = 1.0f;
-
-			vertexData[start + 1].position.x = b.x;
-			vertexData[start + 1].position.y = b.y;
-			vertexData[start + 1].position.z = b.z;
-			vertexData[start + 1].position.w = 1.0f;
-
-			vertexData[start + 2].position.x = c.x;
-			vertexData[start + 2].position.y = c.y;
-			vertexData[start + 2].position.z = c.z;
-			vertexData[start + 2].position.w = 1.0f;
-
-			vertexData[start + 3].position.x = c.x;
-			vertexData[start + 3].position.y = c.y;
-			vertexData[start + 3].position.z = c.z;
-			vertexData[start + 3].position.w = 1.0f;
-
-			vertexData[start + 4].position.x = b.x;
-			vertexData[start + 4].position.y = b.y;
-			vertexData[start + 4].position.z = b.z;
-			vertexData[start + 4].position.w = 1.0f;
-
-			vertexData[start + 5].position.x = d.x;
-			vertexData[start + 5].position.y = d.y;
-			vertexData[start + 5].position.z = d.z;
-			vertexData[start + 5].position.w = 1.0f;
-
-			// テクスチャ座標を正しく計算
-			float u0 = lonIndex / static_cast<float>(Ksubdivision);
-			float u1 = (lonIndex + 1) / static_cast<float>(Ksubdivision);
-			float v0 = 1.0f - latIndex / static_cast<float>(Ksubdivision);
-			float v1 = 1.0f - (latIndex + 1) / static_cast<float>(Ksubdivision);
-
-			// 各頂点に異なるUV座標を割り当て
-			vertexData[start + 0].texcoord = { u0, v0 };  // a
-			vertexData[start + 1].texcoord = { u0, v1 };  // b
-			vertexData[start + 2].texcoord = { u1, v0 };  // c
-			vertexData[start + 3].texcoord = { u1, v0 };  // c
-			vertexData[start + 4].texcoord = { u0, v1 };  // b
-			vertexData[start + 5].texcoord = { u1, v1 };  // d
-		}
-	}
-
-	vertexResourceSphere_->Unmap(0, nullptr);
-
-	ViewportScissorRect(windowWidth_, windowHeight_);
-	SetPipelineCommands();
-	commandList_->IASetVertexBuffers(0, 1, &vertexBufferViewSphere_);
-	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
-	commandList_->SetGraphicsRootConstantBufferView(1, GetWvpGpuAddress(wvpIndex));
-
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = changeTexture ?
-		textureManager_.GetSrvGpuHandle(TextureID::Texture2) :
-		textureManager_.GetSrvGpuHandle(TextureID::Texture1);
-
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
-
-	commandList_->DrawInstanced(sphereVertexCount_, 1, 0, 0);
+	sphere_->SetWvpMatrix(worldMatrix * view * projection);
+	sphere_->SetPipelineCommands(commandList_.Get(), &textureManager_, textureID);
+	sphere_->Draw(commandList_.Get(), 0);
 }
+
 void DirectXManager::ViewportScissorRect(int32_t width, int32_t height) {
 	viewport_.Width = static_cast<float>(width);
 	viewport_.Height = static_cast<float>(height);
@@ -703,22 +590,6 @@ void DirectXManager::ViewportScissorRect(int32_t width, int32_t height) {
 	scissorRect_.top = 0;
 	scissorRect_.bottom = height;
 }
-
-void DirectXManager::SetPipelineCommands() {
-	commandList_->RSSetViewports(1, &viewport_);
-	commandList_->RSSetScissorRects(1, &scissorRect_);
-
-	if (triangle_) {
-		commandList_->SetGraphicsRootSignature(triangle_->GetRootSignature());
-		commandList_->SetPipelineState(triangle_->GetPipelineState());
-	}
-
-	// テクスチャ SRV ハンドルを設定
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle =
-		textureManager_.GetSrvGpuHandle(TextureID::Texture3);
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
-}
-
 
 void DirectXManager::InitializeTexture() {
 	textureManager_.SetDevice(device_.Get());
