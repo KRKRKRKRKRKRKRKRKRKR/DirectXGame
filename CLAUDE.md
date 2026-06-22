@@ -318,32 +318,25 @@ WVP 行列（ワールド・ビュー・プロジェクション行列）の GPU
 
 ---
 
-## Task 15: Present(1,0) + Fence ダブル同期問題の解決
+## Task 15: Present(1,0) + Fence ダブル同期問題の解決（✅ 完了）
 
-**なぜやるか**
-`DirectXManager::EndFrame()` で:
-```cpp
-swapChain_->Present(1, 0);           // ① Vsync まで待つ（16.67ms）
-WaitForSingleObject(fenceEvent_, INFINITE); // ② GPU完了まで待つ
+**実装状況**
+✅ 完了
+
+**変更内容**
+- `EndFrame()`: フェンス待機・Reset を削除。Signal → Present で終わる
+- `BeginFrame()`: 先頭にフェンス待機を追加 → `commandAllocator_->Reset()` → `commandList_->Reset()`
+- `WaitForGPUCompletion()`: 末尾の `commandAllocator_->Reset()` / `commandList_->Reset()` を削除
+  - 理由: Reset 後にリストが「記録中（Open）」状態になり、次の BeginFrame で `commandAllocator_->Reset()` が失敗するため
+- `Finalize()`: `WaitForGPUCompletion()` 呼び出しを削除し、**新規 Signal を発行してから待機** に変更
+  - 理由: EndFrame の Signal は Present より前にキューされるため、DXGI の Flip 操作が完了する保証がなかった。新規 Signal を発行することで Flip の後に確実に同期できる
+
+**最終的なフレームフロー**
 ```
-2つの待機が直列に並んでいる。`Present(1, 0)` は GPU の描画完了 + Vsync まで待つので、
-その直後の Fence 待機は「もう終わっている GPU を再び待つ」無駄な処理になっている。
-
-**やること**
-`DirectXManager.cpp` の `EndFrame()` のフェンス待機を次フレームの先頭に移動させる。
-つまり「前フレームの GPU が終わったか確認してから今フレームの記録を始める」流れにする:
-
+EndFrame:   ExecuteCommandLists → fenceValue_++ → Signal → Present
+BeginFrame: FenceWait → Reset(allocator) → Reset(list) → [描画]
+Finalize:   fenceValue_++ → Signal → FenceWait → リソース解放
 ```
-変更前:
-  ExecuteCommandLists → Present(待機) → Fence待機 → 次フレームのBeginFrame
-
-変更後:
-  ExecuteCommandLists → Present(待機) → [次フレームへ]
-  BeginFrame先頭でFence確認（もう終わっているはずなので即通過）
-```
-
-`Present(1, 0)` の第1引数を `0` に変えると Vsync なし（フレームレート上限なし）になるが、
-まずはダブル同期を解消してから考える。
 
 ---
 
