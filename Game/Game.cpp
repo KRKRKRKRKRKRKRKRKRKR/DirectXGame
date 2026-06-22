@@ -46,7 +46,7 @@ void Game::Update(float deltaTime) {
 }
 
 void Game::Render() {
-	float aspectRatio = camera_->GetAspeRatio(directX_->GetClientWidth(), directX_->GetClientHeight());
+	float aspectRatio = camera_->GetAspectRatio(directX_->GetClientWidth(), directX_->GetClientHeight());
 	Matrix4x4 viewMatrix = camera_->GetViewMatrix();
 	Matrix4x4 projectionMatrix = camera_->GetProjectionMatrix(aspectRatio);
 
@@ -72,7 +72,7 @@ void Game::Render() {
 }
 
 void Game::DrawGrid() {
-	float aspectRatio = camera_->GetAspeRatio(directX_->GetClientWidth(), directX_->GetClientHeight());
+	float aspectRatio = camera_->GetAspectRatio(directX_->GetClientWidth(), directX_->GetClientHeight());
 	Matrix4x4 viewMatrix = camera_->GetViewMatrix();
 	Matrix4x4 projMatrix = camera_->GetProjectionMatrix(aspectRatio);
 	directX_->DrawGridBatch(viewMatrix, projMatrix);

@@ -9,11 +9,8 @@ void Camera::Initialize(const Vector3& position, const Vector3& rotation, float 
 	cameraData_.farClip = farClip;
 }
 
-void Camera::Update() {
-	// カメラの更新処理（必要に応じて実装）
-}
 
-float Camera::GetAspeRatio(const int clientWidth,const int clientHeight) const {
+float Camera::GetAspectRatio(const int clientWidth,const int clientHeight) const {
 	return static_cast<float>(clientWidth) / static_cast<float>(clientHeight);
 }
 

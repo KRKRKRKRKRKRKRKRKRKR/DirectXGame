@@ -427,16 +427,14 @@ Renderer           ← BeginFrame/EndFrame、DrawXxx の呼び出し
 
 ---
 
-## Task 17: Camera タイポ修正 `GetAspeRatio` → `GetAspectRatio`
+## Task 17: Camera タイポ修正 `GetAspeRatio` → `GetAspectRatio`（✅ 完了）
 
-**なぜやるか**
-Task 6 で `Pipline` → `Pipeline` を直したのと同じ理由。
-`Aspect` のスペルミスで `e` が抜けている。呼び出し元も含めて統一する。
-
-**どのファイルを触るか**
-- `Engine/Camera/Camera.h` のメソッド宣言
-- `Engine/Camera/Camera.cpp` の実装
-- `Engine/Engine.cpp` の呼び出し箇所（`GetAspeRatio` → `GetAspectRatio`）
+**実装状況**
+✅ 完了
+- `Engine/Camera/Camera.h`: `GetAspeRatio` → `GetAspectRatio` に修正
+- `Engine/Camera/Camera.cpp`: 実装も同様に修正
+- `Game/Game.cpp`: 呼び出し箇所 2 箇所を修正（L49, L75）
+- 注: Engine.cpp ではなく Game.cpp が呼び出し元だった
 
 ---
 
@@ -452,21 +450,13 @@ Task 6 で `Pipline` → `Pipeline` を直したのと同じ理由。
 
 ---
 
-## Task 19: `Camera::Update()` の整理
+## Task 19: `Camera::Update()` の整理（✅ 完了）
 
-**なぜやるか**
-Task 5 以降、`Camera::HandleInput()` が内部で状態を更新しているため
-`Camera::Update()` は現在どこからも呼ばれていない（宣言だけ存在する空のメソッド）。
-使われていないメソッドが残っていると、読んだ人が「どこかで呼ばれているのか？」と混乱する。
-
-**やること**
-1. `Camera.h` と `Camera.cpp` から `Update()` を削除する
-2. ビルドしてエラーがないか確認
-
-**注意**
-将来 Game クラスがカメラを制御する必要が出たとき（プレイヤー追従など）は、
-`HandleInput()` とは別に `SetPosition()` / `SetRotation()` を使えばよい。
-現時点で未使用のメソッドは残さない。
+**実装状況**
+✅ 完了
+- `Camera.h` から `void Update();` の宣言を削除
+- `Camera.cpp` から空の `Update()` 実装を削除
+- どこからも呼ばれていないことを確認してから削除
 
 ---
 
