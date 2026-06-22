@@ -36,7 +36,7 @@ struct TrailParticleInfo {
 class TrailParticle3D {
 public:
 	void Init(const TrailParticleParameter& param);
-	void Update(Vector3& outTranslation, Vector3& outRotation);
+	void Update(const Vector3& pos, const Vector3& rotation, float deltaTime);
 
 	const std::vector<TrailParticleInfo>& GetParticles() const { return particles_; }
 	const std::vector<int>& GetActiveList() const { return activeList_; }

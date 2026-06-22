@@ -18,16 +18,15 @@ void TrailParticle3D::Init(const TrailParticleParameter& param) {
     ResetFall();
 }
 
-void TrailParticle3D::Update(Vector3& outTranslation, Vector3& outRotation) {
-    // 方向ベクトルに沿って進む
-    outTranslation.x += direction_.x * param_.fallSpeed;
-    outTranslation.y += direction_.y * param_.fallSpeed;
-    outTranslation.z += direction_.z * param_.fallSpeed;
+void TrailParticle3D::Update(const Vector3& pos, const Vector3& rotation, float deltaTime) {
+    Vector3 movement = Vector3(direction_.x * param_.fallSpeed * deltaTime,
+                               direction_.y * param_.fallSpeed * deltaTime,
+                               direction_.z * param_.fallSpeed * deltaTime);
+    Vector3 currentPos = Vector3(pos.x + movement.x, pos.y + movement.y, pos.z + movement.z);
 
-    Emit(outTranslation, prevPos_, outRotation);
-    prevPos_ = outTranslation;
+    Emit(currentPos, prevPos_, rotation);
+    prevPos_ = currentPos;
 
-    // パーティクル更新
     for (int i = static_cast<int>(activeList_.size()) - 1; i >= 0; i--) {
         int index = activeList_[i];
         TrailParticleInfo& p = particles_[index];
@@ -49,10 +48,8 @@ void TrailParticle3D::Update(Vector3& outTranslation, Vector3& outRotation) {
         }
     }
 
-
-    if (outTranslation.y <= param_.goalY) {
+    if (currentPos.y <= param_.goalY) {
         ResetFall();
-        outTranslation = param_.fixedStartPos;
     }
 }
 

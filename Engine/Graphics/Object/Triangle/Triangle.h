@@ -4,7 +4,7 @@
 #include <wrl.h>
 #include <cstdint>
 #include "../IDrawable.h"
-#include "../../../Math/MathTypes.h"
+#include "../../../../Math/MathTypes.h"
 #include "../../Texture/TextureManager.h"
 using Microsoft::WRL::ComPtr;
 

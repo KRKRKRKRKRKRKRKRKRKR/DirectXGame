@@ -1,8 +1,8 @@
 #include "DirectXManager.h"
 #include "../Utils/Logger.h"
 #include "../Utils/StringUtils.h"
-#include "../Math/MatrixMath.h"
-#include "../Math/TransformMath.h"
+#include "../../Math/MatrixMath.h"
+#include "../../Math/TransformMath.h"
 #include <cassert>
 #include <algorithm>
 #include <format>

@@ -1,5 +1,5 @@
 #include "InputDevice.h"
-#include "../Utils/Logger.h"
+#include "../Utils/Logger.h" // InputDevice と Utils が同階層なのでそのまま
 
 void InputDevice::Initialize(HINSTANCE hInstance, HWND hwnd) {
 	HRESULT hr = DirectInput8Create(hInstance, DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&directInput_, nullptr);

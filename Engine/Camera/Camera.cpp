@@ -1,6 +1,6 @@
 #include "Camera.h"
 #include <DirectXMath.h>
-#include "../InputDevice/InputDevice.h"
+#include "../InputDevice/InputDevice.h" // Camera と InputDevice が同階層なのでそのまま
 void Camera::Initialize(const Vector3& position, const Vector3& rotation, float fov, float nearClip, float farClip) {
 	cameraData_.position = position;
 	cameraData_.rotation = rotation;

@@ -1,7 +1,7 @@
 #pragma once
-#include "../Math/MathTypes.h"
-#include "../Math/TransformMath.h"
-#include "../Math/MatrixMath.h"
+#include "../../Math/MathTypes.h"
+#include "../../Math/TransformMath.h"
+#include "../../Math/MatrixMath.h"
 
 class Camera {
 public:

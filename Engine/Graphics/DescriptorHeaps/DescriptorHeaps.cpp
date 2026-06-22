@@ -1,5 +1,5 @@
 #include "DescriptorHeaps.h"
-#include "../../Utils/Logger.h"
+#include "../../Utils/Logger.h" // DescriptorHeaps が Graphics/DescriptorHeaps/ にあるので ../../Utils/
 #include <cassert>
 void DescriptorHeaps::Initialize(ID3D12Device* device) {
 	rtvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);

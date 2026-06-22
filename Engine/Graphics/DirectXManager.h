@@ -8,17 +8,17 @@
 #include <cstdint>
 #include <string>
 #include <wrl.h>
-#include "../Externals/DirectXTex/DirectXTex.h"
-#include "../Externals/DirectXTex/d3dx12.h"
-#include "../Math/MathTypes.h"
+#include "../../Externals/DirectXTex/DirectXTex.h"
+#include "../../Externals/DirectXTex/d3dx12.h"
+#include "../../Math/MathTypes.h"
 
-#include "../Graphics/ShaderCompiler/ShaderCompiler.h"
-#include "../Graphics/Pipeline/Pipeline.h"
-#include "../Graphics/Pipeline/LinePipeline.h"
-#include "../Graphics/DescriptorHeaps/DescriptorHeaps.h"
-#include "../Graphics/Texture/TextureManager.h"
-#include "../Graphics/Object/Triangle/Triangle.h"
-#include "../Graphics/Object/Line/Line.h"
+#include "ShaderCompiler/ShaderCompiler.h"
+#include "Pipeline/Pipeline.h"
+#include "Pipeline/LinePipeline.h"
+#include "DescriptorHeaps/DescriptorHeaps.h"
+#include "Texture/TextureManager.h"
+#include "Object/Triangle/Triangle.h"
+#include "Object/Line/Line.h"
 
 #pragma comment(lib, "d3d12.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -65,6 +65,8 @@ public:
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return descriptorHeaps_.GetDSVHandle(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle() const { return descriptorHeaps_.GetRTVHandle(backBufferIndex_); }
 	UINT GetBackBufferIndex() const { return backBufferIndex_; }
+	int32_t GetClientWidth() const { return windowWidth_; }
+	int32_t GetClientHeight() const { return windowHeight_; }
 	void InitializeGridLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
 

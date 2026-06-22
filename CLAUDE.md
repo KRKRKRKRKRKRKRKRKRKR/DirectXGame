@@ -272,99 +272,107 @@ Engine はカメラに「更新しろ」と言うだけでいい。
 
 ---
 
-## Task 8: Engine/ フォルダへの基盤クラス集約
+## Task 8: Engine/ フォルダへの完全集約（✅ 完了）
 
-**なぜやるか**
-`Camera/`・`Window/`・`InputDevice/` がプロジェクトルートに散らばっている。
-これらはすべてエンジン基盤のクラスなので `Engine/` の下にまとめると構造が明確になる。
-Task 9（Game クラス作成）の前にやっておくと、Game のインクルードパスも最初から正しく書ける。
-
-**移動するもの**
+**実装内容**
 - `Camera/` → `Engine/Camera/`
 - `Window/` → `Engine/Window/`
 - `InputDevice/` → `Engine/InputDevice/`
+- `Graphics/` → `Engine/Graphics/`（Engine/Graphics/Object/Triangle, Line, その他サブフォルダを含む）
+- `Utils/` → `Engine/Utils/`（DeltaTime, Logger, StringUtils）
 
-**インクルードパスの変更**
-`Engine/Engine.h` の3行のみ変更（他は変わらない）:
-```cpp
-// Before
-#include "../Camera/Camera.h"
-#include "../Window/Window.h"
-#include "../InputDevice/InputDevice.h"
+**修正したインクルードパス**
+1. `Engine/Engine.h`: `../Camera/` → `Camera/`, `../Window/` → `Window/`, `../InputDevice/` → `InputDevice/`, `../Graphics/` → `Graphics/`, `../Utils/` → `Utils/`
+2. `Engine/Camera/Camera.h`: `../Math/` → `../../Math/`
+3. `Engine/Camera/Camera.cpp`: コメント追加（同階層パスの確認）
+4. `Engine/Window/Window.cpp`: `../Externals/` → `../../Externals/`
+5. `Engine/Graphics/DirectXManager.h`: すべてのインクルードを `../../` ベースに統一
+6. `Engine/Graphics/DirectXManager.cpp`: `../Utils/` → `../Utils/`, `../Math/` → `../../Math/`
+7. `Engine/Graphics/DescriptorHeaps/DescriptorHeaps.cpp`: `../../Utils/`（既に正しい）
+8. `Engine/Graphics/ShaderCompiler/ShaderCompiler.cpp`: `../../Utils/`, `../../Utils/StringUtils.h`（既に正しい）
+9. `Engine/Graphics/Pipeline/Pipeline.cpp`: `../../Utils/`（既に正しい）
+10. `Engine/Graphics/Pipeline/LinePipeline.cpp`: `../../Utils/`（既に正しい）
+11. `Engine/Graphics/Texture/TextureManager.h/cpp`: `../../Utils/`, `../../Externals/`
+12. `Engine/Graphics/Object/Triangle/Triangle.h`: `../../../Math/` → `../../../../Math/`
+13. `Engine/Graphics/Object/Line/Line.h`: `../../../Math/` → `../../../../Math/`
+14. `Externals/imgui/imguiManager.h`: `../../Graphics/` → `../../Engine/Graphics/`
 
-// After
-#include "Camera/Camera.h"
-#include "Window/Window.h"
-#include "InputDevice/InputDevice.h"
-```
+**ビルド結果**
+✅ ビルド成功（エラー 0、警告 8 のみ）
 
-`Engine/Camera/Camera.cpp` の InputDevice インクルードは変わらない:
-```cpp
-#include "../InputDevice/InputDevice.h"  // Camera と InputDevice が同階層なのでそのまま
-```
-
-**やること（手順）**
-1. エクスプローラーで `Camera/`・`Window/`・`InputDevice/` フォルダを `Engine/` の中に移動
-2. Visual Studio のソリューションエクスプローラーで「除外」→「既存項目として追加」で再登録
-3. `Engine/Engine.h` の3行のインクルードパスを修正
-4. ビルドして確認
+**元のフォルダのクリーンアップ**
+✅ ルート配下の `Camera/`, `Window/`, `InputDevice/`, `Graphics/`, `Utils/` を削除
 
 ---
 
-## Task 9: Engine と Game クラスの分離
+## Task 9: Engine と Game クラスの分離（✅ 完了）
 
-**なぜやるか**
-現状 `Engine` クラスが「エンジン基盤（Window・DirectX・Camera・ImGui）」と
-「ゲーム固有のデータ（transform1_・trailParticles_）」を両方持っている。
-Engine をゲームロジックから切り離すと、将来別のゲームを作るときに Engine をそのまま使い回せる。
+**実装内容**
+Engine と Game を完全に分離し、各クラスが単一の責務を持つようにしました。
 
-**どのファイルを触るか（新規作成）**
-- `Game/Game.h` を新規作成
-- `Game/Game.cpp` を新規作成
+**作成・修正したファイル**
+1. **新規作成**
+   - `Game/Game.h`: ゲーム固有のメンバと処理
+   - `Game/Game.cpp`: Initialize, Update, Render の実装
 
-**分離の考え方**
-```
-Engine（残すもの）          Game（移すもの）
-─────────────────────      ─────────────────────────
-Window window_             Transform transform1_
-DirectXManager directX_    Transform transform2_
-Camera camera_             TrailParticle3D trailParticles_[]
-ImGuiManager imgui_        TrailParticleParameter trailParam_
-                           TextureID textureID_
-Initialize()               CameraControl() → Camera に移した後は不要
-Run()                      DrawGrid()
-Finalize()                 DrawImGui()（Trail Settings部分）
-                           Update()
-                           Render()
-```
+2. **修正**
+   - `Engine/Engine.h`: Game メンバ追加、ゲーム固有データ削除
+   - `Engine/Engine.cpp`: Run()を簡潔化、Update/Render削除、Initialize()をGame初期化に
+   - `Engine/Graphics/DirectXManager.h`: GetClientWidth/GetClientHeight ゲッター追加
+   - `Particle/TrailParticle3D.h`: Update シグネチャ変更（deltaTime パラメータ追加）
+   - `Particle/TrailParticle3D.cpp`: Update 実装修正
+   - `DirectXGame.vcxproj`: Game.cpp/.h をプロジェクトに追加
 
-**Game クラスのインターフェース**
+**分離結果**
+
+Engine（エンジン基盤）
 ```cpp
-class Game {
-public:
-    void Initialize(DirectXManager* directX, Camera* camera);
-    void Update(float deltaTime);
-    void Render();
-private:
-    // ゲーム固有のデータ
-};
+Window window_           // ウィンドウ管理
+DirectXManager directX_  // DirectX管理
+Camera camera_           // カメラ管理
+ImGuiManager imgui_      // UI管理
+DeltaTime deltaTime_     // タイマー管理
+Game game_               // ゲーム処理への委譲
+
+Initialize()  // エンジン基盤の初期化 → Game::Initialize を呼ぶ
+Run()         // ゲームループ → Game::Update/Render を呼ぶ
+Finalize()    // エンジン基盤の終了
 ```
 
-**Engine::Run() での呼び方**
+Game（ゲーム固有）
+```cpp
+Transform transform1_
+Transform transform2_
+TrailParticle3D trailParticles_[20]
+TrailParticleParameter trailParam_
+TextureID textureID_
+
+Initialize(DirectXManager*, Camera*)  // ゲーム初期化
+Update(float deltaTime)               // ゲームロジック更新
+Render()                              // ゲーム描画
+DrawGrid()                            // グリッド描画（Game専用）
+DrawImGui()                           // ゲーム UI（Trail Settings）
+```
+
+**Engine::Run() の流れ**
 ```cpp
 void Engine::Run() {
     while (window_.ProcessMessage()) {
+        InputDevice::GetInstance().Update();
         deltaTimer_.Update();
-        float dt = deltaTimer_.GetDeltaTime();
         directX_.BeginFrame();
         imgui_.BeginFrame();
-        game_.Update(dt);
-        game_.Render();
+        game_.Update(deltaTime_.GetDeltaTime());  // ← Game に任せる
+        game_.Render();                            // ← Game に任せる
         imgui_.EndFrame(&directX_);
         directX_.EndFrame();
     }
 }
 ```
+
+**ビルド結果**
+✅ ビルド成功（エラー 0、警告 6 のみ）
+✅ DirectXGame.exe 生成（6.42MB）
 
 ---
 

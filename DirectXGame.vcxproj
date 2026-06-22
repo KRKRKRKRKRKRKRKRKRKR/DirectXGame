@@ -103,9 +103,9 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <None Include="HLSL\Object3d.hlsli" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Camera\Camera.cpp" />
-    <ClCompile Include="Graphics\Pipeline\LinePipeline.cpp" />
-    <ClCompile Include="Graphics\Pipeline\Pipeline.cpp" />
+    <ClCompile Include="Engine\Camera\Camera.cpp" />
+    <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
+    <ClCompile Include="Engine\Graphics\Pipeline\Pipeline.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Externals\imgui\imgui.cpp" />
@@ -116,24 +116,25 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Externals\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="Externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
-    <ClCompile Include="Graphics\DirectXManager.cpp" />
-    <ClCompile Include="Graphics\Object\Line\Line.cpp" />
-    <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp" />
-    <ClCompile Include="Graphics\ShaderCompiler\ShaderCompiler.cpp" />
-    <ClCompile Include="Graphics\Texture\TextureManager.cpp" />
-    <ClCompile Include="InputDevice\InputDevice.cpp" />
+    <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
+    <ClCompile Include="Engine\Graphics\DirectXManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
+    <ClCompile Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.cpp" />
+    <ClCompile Include="Engine\Graphics\Texture\TextureManager.cpp" />
+    <ClCompile Include="Engine\InputDevice\InputDevice.cpp" />
+    <ClCompile Include="Game\Game.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Particle\TrailParticle3D.cpp" />
-    <ClCompile Include="Utils\DeltaTime.cpp" />
-    <ClCompile Include="Utils\Logger.cpp" />
-    <ClCompile Include="Utils\StringUtils.cpp" />
-    <ClCompile Include="Window\Window.cpp" />
+    <ClCompile Include="Engine\Utils\DeltaTime.cpp" />
+    <ClCompile Include="Engine\Utils\Logger.cpp" />
+    <ClCompile Include="Engine\Utils\StringUtils.cpp" />
+    <ClCompile Include="Engine\Window\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Camera\Camera.h" />
-    <ClInclude Include="Graphics\Pipeline\LinePipeline.h" />
-    <ClInclude Include="Graphics\Pipeline\Pipeline.h" />
+    <ClInclude Include="Engine\Camera\Camera.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\LinePipeline.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\Pipeline.h" />
     <ClInclude Include="Debug\Debug.h" />
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Externals\imgui\imconfig.h" />
@@ -145,23 +146,24 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Externals\imgui\imstb_rectpack.h" />
     <ClInclude Include="Externals\imgui\imstb_textedit.h" />
     <ClInclude Include="Externals\imgui\imstb_truetype.h" />
-    <ClInclude Include="Graphics\DescriptorHeaps\DescriptorHeaps.h" />
-    <ClInclude Include="Graphics\DirectXManager.h" />
-    <ClInclude Include="Graphics\Object\IDrawable.h" />
-    <ClInclude Include="Graphics\Object\Line\Line.h" />
-    <ClInclude Include="Graphics\Object\Triangle\Triangle.h" />
-    <ClInclude Include="Graphics\ShaderCompiler\ShaderCompiler.h" />
-    <ClInclude Include="Graphics\Texture\TextureManager.h" />
-    <ClInclude Include="InputDevice\InputDevice.h" />
+    <ClInclude Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.h" />
+    <ClInclude Include="Engine\Graphics\DirectXManager.h" />
+    <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
+    <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />
+    <ClInclude Include="Engine\Graphics\Object\Triangle\Triangle.h" />
+    <ClInclude Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.h" />
+    <ClInclude Include="Engine\Graphics\Texture\TextureManager.h" />
+    <ClInclude Include="Engine\InputDevice\InputDevice.h" />
+    <ClInclude Include="Game\Game.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\MatrixMath.h" />
     <ClInclude Include="Math\TransformMath.h" />
     <ClInclude Include="Math\VectorMath.h" />
     <ClInclude Include="Particle\TrailParticle3D.h" />
-    <ClInclude Include="Utils\DeltaTime.h" />
-    <ClInclude Include="Utils\Logger.h" />
-    <ClInclude Include="Utils\StringUtils.h" />
-    <ClInclude Include="Window\Window.h" />
+    <ClInclude Include="Engine\Utils\DeltaTime.h" />
+    <ClInclude Include="Engine\Utils\Logger.h" />
+    <ClInclude Include="Engine\Utils\StringUtils.h" />
+    <ClInclude Include="Engine\Window\Window.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt" />
