@@ -5,56 +5,14 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="Debug">
-      <UniqueIdentifier>{e6f19063-c97c-4da0-8615-39a3e1e00d8d}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Window">
-      <UniqueIdentifier>{4e0099ef-861b-4b4b-a7fb-72580d66fbf8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Utils">
-      <UniqueIdentifier>{a2c4be14-e7fd-4668-9e90-2a70af4e2a4c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Math">
       <UniqueIdentifier>{199f6276-3b66-4a3c-a0c1-eea1d3bc4747}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Engine">
-      <UniqueIdentifier>{cb4dbdbe-2979-46ad-8267-ef4e2e13b2cd}</UniqueIdentifier>
     </Filter>
     <Filter Include="imgui">
       <UniqueIdentifier>{ab060979-25c6-4be0-abb0-ed35e516c385}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Graphics">
-      <UniqueIdentifier>{15f6e967-c2a8-4c30-a51b-1e610e33e60b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Camera">
-      <UniqueIdentifier>{7a962575-8638-44a3-9710-054aa4cadee2}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics\DescriptorHeaps">
-      <UniqueIdentifier>{db832cf3-c188-4eb2-ba58-53c9a065fe26}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics\Object">
-      <UniqueIdentifier>{8c66a6fb-8f10-42f5-a9ab-cd5a982a4ed8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics\ShaderCompiler">
-      <UniqueIdentifier>{64c4a9c3-1eed-4a5f-8e9e-ef36da0f5f31}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics\Texture">
-      <UniqueIdentifier>{9a5294f9-d774-4c22-bd8a-d813273adf25}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics\Object\Triangle">
-      <UniqueIdentifier>{b90b7f8f-c12e-4f53-be30-b48083f3e761}</UniqueIdentifier>
-    </Filter>
     <Filter Include="HLSL">
       <UniqueIdentifier>{1468e40e-d21c-4e52-a632-942cfb664c74}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="InputDevice">
-      <UniqueIdentifier>{49fbe7e4-120a-44fd-ab1e-c539293462e0}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics\Object\Line">
-      <UniqueIdentifier>{d43f915d-8d7f-4237-973c-0f46e9a02726}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Graphics\Pipeline">
-      <UniqueIdentifier>{fb973968-cccf-417a-b642-5c297f807172}</UniqueIdentifier>
     </Filter>
     <Filter Include="Particle">
       <UniqueIdentifier>{38855aa0-c01c-46c4-956c-1bf1429379af}</UniqueIdentifier>
@@ -68,18 +26,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Graphics\DirectXManager.cpp">
-      <Filter>Graphics</Filter>
-    </ClCompile>
-    <ClCompile Include="Utils\Logger.cpp">
-      <Filter>Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="Utils\StringUtils.cpp">
-      <Filter>Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="Engine\Engine.cpp">
-      <Filter>Engine</Filter>
-    </ClCompile>
     <ClCompile Include="Externals\imgui\imgui.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
@@ -104,56 +50,28 @@
     <ClCompile Include="Externals\imgui\imguiManager.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="Camera\Camera.cpp">
-      <Filter>Camera</Filter>
-    </ClCompile>
-    <ClCompile Include="Debug\Debug.cpp">
-      <Filter>Debug</Filter>
-    </ClCompile>
-    <ClCompile Include="Window\Window.cpp">
-      <Filter>Window</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\DescriptorHeaps\DescriptorHeaps.cpp">
-      <Filter>Graphics\DescriptorHeaps</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Texture\TextureManager.cpp">
-      <Filter>Graphics\Texture</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\ShaderCompiler\ShaderCompiler.cpp">
-      <Filter>Graphics\ShaderCompiler</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Object\Triangle\Triangle.cpp">
-      <Filter>Graphics\Object\Triangle</Filter>
-    </ClCompile>
-    <ClCompile Include="InputDevice\InputDevice.cpp">
-      <Filter>InputDevice</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Object\Line\Line.cpp">
-      <Filter>Graphics\Object\Line</Filter>
-    </ClCompile>
-    <ClCompile Include="Utils\DeltaTime.cpp">
-      <Filter>Utils</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Pipeline\LinePipeline.cpp">
-      <Filter>Graphics\Pipeline</Filter>
-    </ClCompile>
-    <ClCompile Include="Graphics\Pipeline\Pipeline.cpp">
-      <Filter>Graphics\Pipeline</Filter>
-    </ClCompile>
     <ClCompile Include="Particle\TrailParticle3D.cpp">
       <Filter>Particle</Filter>
     </ClCompile>
+    <ClCompile Include="Engine\Camera\Camera.cpp" />
+    <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
+    <ClCompile Include="Engine\Graphics\Pipeline\Pipeline.cpp" />
+    <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
+    <ClCompile Include="Engine\Graphics\DirectXManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
+    <ClCompile Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.cpp" />
+    <ClCompile Include="Engine\Graphics\Texture\TextureManager.cpp" />
+    <ClCompile Include="Engine\InputDevice\InputDevice.cpp" />
+    <ClCompile Include="Game\Game.cpp" />
+    <ClCompile Include="Engine\Utils\DeltaTime.cpp" />
+    <ClCompile Include="Engine\Utils\Logger.cpp" />
+    <ClCompile Include="Engine\Utils\StringUtils.cpp" />
+    <ClCompile Include="Engine\Window\Window.cpp" />
+    <ClCompile Include="Debug\Debug.cpp" />
+    <ClCompile Include="Engine\Engine.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Graphics\DirectXManager.h">
-      <Filter>Graphics</Filter>
-    </ClInclude>
-    <ClInclude Include="Utils\Logger.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="Utils\StringUtils.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
     <ClInclude Include="Math\MathTypes.h">
       <Filter>Math</Filter>
     </ClInclude>
@@ -165,9 +83,6 @@
     </ClInclude>
     <ClInclude Include="Math\TransformMath.h">
       <Filter>Math</Filter>
-    </ClInclude>
-    <ClInclude Include="Engine\Engine.h">
-      <Filter>Engine</Filter>
     </ClInclude>
     <ClInclude Include="Externals\imgui\imconfig.h">
       <Filter>imgui</Filter>
@@ -196,48 +111,27 @@
     <ClInclude Include="Externals\imgui\imguiManager.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="Camera\Camera.h">
-      <Filter>Camera</Filter>
-    </ClInclude>
-    <ClInclude Include="Debug\Debug.h">
-      <Filter>Debug</Filter>
-    </ClInclude>
-    <ClInclude Include="Window\Window.h">
-      <Filter>Window</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\DescriptorHeaps\DescriptorHeaps.h">
-      <Filter>Graphics\DescriptorHeaps</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Texture\TextureManager.h">
-      <Filter>Graphics\Texture</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\ShaderCompiler\ShaderCompiler.h">
-      <Filter>Graphics\ShaderCompiler</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Object\IDrawable.h">
-      <Filter>Graphics\Object</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Object\Triangle\Triangle.h">
-      <Filter>Graphics\Object\Triangle</Filter>
-    </ClInclude>
-    <ClInclude Include="InputDevice\InputDevice.h">
-      <Filter>InputDevice</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Object\Line\Line.h">
-      <Filter>Graphics\Object\Line</Filter>
-    </ClInclude>
-    <ClInclude Include="Utils\DeltaTime.h">
-      <Filter>Utils</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Pipeline\LinePipeline.h">
-      <Filter>Graphics\Pipeline</Filter>
-    </ClInclude>
-    <ClInclude Include="Graphics\Pipeline\Pipeline.h">
-      <Filter>Graphics\Pipeline</Filter>
-    </ClInclude>
     <ClInclude Include="Particle\TrailParticle3D.h">
       <Filter>Particle</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\Camera\Camera.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\LinePipeline.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\Pipeline.h" />
+    <ClInclude Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.h" />
+    <ClInclude Include="Engine\Graphics\DirectXManager.h" />
+    <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
+    <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />
+    <ClInclude Include="Engine\Graphics\Object\Triangle\Triangle.h" />
+    <ClInclude Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.h" />
+    <ClInclude Include="Engine\Graphics\Texture\TextureManager.h" />
+    <ClInclude Include="Engine\InputDevice\InputDevice.h" />
+    <ClInclude Include="Game\Game.h" />
+    <ClInclude Include="Engine\Utils\DeltaTime.h" />
+    <ClInclude Include="Engine\Utils\Logger.h" />
+    <ClInclude Include="Engine\Utils\StringUtils.h" />
+    <ClInclude Include="Engine\Window\Window.h" />
+    <ClInclude Include="Debug\Debug.h" />
+    <ClInclude Include="Engine\Engine.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">
