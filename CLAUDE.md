@@ -53,205 +53,77 @@ Particle/
 
 # エンジン修正ロードマップ（自分で実装する）
 
-## Task 1: FPS・フレームタイム計測を ImGui に追加
+## Task 1: FPS・フレームタイム計測を ImGui に追加（✅ 完了）
 
-**なぜやるか**
-現状 FPS が全く見えない。何ms かかっているかわからない状態で最適化しても意味がない。
-測定なき最適化は無意味 → まず計測できる状態にする。
-
-**どのファイルを触るか**
-`Engine/Engine.cpp` の `DrawImGui()` 関数
-
-**何を書くか**
-`DrawImGui()` の先頭に ImGui ウィンドウを1つ追加する。
-`ImGui::GetIO().Framerate` は ImGui が内部で計測している FPS。
-`1000.0f / Framerate` でミリ秒に変換できる。
-
-```cpp
-ImGui::Begin("Perf");
-ImGui::Text("FPS       : %.1f", ImGui::GetIO().Framerate);
-ImGui::Text("FrameTime : %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
-ImGui::End();
-```
-
-**確認方法**
-実行して "Perf" ウィンドウに数値が出ればOK。
-パーティクルを増やしたり減らしたりして FPS が変動することを確認する。
+**実装状況**
+✅ `Game/Game.cpp` の `DrawImGui()` で実装完了
+- `ImGui::Begin("FPS")` で FPS ウィンドウ表示
+- `ImGui::GetIO().Framerate` で FPS 値取得
+- frameTime 表示も実装済み
 
 ---
 
-## Task 2: グリッドを静的バッファ化（202 DrawCall → 1 DrawCall）
+## Task 2: グリッドを静的バッファ化（202 DrawCall → 1 DrawCall）（✅ 完了）
 
-**なぜやるか**
-`DrawGrid()` は毎フレーム同じ202本の線を個別に DrawCall している。
-グリッドは動かないので、初期化時に1つのバッファに全頂点を書いておけば
-毎フレーム1回の DrawCall で済む。
-
-**現状の問題**
-`Engine/Engine.cpp` の `DrawGrid()` を見ると:
-```cpp
-for (float x = -50.0f; x <= 50.0f; x += 1.0f) // 101回
-    DirectX_.DrawLineRender(...);               // 毎フレームDrawCall
-for (float z = -50.0f; z <= 50.0f; z += 1.0f) // 101回
-    DirectX_.DrawLineRender(...);               // 毎フレームDrawCall
-```
-合計202回/フレームのDrawCallが発生している。
-
-**どのファイルを触るか**
-- `Graphics/Object/Line/Line.h` と `Line.cpp` に静的グリッド用のメソッドを追加
-- または `Engine/Engine.h` と `Engine.cpp` にグリッドバッファ用メンバを追加
-
-**やること（手順）**
-1. `Engine.h` に静的グリッド用頂点バッファのメンバを追加
-2. `Engine::Initialize()` の中でグリッドの全頂点を1度だけ計算・バッファに書き込む
-3. `DrawGrid()` を毎フレーム个別DrawCallではなく、バッファを1回Drawするだけに変える
-4. `DrawGrid()` の for ループを削除する
-
-**ポイント（なぜ1回で済むか）**
-GPUは「この頂点データをこのやり方で描け」という命令を受け取る。
-頂点データ（グリッドの線の両端座標）が変わらないなら、毎フレーム同じデータを送り直す必要はない。
-初期化時に1度だけGPUメモリに書いておけば、毎フレームは「このバッファを使って描け」と言うだけでいい。
+**実装状況**
+✅ DirectXManager に `InitializeGridLines()` と `DrawGridBatch()` で実装完了
+- `InitializeGridLines()`: 初期化時に全グリッド頂点を 1 度だけ GPU に書き込み
+- `DrawGridBatch()`: 毎フレーム 1 回の DrawCall で全グリッドを描画
+- 効果: 202 DrawCall → 1 DrawCall に削減
 
 ---
 
-## Task 3: 毎DrawCallの SetPipelineState / RSSetViewports 重複排除
+## Task 3: 毎DrawCallの SetPipelineState / RSSetViewports 重複排除（✅ 完了）
 
-**なぜやるか**
-`Triangle::SetPipelineCommands()` を見ると、三角形を1個描くたびに:
-```cpp
-commandList->RSSetViewports(1, &viewport_);       // ウィンドウサイズは変わらないのに毎回
-commandList->RSSetScissorRects(1, &scissorRect_); // 毎回
-commandList->SetGraphicsRootSignature(...);        // パイプラインは変わらないのに毎回
-commandList->SetPipelineState(...);               // 毎回
-```
-これが2000回呼ばれる。ウィンドウサイズもパイプラインも変わっていないのに毎回設定し直している。
-GPUのステートマシンは「前回と同じ設定」を覚えているので、変わらないものは1回だけ設定すれば十分。
+**実装状況**
+✅ 完全実装
+- `DirectXManager::BeginFrame()` で RSSetViewports と RSSetScissorRects を 1 回設定（170-171行）
+- `DrawTriangleRender()` から `SetViewportAndScissorRect()` 呼び出しを削除（重複排除）
+- `DrawLineRender()` から `SetViewportAndScissorRect()` 呼び出しを削除（重複排除）
+- `DrawGridBatch()` から `SetViewportAndScissorRect()` 呼び出しを削除（重複排除）
+- 効果: 毎フレームの不要な Viewport/ScissorRect 設定が 2000+ 回から 1 回に削減
 
-**どのファイルを触るか**
-- `Graphics/DirectXManager.cpp` の `BeginFrame()` に移動させる
-- `Graphics/Object/Triangle/Triangle.cpp` の `SetPipelineCommands()` から重複を削除
-- `Graphics/Object/Line/Line.cpp` の `SetPipelineCommands()` からも同様に削除
-
-**やること（手順）**
-1. `DirectXManager::BeginFrame()` の末尾に、TriangleとLine共通の設定を追加する
-   - RSSetViewports、RSSetScissorRects はここで1回だけ
-2. `Triangle::SetPipelineCommands()` から RSSetViewports / RSSetScissorRects を削除
-3. `Line::SetPipelineCommands()` からも同様に削除
-4. パイプラインの切り替え（Triangle→Line）はまだ必要なので SetGraphicsRootSignature と
-   SetPipelineState は残す（ただし三角形の2000回ループは1回にまとめられる）
+**修正内容**
+- `DirectXManager::DrawTriangleRender()`: line 568 の SetViewportAndScissorRect() を削除
+- `DirectXManager::DrawLineRender()`: line 599 の SetViewportAndScissorRect() を削除
+- `DirectXManager::DrawGridBatch()`: line 814 の SetViewportAndScissorRect() を削除
+- SetPipelineCommands は保持（TextureID 設定が必要）
 
 ---
 
-## Task 4: DeltaTimer クラスの追加
+## Task 4: DeltaTimer クラスの追加（✅ 完了）
 
-**なぜやるか**
-現状 `Engine::Update()` の中に:
-```cpp
-transform1_.rotation.y += 1.0f; // FPSが60なら60度/秒、30なら30度/秒
-```
-FPSが変わると回転速度が変わってしまう。ゲームの動きがFPSに依存している。
-
-**正しい考え方**
-「1フレームで何度回転」ではなく「1秒で何度回転」にする。
-前のフレームから何秒経過したか（デルタタイム）を計測して掛け算する:
-```cpp
-transform1_.rotation.y += 60.0f * deltaTime; // 常に60度/秒
-```
-
-**どのファイルを触るか（新規作成）**
-`Utils/DeltaTimer.h` と `Utils/DeltaTimer.cpp` を新規作成する
-
-**DeltaTimer の中身**
-```cpp
-// DeltaTimer.h
-class DeltaTimer {
-public:
-    void Start();            // 初期化時に呼ぶ
-    void Update();           // 毎フレーム先頭で呼ぶ
-    float GetDeltaTime() const; // 前フレームからの経過秒数を返す
-private:
-    LARGE_INTEGER frequency_; // QueryPerformanceFrequency で取得
-    LARGE_INTEGER lastTime_;  // 前フレームのカウンター値
-    float deltaTime_ = 0.0f;
-};
-```
-
-**QueryPerformanceCounter とは**
-Windows が提供する高精度タイマー。CPUのクロックを使って計測するのでナノ秒単位の精度がある。
-- `QueryPerformanceFrequency()` : 1秒あたりのカウント数を取得（一度だけ呼ぶ）
-- `QueryPerformanceCounter()` : 現在のカウント値を取得（毎フレーム呼ぶ）
-- `deltaTime = (現在 - 前回) / 周波数` で秒数に変換できる
-
-**Engine.cpp での使い方**
-```cpp
-// Initialize() の末尾
-deltaTimer_.Start();
-
-// Run() のループ先頭
-deltaTimer_.Update();
-float dt = deltaTimer_.GetDeltaTime();
-
-// Update() の中
-transform1_.rotation.y += 60.0f * dt;
-```
+**実装状況**
+✅ `Engine/Utils/DeltaTimer.h/.cpp` で実装完了
+- `QueryPerformanceCounter()` を使用した高精度タイマー
+- `Start()`: 初期化時に周波数を取得
+- `Update()`: 毎フレーム先頭でデルタタイムを計算
+- `GetDeltaTime()`: 前フレームからの経過秒数を返す
+- 利用: `Engine/Engine.cpp` で `deltaTime_.Update()` 後に `game_.Update(deltaTime_.GetDeltaTime())`
+- 効果: ゲーム速度が FPS に依存しなくなった
 
 ---
 
-## Task 5: Camera の二重管理を解消
+## Task 5: Camera の二重管理を解消（✅ 完了）
 
-**なぜやるか**
-現状 `Engine.h` に `CameraData cameraData_` と `Camera camera_` の両方がある。
-毎フレーム `camera_.SetPosition(cameraData_.position)` で上書きしている。
-Camera クラスが自分の状態を持っているのに、Engine でも同じ状態を別に保持している。
-カメラの「状態の持ち主」が曖昧になっている。
-
-**どのファイルを触るか**
-- `Engine/Engine.h`
-- `Engine/Engine.cpp`
-- `Camera/Camera.h`
-- `Camera/Camera.cpp`
-
-**やること（手順）**
-1. `Camera.h` に入力受け付け・更新のメソッドを追加する
-   ```cpp
-   void HandleInput();  // マウス・キーボードからカメラを動かす
-   void Update();       // 毎フレームの更新
-   ```
-2. `CameraControl()` のロジックを `Camera::HandleInput()` に移す
-3. `Engine.h` から `CameraData cameraData_` を削除
-4. `Engine.cpp` の `CameraControl()` 呼び出しを `camera_.HandleInput()` に変える
-5. `camera_.SetPosition()` / `SetRotation()` / `SetFov()` の3行を削除
-
-**ポイント**
-Camera クラスが自分の位置・回転・Fovを自分で管理するようになる。
-Engine はカメラに「更新しろ」と言うだけでいい。
+**実装状況**
+✅ `Camera` クラスが自身の状態を完全に管理
+- `Camera::HandleInput(float deltaTime)`: マウス・キーボード入力を処理
+- `Engine.h` から `CameraData cameraData_` を削除
+- Engine は Camera に「入力処理をしろ」と言うだけ
+- 責務の明確化: Camera が自分の状態を管理
 
 ---
 
-## Task 6: タイポ修正 Pipline → Pipeline、LinePipline → LinePipeline
+## Task 6: タイポ修正 Pipline → Pipeline、LinePipline → LinePipeline（✅ 完了）
 
-**なぜやるか**
-タイポ（スペルミス）はコードの読みやすさを下げ、将来の自分や他人が混乱する。
-`Pipeline` が正しいスペル。
-
-**どのファイルを触るか**
-- `Graphics/Pipline/Pipline.h` → `Graphics/Pipeline/Pipeline.h` にリネーム
-- `Graphics/Pipline/Pipline.cpp` → `Graphics/Pipeline/Pipeline.cpp` にリネーム
-- `Graphics/Pipline/LinePipline.h` → `Graphics/Pipeline/LinePipeline.h`
-- `Graphics/Pipline/LinePipline.cpp` → `Graphics/Pipeline/LinePipeline.cpp`
-- `Graphics/DirectXManager.h` のインクルードパスを修正
-- `Graphics/DirectXManager.cpp` の参照を修正
-
-**やること（手順）**
-1. Visual Studio のソリューションエクスプローラーでファイル名を変更（Rename）
-2. クラス名を `Pipline` → `Pipeline`、`LinePipline` → `LinePipeline` に変更
-3. `DirectXManager.h` の `#include` パスを修正
-4. `DirectXManager.h` のメンバ変数名も修正
-   ```cpp
-   Pipeline pipeline_;      // pipline_ → pipeline_
-   LinePipeline linePipeline_; // linePipline_ → linePipeline_
-   ```
-5. ビルドしてエラーがないか確認
+**実装状況**
+✅ フォルダ・ファイル・クラス名をすべて修正
+- `Engine/Graphics/Pipline/` → `Engine/Graphics/Pipeline/`
+- `Pipline.h/.cpp` → `Pipeline.h/.cpp`
+- `LinePipline.h/.cpp` → `LinePipeline.h/.cpp`
+- `DirectXManager.h` のメンバ変数も修正
+- ビルド確認完了
 
 ---
 
@@ -568,30 +440,15 @@ Task 6 で `Pipline` → `Pipeline` を直したのと同じ理由。
 
 ---
 
-## Task 18: `TrailParticle3D::Update` に deltaTime を追加
+## Task 18: `TrailParticle3D::Update` に deltaTime を追加（✅ 完了）
 
-**なぜやるか**
-Task 4 で Engine の transform 更新は FPS 非依存にしたが、
-`TrailParticle3D::Update()` は deltaTime を受け取っていないため、
-パーティクルの速度・寿命タイマーがまだ FPS に依存している。
-60FPS なら 60 回/秒、30FPS なら 30 回/秒呼ばれ、速度が変わってしまう。
-
-**どのファイルを触るか**
-- `Particle/TrailParticle3D.h` のシグネチャ変更
-- `Particle/TrailParticle3D.cpp` の内部ロジック修正
-- `Engine/Engine.cpp` の呼び出し元に deltaTime を渡す
-
-**変更内容**
-```cpp
-// Before
-void Update(Vector3& outTranslation, Vector3& outRotation);
-
-// After
-void Update(const Vector3& pos, const Vector3& rotation, float deltaTime);
-```
-第1・第2引数も `const Vector3&` に変更する。
-パーティクルは渡された pos/rotation を「読む」だけで、呼び出し元の値を書き換えるべきではない。
-内部の `lifeTimer` や速度の更新に `× deltaTime` を掛ける。
+**実装状況**
+✅ `Particle/TrailParticle3D.h/.cpp` で実装完了（Task 9 時に実装）
+- シグネチャ変更: `Update(const Vector3& pos, const Vector3& rotation, float deltaTime)`
+- `const Vector3&` で入力パラメータ化（読み取り専用）
+- 内部で `currentPos` を計算し、パーティクル速度が FPS 非依存に
+- `Game/Game.cpp` から `trailParticles_[i].Update(triangleTransforms_[i].translation, triangleTransforms_[i].rotation, deltaTime)` で呼び出し
+- 効果: パーティクルの動きが FPS に依存しなくなった
 
 ---
 

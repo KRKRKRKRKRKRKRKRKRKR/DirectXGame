@@ -560,12 +560,12 @@ void DirectXManager::DrawTriangleRender(const Matrix4x4& view, const Matrix4x4& 
 
 	// WVP 行列を計算して三角形に設定
 	Matrix4x4 wvpMatrix = worldMatrix * view * projection;
-	
+
 	triangle_->SetColor(color, wvpIndex); // 色を設定
 
 	triangle_->SetWvpMatrix(wvpMatrix, wvpIndex);
 
-	triangle_->SetViewportAndScissorRect(windowWidth_, windowHeight_);
+	// SetViewportAndScissorRect は削除（BeginFrame で既に設定済み）
 
 	triangle_->SetPipelineCommands(commandList_.Get(), &textureManager_, textureID);
 
@@ -595,8 +595,8 @@ void DirectXManager::DrawLineRender(const Matrix4x4& view, const Matrix4x4& proj
 	// 色をセット
 	line_->SetColor(color);
 
-	// パイプライン設定と描画
-	line_->SetViewportAndScissorRect(windowWidth_, windowHeight_);
+	// SetViewportAndScissorRect は削除（BeginFrame で既に設定済み）
+
 	line_->SetPipelineCommands(commandList_.Get());
 	line_->Draw(commandList_.Get(), wvpIndex);
 }
@@ -811,7 +811,8 @@ void DirectXManager::DrawGridBatch(const Matrix4x4& view, const Matrix4x4& proje
 	Matrix4x4 vpMatrix = view * projection;
 	line_->SetWvpMatrix(vpMatrix, kGridWvpIndex);
 
-	line_->SetViewportAndScissorRect(windowWidth_, windowHeight_);
+	// SetViewportAndScissorRect は削除（BeginFrame で既に設定済み）
+
 	line_->SetPipelineCommands(commandList_.Get());
 	line_->DrawBatch(commandList_.Get(), 0, 202, kGridWvpIndex);
 }

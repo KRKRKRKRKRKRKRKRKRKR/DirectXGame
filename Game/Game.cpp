@@ -95,9 +95,9 @@ void Game::DrawImGui() {
 	bool changed = false;
 
 	ImGui::SeparatorText("Trail");
-	changed |= ImGui::SliderFloat3("Fixed Start Pos", &trailParam_.fixedStartPos.x, -50.0f, 50.0f);
-	changed |= ImGui::SliderFloat("Fall Speed", &trailParam_.fallSpeed, 0.01f, 2.0f);
-	changed |= ImGui::SliderFloat("Goal Area Radius", &trailParam_.goalAreaRadius, 0.0f, 30.0f);
+	changed |= ImGui::SliderFloat3("Fixed Start Pos", &trailParam_.fixedStartPos.x, -5000.0f, 5000.0f);
+	changed |= ImGui::SliderFloat("Fall Speed", &trailParam_.fallSpeed, 0.01f, 2000.0f);
+	changed |= ImGui::SliderFloat("Goal Area Radius", &trailParam_.goalAreaRadius, 0.0f, 300.0f);
 	changed |= ImGui::SliderFloat("Goal Y", &trailParam_.goalY, -10.0f, 10.0f);
 
 	ImGui::SeparatorText("Particle");
