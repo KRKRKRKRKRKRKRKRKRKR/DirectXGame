@@ -6,6 +6,8 @@
 #include "../IDrawable.h"
 #include "../../../../Math/MathTypes.h"
 #include "../../Texture/TextureManager.h"
+#include "../../ResourceFactory/ResourceFactory.h"
+
 using Microsoft::WRL::ComPtr;
 
 class TextureManager;

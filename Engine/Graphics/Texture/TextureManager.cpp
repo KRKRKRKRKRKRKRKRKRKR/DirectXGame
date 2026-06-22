@@ -3,6 +3,7 @@
 #include "../../Utils/Logger.h"
 #include "../../Utils/StringUtils.h"
 #include "../../../Externals/DirectXTex/d3dx12.h"
+#include "../ResourceFactory/ResourceFactory.h"
 #include <cassert>
 #include <format>
 
@@ -39,36 +40,7 @@ ComPtr<ID3D12Resource> TextureManager::CreateTextureResource(const DirectX::TexM
 	return resource;
 }
 
-ComPtr<ID3D12Resource> TextureManager::CreateBufferResource(size_t sizeInBytes) {
-	ComPtr<ID3D12Resource> resource = nullptr;
-	D3D12_HEAP_PROPERTIES uploadHeapProperties{};
-	uploadHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
 
-	D3D12_RESOURCE_DESC vertexBufferResourceDesc{};
-	vertexBufferResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	vertexBufferResourceDesc.Width = sizeInBytes;
-	vertexBufferResourceDesc.Height = 1;
-	vertexBufferResourceDesc.DepthOrArraySize = 1;
-	vertexBufferResourceDesc.MipLevels = 1;
-	vertexBufferResourceDesc.SampleDesc.Count = 1;
-	vertexBufferResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-	HRESULT hr = device_->CreateCommittedResource(
-		&uploadHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&vertexBufferResourceDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&resource)
-	);
-
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateCommittedResource\n");
-	}
-	assert(SUCCEEDED(hr));
-
-	return resource;
-}
 
 ComPtr<ID3D12Resource> TextureManager::CreateDepthStencilTextureResource(int32_t width, int32_t height) {
 	D3D12_RESOURCE_DESC resourceDesc{};
@@ -197,7 +169,7 @@ ComPtr<ID3D12Resource> TextureManager::UploadTextureData(
 		UINT(subresources.size())
 	);
 
-	ComPtr<ID3D12Resource> intermediateResource = CreateBufferResource(intermediateSize);
+	ComPtr<ID3D12Resource> intermediateResource = ResourceFactory::CreateBufferResource(device_, intermediateSize);
 	UpdateSubresources(
 		commandList_,
 		textureResource.Get(),

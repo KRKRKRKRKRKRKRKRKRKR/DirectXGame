@@ -289,24 +289,14 @@ void Engine::Run() {
 
 ---
 
-## Task 13: TextureManager::CreateBufferResource の責務整理
+## Task 13: TextureManager::CreateBufferResource の責務整理（✅ 完了）
 
-**なぜやるか**
-`TextureManager::CreateBufferResource()` はテクスチャとは無関係な
-頂点バッファや WVP バッファの確保にも使われている。
-名前から「テクスチャ管理クラスが頂点バッファを作る」のは責務として不自然。
-
-**やること（段階的に）**
-1. `CreateBufferResource()` を `TextureManager` から切り出して独立した関数にする
-   場所の候補: `Graphics/ResourceFactory.h` に static 関数として置く
-   ```cpp
-   namespace ResourceFactory {
-       ComPtr<ID3D12Resource> CreateBufferResource(ID3D12Device* device, size_t sizeInBytes);
-   }
-   ```
-2. Triangle / Line / DirectXManager が使っているすべての `textureManager_->CreateBufferResource()`
-   を `ResourceFactory::CreateBufferResource(device_, ...)` に置き換える
-3. `TextureManager` から `CreateBufferResource()` を削除
+**実装状況**
+✅ 完了
+- `Engine/Graphics/ResourceFactory/ResourceFactory.h/.cpp` を新規作成
+- `namespace ResourceFactory { CreateBufferResource(device, size) }` として独立
+- Triangle / Line / Sprite / Sphere / DirectXManager / TextureManager の全 `CreateBufferResource` 呼び出しを `ResourceFactory::` に置き換え
+- `TextureManager` から `CreateBufferResource()` の宣言・実装を削除
 
 ---
 

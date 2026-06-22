@@ -3,6 +3,7 @@
 #include "../Utils/StringUtils.h"
 #include "../../Math/MatrixMath.h"
 #include "../../Math/TransformMath.h"
+#include "../Graphics/ResourceFactory/ResourceFactory.h"
 #include <cassert>
 #include <algorithm>
 #include <format>
@@ -444,7 +445,7 @@ void DirectXManager::EndTransitionBarrier() {
 //描画リソース作成 
 //==================================================================
 void DirectXManager::CreateVertexResource() {
-	vertexResource_ = textureManager_.CreateBufferResource(sizeof(VertexData) * 6);
+	vertexResource_ = ResourceFactory::CreateBufferResource(device_.Get(), sizeof(VertexData) * 6);
 	CreateVertexBufferView();
 	WriteVertexResource();
 }
@@ -481,7 +482,7 @@ void DirectXManager::WriteVertexResource() {
 }
 
 void DirectXManager::CreateMaterialResource() {
-	materialResource_ = textureManager_.CreateBufferResource(sizeof(Vector4));
+	materialResource_ = ResourceFactory::CreateBufferResource(device_.Get(), sizeof(Vector4));
 	Vector4* materialData = nullptr;
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -490,7 +491,7 @@ void DirectXManager::CreateMaterialResource() {
 
 void DirectXManager::CreateTransformationMatrix() {
 	wvpStride_ = AlignUp(static_cast<uint32_t>(sizeof(Matrix4x4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-	wvpResource_ = textureManager_.CreateBufferResource(static_cast<size_t>(wvpStride_) * kMaxWvpCount);
+	wvpResource_ = ResourceFactory::CreateBufferResource(device_.Get(), static_cast<size_t>(wvpStride_) * kMaxWvpCount);
 	wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
 
 	wvpAllocatedCount_ = 0;

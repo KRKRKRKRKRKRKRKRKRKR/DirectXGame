@@ -35,7 +35,6 @@ public:
 
 	// === リソース生成 ===
 	ComPtr<ID3D12Resource> CreateTextureResource(const DirectX::TexMetadata& metadata);
-	ComPtr<ID3D12Resource> CreateBufferResource(size_t sizeInBytes);
 	ComPtr<ID3D12Resource> CreateDepthStencilTextureResource(int32_t width, int32_t height);
 
 	// === テクスチャロード・初期化 ===

@@ -1,7 +1,7 @@
 #include "Triangle.h"
 #include "../../Texture/TextureManager.h"
 #include "../../../Utils/Logger.h"
-
+#include "../../../Graphics/ResourceFactory/ResourceFactory.h"
 
 #include <cassert>
 #include <cstring>
@@ -53,7 +53,7 @@ void Triangle::Initialize(ID3D12Device* device, TextureManager* textureManager,
 
 void Triangle::CreateVertexResource(ID3D12Device* device) {
 
-	vertexResource_ = textureManager_->CreateBufferResource(sizeof(VertexData) * kVertexCount);
+	vertexResource_ = ResourceFactory::CreateBufferResource(device,sizeof(VertexData) * kVertexCount);
 
 	if (!vertexResource_) {
 		Logger::Log("Triangle::CreateVertexResource : Failed to create vertex buffer\n");
@@ -69,7 +69,7 @@ void Triangle::CreateVertexResource(ID3D12Device* device) {
 
 void Triangle::CreateMaterialResource(ID3D12Device* device) {
 	materialStride_ = AlignUp(static_cast<uint32_t>(sizeof(Vector4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-	materialResource_ = textureManager_->CreateBufferResource(static_cast<size_t>(materialStride_) * kMaxInstanceCount);
+	materialResource_ = ResourceFactory::CreateBufferResource(device, static_cast<size_t>(materialStride_) * kMaxInstanceCount);
 
 	if (!materialResource_) {
 		Logger::Log("Triangle::CreateMaterialResource : Failed to create material buffer\n");
@@ -94,7 +94,7 @@ void Triangle::CreateMaterialResource(ID3D12Device* device) {
 void Triangle::CreateWvpMatrixResource(ID3D12Device* device) {
 
 	wvpStride_ = AlignUp(static_cast<uint32_t>(sizeof(Matrix4x4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-	wvpResource_ = textureManager_->CreateBufferResource(static_cast<size_t>(wvpStride_) * kMaxInstanceCount);
+	wvpResource_ = ResourceFactory::CreateBufferResource(device, static_cast<size_t>(wvpStride_) * kMaxInstanceCount);
 
 	HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
 	assert(SUCCEEDED(hr) && wvpMappedData_);

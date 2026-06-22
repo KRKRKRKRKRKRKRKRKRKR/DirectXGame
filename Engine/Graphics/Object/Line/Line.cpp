@@ -1,7 +1,7 @@
 #include "Line.h"
 #include "../../Texture/TextureManager.h"
 #include "../../../Utils/Logger.h"
-
+#include "../../../Graphics/ResourceFactory/ResourceFactory.h"
 #include <cassert>
 #include <cstring>
 
@@ -62,7 +62,7 @@ void Line::Initialize(ID3D12Device* device, TextureManager* textureManager,
 void Line::CreateVertexResource(ID3D12Device* device) {
 	// インスタンス数 × 1ライン2頂点 分をまとめて確保し、マップしたままにする
 	const size_t bufferSize = sizeof(VertexData) * kVerticesPerLine * kMaxInstanceCount;
-	vertexResource_ = textureManager_->CreateBufferResource(bufferSize);
+	vertexResource_ = ResourceFactory::CreateBufferResource(device, bufferSize);
 
 	if (!vertexResource_) {
 		Logger::Log("Line::CreateVertexResource : Failed to create vertex buffer\n");
@@ -85,7 +85,7 @@ void Line::CreateVertexResource(ID3D12Device* device) {
 }
 
 void Line::CreateMaterialResource(ID3D12Device* device) {
-	materialResource_ = textureManager_->CreateBufferResource(sizeof(Vector4));
+	materialResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Vector4));
 
 	if (!materialResource_) {
 		Logger::Log("Line::CreateMaterialResource : Failed to create material buffer\n");
@@ -108,7 +108,7 @@ void Line::CreateMaterialResource(ID3D12Device* device) {
 
 void Line::CreateWvpMatrixResource(ID3D12Device* device) {
 	wvpStride_ = AlignUp(static_cast<uint32_t>(sizeof(Matrix4x4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
-	wvpResource_ = textureManager_->CreateBufferResource(static_cast<size_t>(wvpStride_) * kMaxInstanceCount);
+	wvpResource_ = ResourceFactory::CreateBufferResource(device, static_cast<size_t>(wvpStride_) * kMaxInstanceCount);
 
 	if (!wvpResource_) {
 		Logger::Log("Line::CreateWvpMatrixResource : Failed to create WVP buffer\n");

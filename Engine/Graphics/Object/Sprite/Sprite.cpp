@@ -1,5 +1,6 @@
 #include "Sprite.h"
 #include "../../../../Math/MatrixMath.h"
+#include "../../ResourceFactory/ResourceFactory.h"
 void Sprite::Initialize(ID3D12Device* device, TextureManager* textureManager,
 	ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState) {
 	textureManager_ = textureManager;
@@ -33,14 +34,14 @@ void Sprite::Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) {
 }
 
 void Sprite::CreateMaterialResource(ID3D12Device* device) {
-	materialResource_ = textureManager_->CreateBufferResource(sizeof(Vector4));
+	materialResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Vector4));
 	materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
 	*materialData_ = Vector4(1.0f, 1.0f, 1.0f, 1.0f); // 白
 }
 
 void Sprite::CreateVertexResource(ID3D12Device* device) {
 	// 頂点バッファリソースの作成
-	vertexResource_ = textureManager_->CreateBufferResource(sizeof(VertexData) * kVertexCount);
+	vertexResource_ = ResourceFactory::CreateBufferResource(device, sizeof(VertexData) * kVertexCount);
 	vertexResource_->SetName(L"Sprite Vertex Buffer");
 	// 頂点バッファビューの設定
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
@@ -61,7 +62,7 @@ void Sprite::WriteVertexData() {
 }
 
 void Sprite::CreateTransformationMatrixResource(ID3D12Device* device) {
-	transformationMatrixResource_ = textureManager_->CreateBufferResource(sizeof(Matrix4x4));
+	transformationMatrixResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Matrix4x4));
 	transformationMatrixResource_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixData_));
 	*transformationMatrixData_ = MatrixMath::Identity();
 }

@@ -72,6 +72,7 @@
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sprite\Sprite.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sphere\Sphere.cpp" />
+    <ClCompile Include="Engine\Graphics\ResourceFactory\ResourceFactory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\MathTypes.h">
@@ -136,6 +137,7 @@
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Engine\Graphics\Object\Sprite\Sprite.h" />
     <ClInclude Include="Engine\Graphics\Object\Sphere\Sphere.h" />
+    <ClInclude Include="Engine\Graphics\ResourceFactory\ResourceFactory.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">

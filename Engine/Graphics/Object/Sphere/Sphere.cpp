@@ -1,6 +1,6 @@
 #include "Sphere.h"
 #include "../../../../Math/MatrixMath.h"
-#include <DirectXMath.h>
+#include "../../ResourceFactory/ResourceFactory.h"
 #include <cassert>
 
 void Sphere::Initialize(ID3D12Device* device, TextureManager* textureManager,
@@ -37,7 +37,7 @@ void Sphere::CreateVertexResource(ID3D12Device* device, uint32_t subdivision, fl
     vertexCount_ = subdivision * subdivision * 6;
     const size_t bufferSize = sizeof(VertexData) * vertexCount_;
 
-    vertexResource_ = textureManager_->CreateBufferResource(bufferSize);
+    vertexResource_ = ResourceFactory::CreateBufferResource(device, bufferSize);
     vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
     vertexBufferView_.SizeInBytes = static_cast<UINT>(bufferSize);
     vertexBufferView_.StrideInBytes = sizeof(VertexData);
@@ -82,13 +82,13 @@ void Sphere::CreateVertexResource(ID3D12Device* device, uint32_t subdivision, fl
 }
 
 void Sphere::CreateWvpResource(ID3D12Device* device) {
-    wvpResource_ = textureManager_->CreateBufferResource(sizeof(Matrix4x4));
+    wvpResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Matrix4x4));
     wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
     *wvpData_ = MatrixMath::Identity();
 }
 
 void Sphere::CreateMaterialResource(ID3D12Device* device) {
-    materialResource_ = textureManager_->CreateBufferResource(sizeof(Vector4));
+    materialResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Vector4));
     materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
     *materialData_ = Vector4(1.0f, 1.0f, 1.0f, 1.0f); // 白
 }
