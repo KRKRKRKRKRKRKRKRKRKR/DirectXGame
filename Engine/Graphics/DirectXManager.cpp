@@ -79,16 +79,18 @@ void DirectXManager::Initialize(HWND hwnd, int32_t width, int32_t height) {
 	line_ = std::make_unique<Line>();
 	line_->Initialize(device_.Get(), &textureManager_, linePipeline_.GetRootSignature(), linePipeline_.GetPipelineState());
 	
+	sprite_ = std::make_unique<Sprite>();
+	sprite_->Initialize(device_.Get(), &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
+
 	CreateVertexResource();
 	CreateMaterialResource();
 	CreateTransformationMatrix();
 
-	CreateVertexSpriteResource();
-	SetVertexSpriteResource();
 
-	CreateVertexTransformMatrixResource();
 
 	ViewportScissorRect(windowWidth_, windowHeight_);
+
+
 	Logger::Log("Complete Initialize DirectXManager\n");
 	initialized_ = true;
 }
@@ -116,8 +118,7 @@ void DirectXManager::Finalize() {
 
 	// 描画関連リソース解放
 	materialResource_.Reset();
-	vertexResourceSprite_.Reset();
-	transformationMatrixResourceSprite_.Reset();
+
 	vertexResourceSphere_.Reset();
 
 	line_.reset();
@@ -499,44 +500,6 @@ void DirectXManager::CreateTransformationMatrix() {
 	SetWvpMatrix(kSphereWvpIndex, MatrixMath::Identity());
 }
 
-void DirectXManager::CreateVertexSpriteResource() {
-	vertexResourceSprite_ = textureManager_.CreateBufferResource(sizeof(VertexData) * 6);
-	vertexBufferViewSprite_.BufferLocation = vertexResourceSprite_->GetGPUVirtualAddress();
-	vertexBufferViewSprite_.SizeInBytes = sizeof(VertexData) * 6;
-	vertexBufferViewSprite_.StrideInBytes = sizeof(VertexData);
-
-}
-
-void DirectXManager::SetVertexSpriteResource() {
-	VertexData* vertexDataSprite = nullptr;
-	vertexResourceSprite_->Map(0, nullptr, reinterpret_cast<void**>(&vertexDataSprite));
-
-	vertexDataSprite[0].position = Vector4(-0.5f, 360.0f, 0.0f, 1.0f);
-	vertexDataSprite[0].texcoord = Vector2(0.0f, 1.0f);
-
-	vertexDataSprite[1].position = Vector4(0.0f, 0.0f, 0.0f, 1.0f);
-	vertexDataSprite[1].texcoord = Vector2(0.0f, 0.0f);
-
-	vertexDataSprite[2].position = Vector4(640.0f, 360.0f, 0.0f, 1.0f);
-	vertexDataSprite[2].texcoord = Vector2(1.0f, 1.0f);
-
-	vertexDataSprite[3].position = Vector4(-0.0f, -0.0f, 0.0f, 1.0f);
-	vertexDataSprite[3].texcoord = Vector2(0.0f, 0.0f);
-
-	vertexDataSprite[4].position = Vector4(640.0f, 0.0f, 0.0f, 1.0f);
-	vertexDataSprite[4].texcoord = Vector2(1.0f, 0.0f);
-
-	vertexDataSprite[5].position = Vector4(640.0f, 360.0f, 0.0f, 1.0f);
-	vertexDataSprite[5].texcoord = Vector2(1.0f, 1.0f);
-
-	vertexResourceSprite_->Unmap(0, nullptr);
-}
-
-void DirectXManager::CreateVertexTransformMatrixResource() {
-	transformationMatrixResourceSprite_ = textureManager_.CreateBufferResource(sizeof(Matrix4x4));
-	transformationMatrixResourceSprite_->Map(0, nullptr, reinterpret_cast<void**>(&transformationMatrixDataSprite_));
-	*transformationMatrixDataSprite_ = MatrixMath::Identity();
-}
 
 
 //==================================================================
@@ -604,10 +567,9 @@ void DirectXManager::DrawLineRender(const Matrix4x4& view, const Matrix4x4& proj
 
 void DirectXManager::DrawSpriteRender(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
-	*transformationMatrixDataSprite_ = worldMatrix * view * projection;
-	ViewportScissorRect(windowWidth_, windowHeight_);
-	SetPipelineCommands();
-	RecordDrawCommands();
+	sprite_->SetWvpMatrix(worldMatrix * view * projection);
+	sprite_->SetPipelineCommands(commandList_.Get(), &textureManager_, TextureID::Texture3);
+	sprite_->Draw(commandList_.Get(), 0);
 }
 void DirectXManager::CreateDrawSphereResource(const SphereData& sphereData, const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform, bool changeTexture, uint32_t wvpIndex) {
 	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
@@ -756,17 +718,7 @@ void DirectXManager::SetPipelineCommands() {
 		textureManager_.GetSrvGpuHandle(TextureID::Texture3);
 	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
 }
-void DirectXManager::RecordDrawCommands() {
-	commandList_->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList_->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
 
-	D3D12_GPU_DESCRIPTOR_HANDLE textureSrvHandle = textureManager_.GetSrvGpuHandle(TextureID::Texture3);
-	commandList_->SetGraphicsRootDescriptorTable(2, textureSrvHandle);
-
-	commandList_->IASetVertexBuffers(0, 1, &vertexBufferViewSprite_);
-	commandList_->SetGraphicsRootConstantBufferView(1, transformationMatrixResourceSprite_->GetGPUVirtualAddress());
-	commandList_->DrawInstanced(6, 1, 0, 0);
-}
 
 void DirectXManager::InitializeTexture() {
 	textureManager_.SetDevice(device_.Get());

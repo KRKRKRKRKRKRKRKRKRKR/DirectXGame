@@ -248,40 +248,18 @@ void Engine::Run() {
 
 ---
 
-## Task 10: Sprite を IDrawable に統合（Sprite クラス作成）
+## Task 10: Sprite を IDrawable に統合（Sprite クラス作成）（✅ 完了）
 
-**なぜやるか**
-現状 Sprite（スプライト）の描画は `DirectXManager` が直接 commandList に書き込んでいる。
-Triangle や Line は `IDrawable` を継承した独立クラスになっているのに、
-Sprite だけ旧体系のまま DirectXManager に埋め込まれている。
-一貫性がなく、Sprite の描画コードが DirectXManager に混じって読みにくい。
-
-**どのファイルを触るか（新規作成）**
-- `Graphics/Object/Sprite/Sprite.h`
-- `Graphics/Object/Sprite/Sprite.cpp`
-
-**Sprite クラスの構造（Triangle を参考に）**
-```
-Sprite : IDrawable
-├─ Initialize(device, textureManager, rootSignature, pipelineState)
-├─ SetWvpMatrix(matrix)
-├─ SetColor(color)
-├─ SetViewportAndScissorRect(width, height)
-├─ SetPipelineCommands(commandList, textureManager, textureID)
-└─ Draw(commandList, wvpIndex)  ← IDrawable の override
-```
-
-**DirectXManager から削除するもの**
-Sprite クラスができたら `DirectXManager` の以下を削除する:
-- `vertexResourceSprite_`
-- `vertexBufferViewSprite_`
-- `transformationMatrixResourceSprite_`
-- `transformationMatrixDataSprite_`
-- `CreateVertexSpriteResource()`
-- `SetVertexSpriteResource()`
-- `CreateVertexTransformMatrixResource()`
-- `SetPipelineCommands()`（Sprite用のもの）
-- `RecordDrawCommands()`
+**実装状況**
+✅ 完了
+- `Engine/Graphics/Object/Sprite/Sprite.h/.cpp` を新規作成
+- `Sprite : IDrawable` として Triangle と同じ構造で実装
+- ルートパラメータ: `0=Material`, `1=WVP`, `2=Texture`
+- `DirectXManager` に `std::unique_ptr<Sprite> sprite_` を追加
+- `DrawSpriteRender()` を `sprite_->SetWvpMatrix/SetPipelineCommands/Draw` に置き換え
+- 古い Sprite 関連メンバ・メソッドを DirectXManager から完全削除
+  - `vertexResourceSprite_`, `vertexBufferViewSprite_`, `transformationMatrixResourceSprite_`, `transformationMatrixDataSprite_`
+  - `CreateVertexSpriteResource()`, `SetVertexSpriteResource()`, `CreateVertexTransformMatrixResource()`, `RecordDrawCommands()`
 
 ---
 

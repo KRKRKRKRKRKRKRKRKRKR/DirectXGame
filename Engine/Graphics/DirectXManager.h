@@ -11,7 +11,7 @@
 #include "../../Externals/DirectXTex/DirectXTex.h"
 #include "../../Externals/DirectXTex/d3dx12.h"
 #include "../../Math/MathTypes.h"
-
+#include "Object/Sprite/Sprite.h"
 #include "ShaderCompiler/ShaderCompiler.h"
 #include "Pipeline/Pipeline.h"
 #include "Pipeline/LinePipeline.h"
@@ -108,11 +108,7 @@ private:
 	void ViewportScissorRect(int32_t width, int32_t height);
 	void CreateTransformationMatrix();
 	void SetPipelineCommands();
-	void RecordDrawCommands();
 
-	void CreateVertexSpriteResource();
-	void SetVertexSpriteResource();
-	void CreateVertexTransformMatrixResource();
 
 	// ===== 状態フラグ =====
 	bool initialized_ = false;
@@ -163,7 +159,6 @@ private:
 	// ===== 描画用リソース =====
 	ComPtr<ID3D12Resource> materialResource_ = nullptr;
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
-	ComPtr<ID3D12Resource> vertexResourceSprite_ = nullptr;
 	ComPtr<ID3D12Resource> vertexResourceSphere_ = nullptr;
 	D3D12_VIEWPORT viewport_{};
 	D3D12_RECT scissorRect_{};
@@ -174,9 +169,6 @@ private:
 	uint32_t wvpAllocatedCount_ = 0;
 	static constexpr uint32_t kTriangleWvpIndex = 0;
 	static constexpr uint32_t kSphereWvpIndex = 1;
-	ComPtr<ID3D12Resource> transformationMatrixResourceSprite_ = nullptr;
-	Matrix4x4* transformationMatrixDataSprite_ = nullptr;
-	D3D12_VERTEX_BUFFER_VIEW vertexBufferViewSprite_{};
 	uint32_t sphereVertexCount_ = 0;
 	float sphereGeometryRadius_ = 0.0f;
 	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
@@ -197,4 +189,5 @@ private:
 	std::unique_ptr<Line> line_;
 	uint32_t currentLineWvpIndex_ = 0;
 
+	std::unique_ptr<Sprite> sprite_;
 };
