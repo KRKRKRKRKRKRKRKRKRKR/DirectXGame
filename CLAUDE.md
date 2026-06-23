@@ -400,6 +400,50 @@ Renderer           ← BeginFrame/EndFrame、DrawXxx の呼び出し
 
 ---
 
+## Task 20: DrawBatch 実装試行と設計変更（✅ 実施 / 次フェーズ延期）
+
+**実装試行結果**
+✅ 試行実施、❌ 根本課題発見 → 次フェーズで修正設計を採用
+
+**発見した問題点**
+- `Triangle::DrawBatch()` を実装し、複数の WVP インデックスを同時に処理しようとした
+- SetGraphicsRootConstantBufferView で GPU バッファアドレスを動的計算
+- DrawInstanced 実行時に GPU リソース状態エラーが発生
+- 根本原因：1 つの DrawCall 内で複数の独立した WVP インデックスを管理できない仕組みになっていた
+
+**次フェーズの設計（Task 21 候補）**
+従来の方式をベースに改善：
+```cpp
+// 【正しいアプローチ】
+Triangle* triangle = directX_->GetTriangle();
+
+// Step 1: 全三角形の行列・色を GPU バッファに書き込む
+for (auto& t : allTriangles) {
+    triangle->SetWvpMatrix(wvpMatrix, index);
+    triangle->SetColor(color, index);
+}
+
+// Step 2: Pipeline/RootSignature を1回だけセット
+triangle->SetPipelineCommands(commandList);
+
+// Step 3: 各三角形を Draw（複数DrawCall だが PSO設定不要）
+for (auto& t : allTriangles) {
+    triangle->Draw(commandList, wvpIndex);  // DrawInstanced で1三角形ずつ
+}
+```
+
+**利点**
+- ✅ SetPipelineState / SetPipelineCommands を 1 回に削減（重複排除の実)
+- ✅ DrawInstanced の仕様に準拠（1 インスタンスずつ安全）
+- ✅ GPU バッファ設定が確実で単純
+
+**ビルド・実行確認**
+✅ DrawBatch 削除後、従来の DrawTriangleRender で安定動作確認
+✅ ビルド成功（エラー 0、警告 14）
+✅ ゲーム実行成功（FPS 表示・パーティクル描画正常）
+
+---
+
 # Race the Sun 実装ロードマップ（エンジン修正完了後）
 
 ## Phase 1: プロトタイプ（機体前進＋衝突）

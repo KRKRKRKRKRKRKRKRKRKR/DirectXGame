@@ -50,14 +50,15 @@ void Game::Render() {
 	Matrix4x4 viewMatrix = camera_->GetViewMatrix();
 	Matrix4x4 projectionMatrix = camera_->GetProjectionMatrix(aspectRatio);
 
+	// ===============================================
+	// 【バッチ化】直接描画 + パーティクルを 1 DrawCall で
+	// ===============================================
+
+	// ===============================================
+	// 【一度テストのため、従来の描画に戻す】
+	// ===============================================
 	directX_->DrawTriangleRender(viewMatrix, projectionMatrix, transform1_, Vector4(1.0f, 1.0f, 0.0f, 1.0f), TextureID::None);
 	directX_->DrawTriangleRender(viewMatrix, projectionMatrix, transform2_, Vector4(1.0f, 1.0f, 0.0f, 1.0f), TextureID::None);
-
-	directX_->DrawLineRender(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
-
-	DrawGrid();
-
-	DrawImGui();
 
 	for (int i = 0; i < kMaxTriangles; i++) {
 		for (int index : trailParticles_[i].GetActiveList()) {
@@ -69,6 +70,12 @@ void Game::Render() {
 			directX_->DrawTriangleRender(viewMatrix, projectionMatrix, t, p.color, textureID_);
 		}
 	}
+
+	directX_->DrawLineRender(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+
+	DrawGrid();
+
+	DrawImGui();
 }
 
 void Game::DrawGrid() {

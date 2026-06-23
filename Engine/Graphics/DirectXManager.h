@@ -63,6 +63,8 @@ public:
 	UINT GetBackBufferIndex() const { return backBufferIndex_; }
 	int32_t GetClientWidth() const { return windowWidth_; }
 	int32_t GetClientHeight() const { return windowHeight_; }
+	Triangle* GetTriangle() { return triangle_.get(); }
+	TextureManager* GetTextureManager() { return &textureManager_; }
 	void InitializeGridLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
 

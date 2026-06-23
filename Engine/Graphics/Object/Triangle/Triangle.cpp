@@ -207,6 +207,7 @@ void Triangle::Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) {
 	// 描画コマンド（6頂点）
 	commandList->DrawInstanced(kVertexCount, 1, 0, 0);
 }
+
 void Triangle::SetColor(const Vector4& color, uint32_t materialIndex) {
 	if (!materialMappedData_) return;
 	Vector4* data = reinterpret_cast<Vector4*>(materialMappedData_ + materialIndex * materialStride_);
