@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DirectX12 描画最適化スライド</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', 'Hiragino Sans', sans-serif;
+            background: #f0f0f0;
+            overflow-x: hidden;
+        }
+
+        .slides-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+        }
+
+        .slide {
+            min-width: 100%;
+            height: 100%;
+            padding: 60px 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            font-size: 18px;
+            line-height: 1.8;
+        }
+
+        /* スライド 1: ビフォー */
+        .slide-1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .slide-1 h1 {
+            font-size: 54px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .slide-1 .subtitle {
+            font-size: 32px;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+
+        .slide-1 .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+        }
+
+        .slide-1 .stat-item {
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+        }
+
+        .slide-1 .stat-label {
+            font-size: 16px;
+            opacity: 0.8;
+            margin-bottom: 10px;
+        }
+
+        .slide-1 .stat-value {
+            font-size: 48px;
+            font-weight: bold;
+            color: #ffff00;
+        }
+
+        .problem-list {
+            margin-top: 40px;
+            background: rgba(0,0,0,0.2);
+            padding: 30px;
+            border-radius: 10px;
+            border-left: 5px solid #ffff00;
+        }
+
+        .problem-list h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #ffff00;
+        }
+
+        .problem-item {
+            margin: 12px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .problem-item:before {
+            content: "⚠";
+            position: absolute;
+            left: 0;
+            color: #ff6b6b;
+            font-size: 20px;
+        }
+
+        /* スライド 2: アフター */
+        .slide-2 {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .slide-2 h1 {
+            font-size: 54px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .slide-2 .subtitle {
+            font-size: 32px;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+
+        .slide-2 .improvement {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .improvement-item {
+            padding: 25px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            border-left: 5px solid #00ff00;
+        }
+
+        .improvement-item h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ff00;
+        }
+
+        .improvement-item .value {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 15px 0;
+            color: #ffff00;
+        }
+
+        .improvement-item .description {
+            font-size: 14px;
+            opacity: 0.85;
+            line-height: 1.6;
+        }
+
+        .approach {
+            margin-top: 30px;
+            padding: 25px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            border-left: 5px solid #00ffff;
+        }
+
+        .approach h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #00ffff;
+        }
+
+        .approach-step {
+            margin: 12px 0;
+            padding-left: 30px;
+            position: relative;
+            font-size: 16px;
+        }
+
+        .approach-step:before {
+            content: attr(data-step);
+            position: absolute;
+            left: 0;
+            background: #00ffff;
+            color: #000;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* ナビゲーション */
+        .nav-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: white;
+            color: #333;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .slide-counter {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            background: white;
+            padding: 12px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        /* キーボード操作ガイド */
+        .keyboard-guide {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            font-size: 12px;
+            color: #999;
+            background: rgba(0,0,0,0.05);
+            padding: 15px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slides-container" id="slidesContainer">
+        <!-- スライド 1: ビフォー -->
+        <div class="slide slide-1">
+            <h1>❌ Before</h1>
+            <div class="subtitle">DrawCall 最適化前の状態</div>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-label">DrawCall 数</div>
+                    <div class="stat-value">2000+</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">FPS</div>
+                    <div class="stat-value">20</div>
+                </div>
+            </div>
+
+            <div class="problem-list">
+                <h3>問題点</h3>
+                <div class="problem-item">毎フレーム 2000 回の SetPipelineState 実行</div>
+                <div class="problem-item">毎フレーム 2000 回の SetRootSignature 実行</div>
+                <div class="problem-item">毎フレーム 2000 回のテクスチャ設定実行</div>
+                <div class="problem-item">GPU パイプラインの検証が繰り返される</div>
+                <div class="problem-item">コマンドバッファが肥大化</div>
+                <div class="problem-item">CPU-GPU 同期オーバーヘッド増加</div>
+            </div>
+        </div>
+
+        <!-- スライド 2: アフター -->
+        <div class="slide slide-2">
+            <h1>✅ After</h1>
+            <div class="subtitle">DrawCall 最適化後の状態</div>
+
+            <div class="improvement">
+                <div class="improvement-item">
+                    <h3>SetPipelineState</h3>
+                    <div class="value">1 回</div>
+                    <div class="description">初回だけ設定。その後は GPU が状態を保持</div>
+                </div>
+                <div class="improvement-item">
+                    <h3>FPS</h3>
+                    <div class="value">40+</div>
+                    <div class="description">2倍以上の高速化を期待</div>
+                </div>
+            </div>
+
+            <div class="approach">
+                <h3>改善アプローチ</h3>
+                <div class="approach-step" data-step="1">全三角形の行列・色を GPU バッファに書き込み</div>
+                <div class="approach-step" data-step="2">Pipeline/RootSignature を 1 回だけセット</div>
+                <div class="approach-step" data-step="3">各三角形を Draw（複数 DrawCall だが PSO 設定不要）</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="slide-counter"><span id="currentSlide">1</span> / 2</div>
+    <div class="nav-container">
+        <button onclick="prevSlide()">← 前へ</button>
+        <button onclick="nextSlide()">次へ →</button>
+    </div>
+    <div class="keyboard-guide">⌨ キーボード: ← / → キーで操作</div>
+
+    <script>
+        const container = document.getElementById('slidesContainer');
+        const counter = document.getElementById('currentSlide');
+        let currentSlide = 0;
+        const totalSlides = 2;
+
+        function updateSlide() {
+            const slideWidth = window.innerWidth;
+            container.scrollLeft = currentSlide * slideWidth;
+            counter.textContent = currentSlide + 1;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') nextSlide();
+            if (e.key === 'ArrowLeft') prevSlide();
+        });
+
+        window.addEventListener('resize', updateSlide);
+    </script>
+</body>
+</html>
