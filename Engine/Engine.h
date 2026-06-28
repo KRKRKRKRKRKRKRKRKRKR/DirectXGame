@@ -1,13 +1,12 @@
 #pragma once
 #include "Window/Window.h"
-#include "Graphics/DirectXManager.h"
+#include "Graphics/Renderer/DirectXManager.h"
 #include "../Math/MathTypes.h"
 #include "Camera/Camera.h"
 #include "../Externals/imgui/imguiManager.h"
 #include "InputDevice/InputDevice.h"
 #include "Utils/DeltaTime.h"
 #include "../Game/Game.h"
-
 class Engine {
 public:
 	Engine() = default;
@@ -26,4 +25,5 @@ private:
 	ImGuiManager imgui_;
 	DeltaTime deltaTime_;
 	Game game_;
+
 };

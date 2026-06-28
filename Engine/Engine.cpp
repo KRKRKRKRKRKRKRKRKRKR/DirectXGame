@@ -13,7 +13,6 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	Debug::SetupInfoQueue(directX_.GetDevice());
 	camera_.Initialize({0.0f, 0.5f, -5.0f});
 	imgui_.Initialize(window_.GetHWND(), &directX_);
-	directX_.InitializeGridLines();
 	game_.Initialize(&directX_, &camera_);
 	deltaTime_.Start();
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "../Engine/Graphics/DirectXManager.h"
+#include "../Engine/Graphics/Renderer/DirectXManager.h"
 #include "../Engine/Camera/Camera.h"
 #include "../Particle/TrailParticle3D.h"
 #include "../Math/MathTypes.h"

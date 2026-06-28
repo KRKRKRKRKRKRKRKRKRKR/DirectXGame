@@ -50,25 +50,59 @@ void Game::Render() {
 	Matrix4x4 viewMatrix = camera_->GetViewMatrix();
 	Matrix4x4 projectionMatrix = camera_->GetProjectionMatrix(aspectRatio);
 
-	// ===============================================
-	// 【バッチ化】直接描画 + パーティクルを 1 DrawCall で
-	// ===============================================
+	Triangle* triangle = directX_->GetTriangle();
+	auto* commandList = directX_->GetCommandList();
+	auto* textureManager = directX_->GetTextureManager();
 
-	// ===============================================
-	// 【一度テストのため、従来の描画に戻す】
-	// ===============================================
-	directX_->DrawTriangleRender(viewMatrix, projectionMatrix, transform1_, Vector4(1.0f, 1.0f, 0.0f, 1.0f), TextureID::None);
-	directX_->DrawTriangleRender(viewMatrix, projectionMatrix, transform2_, Vector4(1.0f, 1.0f, 0.0f, 1.0f), TextureID::None);
+	// --- Step 1: テクスチャなし (None) グループのバッファ書き込み ---
+	int indexNone = 0;
+
+	// transform1
+	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform1_.scale, transform1_.rotation, transform1_.translation);
+	Matrix4x4 wvp = worldMatrix * viewMatrix * projectionMatrix;
+	triangle->SetWvpMatrix(wvp, indexNone);
+	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone);
+	indexNone++;
+
+	// transform2
+	worldMatrix = TransformMath::MakeAffineMatrix(transform2_.scale, transform2_.rotation, transform2_.translation);
+	wvp = worldMatrix * viewMatrix * projectionMatrix;
+	triangle->SetWvpMatrix(wvp, indexNone);
+	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone);
+	indexNone++;
+
+	int countNone = indexNone;
+
+	// --- Step 2: テクスチャ付き (textureID_) グループのバッファ書き込み ---
+	int indexTexture = countNone;
 
 	for (int i = 0; i < kMaxTriangles; i++) {
-		for (int index : trailParticles_[i].GetActiveList()) {
-			const TrailParticleInfo& p = trailParticles_[i].GetParticles()[index];
+		for (int pidx : trailParticles_[i].GetActiveList()) {
+			const TrailParticleInfo& p = trailParticles_[i].GetParticles()[pidx];
 			Transform t;
 			t.scale = Vector3(p.scale, p.scale, p.scale);
 			t.rotation = p.rotation;
 			t.translation = p.position;
-			directX_->DrawTriangleRender(viewMatrix, projectionMatrix, t, p.color, textureID_);
+			worldMatrix = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
+			wvp = worldMatrix * viewMatrix * projectionMatrix;
+			triangle->SetWvpMatrix(wvp, indexTexture);
+			triangle->SetColor(p.color, indexTexture);
+			indexTexture++;
 		}
+	}
+
+	int countTexture = indexTexture - countNone;
+
+	// --- Step 3: グループ A (None) をバッチ描画 ---
+	triangle->SetPipelineCommands(commandList, textureManager, TextureID::None);
+	for (int i = 0; i < countNone; i++) {
+		triangle->Draw(commandList, i);
+	}
+
+	// --- Step 4: グループ B (textureID_) をバッチ描画 ---
+	triangle->SetPipelineCommands(commandList, textureManager, textureID_);
+	for (int i = countNone; i < indexTexture; i++) {
+		triangle->Draw(commandList, i);
 	}
 
 	directX_->DrawLineRender(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));

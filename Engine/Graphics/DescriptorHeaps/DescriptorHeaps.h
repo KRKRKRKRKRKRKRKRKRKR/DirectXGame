@@ -34,7 +34,6 @@ public:
 	D3D12_GPU_DESCRIPTOR_HANDLE GetTextureSrvHandleByIndex(uint32_t heapIndex) const;
 	D3D12_CPU_DESCRIPTOR_HANDLE GetTextureSrvCpuHandleByIndex(uint32_t heapIndex) const;
 
-
 	struct SrvHandle {
 		D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle;
 		D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle;

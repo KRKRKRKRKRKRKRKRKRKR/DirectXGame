@@ -1,6 +1,6 @@
 #pragma once
 #include <windows.h>
-#include "../../Engine/Graphics/DirectXManager.h"
+#include "../../Engine/Graphics/Renderer/DirectXManager.h"
 
 class ImGuiManager {
 

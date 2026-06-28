@@ -104,6 +104,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Engine\Camera\Camera.cpp" />
+    <ClCompile Include="Engine\Graphics\CommandManager\CommandManager.cpp" />
+    <ClCompile Include="Engine\Graphics\DirectXDevice\DirectXDevice.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sphere\Sphere.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sprite\Sprite.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
@@ -120,7 +122,6 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
-    <ClCompile Include="Engine\Graphics\DirectXManager.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
     <ClCompile Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.cpp" />
@@ -129,6 +130,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Game\Game.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Particle\TrailParticle3D.cpp" />
+    <ClCompile Include="Engine\Graphics\Renderer\DirectXManager.cpp" />
+    <ClCompile Include="Engine\Graphics\SwapChainManager\SwapChainManager.cpp" />
     <ClCompile Include="Engine\Utils\DeltaTime.cpp" />
     <ClCompile Include="Engine\Utils\Logger.cpp" />
     <ClCompile Include="Engine\Utils\StringUtils.cpp" />
@@ -136,6 +139,8 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Camera\Camera.h" />
+    <ClInclude Include="Engine\Graphics\CommandManager\CommandManager.h" />
+    <ClInclude Include="Engine\Graphics\DirectXDevice\DirectXDevice.h" />
     <ClInclude Include="Engine\Graphics\Object\Sphere\Sphere.h" />
     <ClInclude Include="Engine\Graphics\Object\Sprite\Sprite.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\LinePipeline.h" />
@@ -153,12 +158,13 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Externals\imgui\imstb_textedit.h" />
     <ClInclude Include="Externals\imgui\imstb_truetype.h" />
     <ClInclude Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.h" />
-    <ClInclude Include="Engine\Graphics\DirectXManager.h" />
     <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
     <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />
     <ClInclude Include="Engine\Graphics\Object\Triangle\Triangle.h" />
     <ClInclude Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.h" />
     <ClInclude Include="Engine\Graphics\Texture\TextureManager.h" />
+    <ClInclude Include="Engine\Graphics\Renderer\DirectXManager.h" />
+    <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\InputDevice\InputDevice.h" />
     <ClInclude Include="Game\Game.h" />
     <ClInclude Include="Math\MathTypes.h" />
