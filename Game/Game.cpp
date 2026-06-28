@@ -7,6 +7,9 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
 	camera_ = camera;
 
+	texHandles_[0] = kTextureNone;
+	texHandles_[1] = renderer_->LoadTexture("Resources/t.png");
+
 	transform1_.scale = { 1.0f, 1.0f, 1.0f };
 	transform1_.rotation = { 0.0f, 0.0f, 0.0f };
 	transform1_.translation = { 0.0f, 15.0f, 0.0f };
@@ -50,25 +53,11 @@ void Game::Render() {
 	Matrix4x4 projectionMatrix = camera_->GetProjectionMatrix(
 		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
 
-	Triangle* triangle = renderer_->GetTriangle();
-	auto* commandList = renderer_->GetCommandList();
-	auto* textureManager = renderer_->GetTextureManager();
-
-	// --- グループ A (None): WVP書き込み ---
-	int indexNone = 0;
-
 	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(transform1_.scale, transform1_.rotation, transform1_.translation) * viewMatrix * projectionMatrix;
-	triangle->SetWvpMatrix(wvp, indexNone);
-	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone++);
+	renderer_->DrawTriangle(wvp, Vector4(1.0f, 1.0f, 0.0f, 1.0f));
 
 	wvp = TransformMath::MakeAffineMatrix(transform2_.scale, transform2_.rotation, transform2_.translation) * viewMatrix * projectionMatrix;
-	triangle->SetWvpMatrix(wvp, indexNone);
-	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone++);
-
-	int countNone = indexNone;
-
-	// --- グループ B (textureID_): WVP書き込み ---
-	int indexTexture = countNone;
+	renderer_->DrawTriangle(wvp, Vector4(1.0f, 1.0f, 0.0f, 1.0f));
 
 	for (int i = 0; i < kMaxTriangles; i++) {
 		for (int pidx : trailParticles_[i].GetActiveList()) {
@@ -78,25 +67,11 @@ void Game::Render() {
 			t.rotation = p.rotation;
 			t.translation = p.position;
 			wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * viewMatrix * projectionMatrix;
-			triangle->SetWvpMatrix(wvp, indexTexture);
-			triangle->SetColor(p.color, indexTexture);
-			indexTexture++;
+			renderer_->DrawCube(wvp, p.color, textureID_);
 		}
 	}
 
-	// --- グループ A バッチ描画 ---
-	triangle->SetPipelineCommands(commandList, textureManager, TextureID::None);
-	for (int i = 0; i < countNone; i++) {
-		triangle->Draw(commandList, i);
-	}
-
-	// --- グループ B バッチ描画 ---
-	triangle->SetPipelineCommands(commandList, textureManager, textureID_);
-	for (int i = countNone; i < indexTexture; i++) {
-		triangle->Draw(commandList, i);
-	}
-
-	renderer_->DrawLine(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+	renderer_->DrawLine(transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f), viewMatrix, projectionMatrix);
 
 	DrawGrid();
 	DrawImGui();
@@ -146,7 +121,11 @@ void Game::DrawImGui() {
 	changed |= ImGui::SliderFloat("Rotation Speed", &trailParam_.rotationSpeed, -0.2f, 0.2f);
 	changed |= ImGui::ColorEdit4("Color Start", &trailParam_.colorStart.x);
 	changed |= ImGui::ColorEdit4("Color End", &trailParam_.colorEnd.x);
-	changed |= ImGui::Combo("Texture", reinterpret_cast<int*>(&textureID_), "None\0Texture1\0");
+	static int texIdx = 0;
+	if (ImGui::Combo("Texture", &texIdx, "None\0t.png\0")) {
+		textureID_ = texHandles_[texIdx];
+		changed = true;
+	}
 
 	if (changed) {
 		for (int i = 0; i < kMaxTriangles; i++) {

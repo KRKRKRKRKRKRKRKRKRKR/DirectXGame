@@ -3,7 +3,7 @@
 #include <cassert>
 void DescriptorHeaps::Initialize(ID3D12Device* device) {
 	rtvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
-   srvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
+	srvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
 	dsvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 	SetDescriptorSizes(device);
 }
@@ -113,4 +113,24 @@ D3D12_CPU_DESCRIPTOR_HANDLE DescriptorHeaps::GetTextureSrvCpuHandleByIndex(uint3
 	}
 	Logger::Log("DescriptorHeaps: Texture SRV handle not found for heapIndex\n");
 	return D3D12_CPU_DESCRIPTOR_HANDLE{ 0 };
+}
+
+DescriptorHeaps::SrvHandle DescriptorHeaps::CreateStructuredBufferSRV(ID3D12Device* device, ID3D12Resource* resource, uint32_t numElements, uint32_t stride, uint32_t heapIndex)
+{
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.Buffer.NumElements = numElements;
+	srvDesc.Buffer.StructureByteStride = stride;
+	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+	D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = GetCPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, heapIndex);
+	D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = GetGPUDescriptorHandle(srvDescriptorHeap_.Get(), descriptorSizeSRV_, heapIndex);
+
+	device->CreateShaderResourceView(resource, &srvDesc, cpuHandle);
+
+	SrvHandle handles = { cpuHandle, gpuHandle };
+	textureSrvHandles_[heapIndex] = handles;
+	return handles;
 }

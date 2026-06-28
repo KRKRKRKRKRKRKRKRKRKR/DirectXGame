@@ -40,7 +40,7 @@ public:
 	};
 
 	SrvHandle CreateTextureSRV_new(ID3D12Device* device, ID3D12Resource* textureResource, DXGI_FORMAT format, UINT mipLevels, uint32_t heapIndex);
-
+	SrvHandle CreateStructuredBufferSRV(ID3D12Device* device, ID3D12Resource* resource, uint32_t numElements, uint32_t stride, uint32_t heapIndex);
 private:
 	ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible);
 	void SetDescriptorSizes(ID3D12Device* device);

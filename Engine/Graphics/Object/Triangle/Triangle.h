@@ -7,7 +7,7 @@
 #include "../../../../Math/MathTypes.h"
 #include "../../Texture/TextureManager.h"
 #include "../../ResourceFactory/ResourceFactory.h"
-
+#include "../../DescriptorHeaps/DescriptorHeaps.h"
 using Microsoft::WRL::ComPtr;
 
 class TextureManager;
@@ -22,24 +22,24 @@ public:
 	static constexpr uint32_t kMaxInstanceCount = 4096;
 
 	// 初期化（DirectXManager から呼び出し）
-	void Initialize(ID3D12Device* device, TextureManager* textureManager,
-		ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState);
+	void Initialize(ID3D12Device* device, TextureManager* textureManager, ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState, DescriptorHeaps* heaps);
 
 	// ワールド・ビュー・プロジェクション行列を設定
-	void SetWvpMatrix(const Matrix4x4& wvpMatrix,uint32_t wvpIndex);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex);
 
 	// ビューポート・シザーレクトを設定
 	void SetViewportAndScissorRect(int32_t width, int32_t height);
 
 	// パイプラインコマンドを設定
-	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager,TextureID textureID);
+	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager, TextureHandle texture);
 
-	void SetColor(const Vector4& color,uint32_t materialIndex);
+	void SetColor(const Vector4& color, uint32_t materialIndex);
+
 	// IDrawable 実装
-	void Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) ;
+	void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0);
+
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
 	ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
-
 	// ゲッター
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const { return vertexBufferView_; }
 	ComPtr<ID3D12Resource> GetVertexResource() const { return vertexResource_; }
@@ -47,6 +47,7 @@ public:
 	const D3D12_RECT& GetScissorRect() const { return scissorRect_; }
 
 private:
+
 	// 頂点バッファ関連
 	ComPtr<ID3D12Resource> vertexResource_ = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
@@ -56,6 +57,10 @@ private:
 	uint32_t materialStride_ = 0;
 	uint8_t* materialMappedData_ = nullptr;
 
+	// SRV用ヒープ（WVP・色それぞれ）
+	ComPtr<ID3D12DescriptorHeap> srvHeap_;
+	D3D12_GPU_DESCRIPTOR_HANDLE wvpSrvHandle_{};
+	D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
 
 	// WVP 行列関連
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
@@ -80,5 +85,6 @@ private:
 	void CreateVertexResource(ID3D12Device* device);
 	void CreateMaterialResource(ID3D12Device* device);
 	void CreateWvpMatrixResource(ID3D12Device* device);
+	void CreateSRVHeap(ID3D12Device* device);
 	void WriteVertexData();
 };

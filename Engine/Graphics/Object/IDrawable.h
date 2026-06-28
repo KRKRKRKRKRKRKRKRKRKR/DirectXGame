@@ -11,7 +11,7 @@ public:
 	virtual ~IDrawable() = default;
 
 	// GPU コマンドリストへの描画命令を記録
-	virtual void Draw(ID3D12GraphicsCommandList* commandList,uint32_t wvpIndex) = 0;
+	virtual void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0) = 0;
 
 	// 描画パイプラインの設定を取得
 	virtual ID3D12RootSignature* GetRootSignature() const = 0;

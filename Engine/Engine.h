@@ -7,7 +7,6 @@
 #include "../Externals/imgui/imguiManager.h"
 #include "InputDevice/InputDevice.h"
 #include "Utils/DeltaTime.h"
-#include "../Game/Game.h"
 
 class Engine {
 public:
@@ -15,8 +14,13 @@ public:
 	~Engine() = default;
 
 	void Initialize(const std::wstring& windowTitle, int width, int height);
-	void Run();
+	bool Update();  // ウィンドウメッセージ処理・BeginFrame・ImGui開始。falseで終了
+	void Flush();   // FlushTriangles・FlushLines・FlushSpheres・ImGui終了・EndFrame
 	void Finalize();
+
+	Renderer* GetRenderer() { return &renderer_; }
+	Camera*   GetCamera()   { return &camera_; }
+	float     GetDeltaTime() { return deltaTime_.GetDeltaTime(); }
 
 private:
 	Window window_;
@@ -25,5 +29,4 @@ private:
 	Camera camera_;
 	ImGuiManager imgui_;
 	DeltaTime deltaTime_;
-	Game game_;
 };

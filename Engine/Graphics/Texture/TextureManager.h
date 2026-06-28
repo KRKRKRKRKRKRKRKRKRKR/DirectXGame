@@ -3,18 +3,15 @@
 #include <d3d12.h>
 #include <wrl.h>
 #include "../../../Externals/DirectXTex/DirectXTex.h"
-#include <map>
+#include <unordered_map>
 #include <string>
+#include <cstdint>
 
 using Microsoft::WRL::ComPtr;
 
-enum class TextureID : uint32_t {
-	None = 0,
-	Texture1,
-	Texture2,
-	Texture3,
-	Count
-};
+// テクスチャを識別するハンドル。0 = 白テクスチャ（テクスチャなし扱い）
+using TextureHandle = uint32_t;
+static constexpr TextureHandle kTextureNone = 0;
 
 struct TextureResource {
 	ComPtr<ID3D12Resource> resource;
@@ -23,57 +20,48 @@ struct TextureResource {
 	D3D12_CPU_DESCRIPTOR_HANDLE srvCpuHandle{ 0 };
 	D3D12_GPU_DESCRIPTOR_HANDLE srvGpuHandle{ 0 };
 	uint32_t descriptorHeapIndex = UINT32_MAX;
-	bool isDepthStencil = false;
 };
 
-class DescriptorHeaps;  // Forward declaration
+class DescriptorHeaps;
 
 class TextureManager {
 public:
 	TextureManager() = default;
 	~TextureManager() = default;
 
-	// === リソース生成 ===
-	ComPtr<ID3D12Resource> CreateTextureResource(const DirectX::TexMetadata& metadata);
-	ComPtr<ID3D12Resource> CreateDepthStencilTextureResource(int32_t width, int32_t height);
+	// === デバイス設定（Initialize前に呼ぶ） ===
+	void SetDevice(ID3D12Device* device) { device_ = device; }
+	void SetCommandList(ID3D12GraphicsCommandList* cmdList) { commandList_ = cmdList; }
 
-	// === テクスチャロード・初期化 ===
-	DirectX::ScratchImage LoadTexture(const std::string& filePath);
-	void LoadTextureResourceFromFile(TextureID id, const std::string& filePath);
-	void CreateDepthStencilBuffer(TextureID id, int32_t width, int32_t height);
+	// エンジン起動時に白テクスチャ（handle=0）を登録する
+	void InitializeDefaultTexture(DescriptorHeaps* heaps);
 
-	// === GPU転送 ===
-	ComPtr<ID3D12Resource> UploadTextureData(
-		ComPtr<ID3D12Resource> textureResource,
-		const DirectX::ScratchImage& mipImages
-	);
+	// ファイルからテクスチャを読み込んでハンドルを返す
+	TextureHandle Load(const std::string& filePath, DescriptorHeaps* heaps);
 
-	// === ビュー作成（DescriptorHeaps 経由） ===
-	void CreateShaderResourceView(TextureID id, DescriptorHeaps* heaps);
-	void CreateDepthStencilView(TextureID id, DescriptorHeaps* heaps);
+	// 深度ステンシルバッファの初期化（エンジン内部用）
+	void InitializeDepthStencil(int32_t width, int32_t height, DescriptorHeaps* heaps);
 
 	// === リソースアクセス ===
-	ComPtr<ID3D12Resource> GetResource(TextureID id) const;
-	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle(TextureID id) const;
-	D3D12_CPU_DESCRIPTOR_HANDLE GetSrvCpuHandle(TextureID id) const;
-	uint32_t GetDescriptorHeapIndex(TextureID id) const;
+	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle(TextureHandle handle) const;
 	ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
 
-	bool IsLoaded(TextureID id) const;
+	bool IsLoaded(TextureHandle handle) const;
 
 	// === クリーンアップ ===
 	void Finalize();
 
-	// === デバイス設定 ===
-	void SetDevice(ID3D12Device* device) { device_ = device; }
-	void SetCommandList(ID3D12GraphicsCommandList* cmdList) { commandList_ = cmdList; }
-
-	void InitializeDepthStencil(int32_t width, int32_t height,DescriptorHeaps* heaps);
 private:
-	std::map<TextureID, TextureResource> textures_;
+	ComPtr<ID3D12Resource> CreateTextureResource(const DirectX::TexMetadata& metadata);
+	ComPtr<ID3D12Resource> CreateDepthStencilTextureResource(int32_t width, int32_t height);
+	DirectX::ScratchImage LoadFromFile(const std::string& filePath);
+	ComPtr<ID3D12Resource> UploadTextureData(ComPtr<ID3D12Resource> textureResource, const DirectX::ScratchImage& mipImages);
+	TextureHandle RegisterTexture(ComPtr<ID3D12Resource> resource, const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> intermediate, DescriptorHeaps* heaps);
+
+	std::unordered_map<TextureHandle, TextureResource> textures_;
+	std::unordered_map<std::string, TextureHandle> pathToHandle_;  // 同じパスの二重ロード防止
 	ID3D12Device* device_ = nullptr;
 	ID3D12GraphicsCommandList* commandList_ = nullptr;
-	uint32_t nextDescriptorIndex_ = 0;
+	uint32_t nextHandle_ = 0;
 	ComPtr<ID3D12Resource> depthStencilResource_ = nullptr;
-	bool ValidateTextureID(TextureID id) const;
 };

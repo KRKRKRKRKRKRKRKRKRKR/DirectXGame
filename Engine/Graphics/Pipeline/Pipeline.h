@@ -36,7 +36,7 @@ private:
 	ComPtr<ID3D12Device> device_;
 	ShaderCompiler* shaderCompiler_ = nullptr;
 	D3D12_RESOURCE_BARRIER barrier_ = {};
-	static constexpr UINT DESCRIPTOR_RANGE_COUNT = 1;
+	static constexpr UINT DESCRIPTOR_RANGE_COUNT = 3;
 	static constexpr UINT STATIC_SAMPLER_COUNT = 1;
 	D3D12_DESCRIPTOR_RANGE descriptorRange_[DESCRIPTOR_RANGE_COUNT] = {};
 	D3D12_STATIC_SAMPLER_DESC staticSamplers_[STATIC_SAMPLER_COUNT] = {};

@@ -19,14 +19,15 @@ void Sphere::SetWvpMatrix(const Matrix4x4& wvpMatrix) {
 }
 
 void Sphere::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-    TextureManager* textureManager, TextureID textureID) {
+    TextureManager* textureManager, TextureHandle texture) {
     commandList->SetGraphicsRootSignature(rootSignature_);
     commandList->SetPipelineState(pipelineState_);
     commandList->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress()); // 1 = WVP
-    commandList->SetGraphicsRootDescriptorTable(2, textureManager->GetSrvGpuHandle(textureID)); // 2 = Texture
+    commandList->SetGraphicsRootDescriptorTable(2, textureManager->GetSrvGpuHandle(texture)); // 2 = Texture
 }
 
-void Sphere::Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) {
+void Sphere::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {
+    (void)instanceCount; (void)startInstance;
     commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress()); // 0 = Material
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

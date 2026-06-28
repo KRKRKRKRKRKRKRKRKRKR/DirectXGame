@@ -200,7 +200,9 @@ void Line::SetPipelineCommands(ID3D12GraphicsCommandList* commandList) {
 
 }
 
-void Line::Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) {
+void Line::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {
+	uint32_t wvpIndex = startInstance;
+	(void)instanceCount;
 	if (!commandList) {
 		Logger::Log("Line::Draw : Invalid command list\n");
 		return;

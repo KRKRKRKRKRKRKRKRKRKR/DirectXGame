@@ -36,7 +36,7 @@ public:
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList);
 
 	// IDrawable 実装
-	void Draw(ID3D12GraphicsCommandList* commandList, uint32_t wvpIndex) override;
+	void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0) override;
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
 	ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
 

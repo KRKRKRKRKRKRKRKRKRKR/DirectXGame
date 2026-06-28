@@ -24,7 +24,9 @@ private:
 	Transform triangleTransforms_[kMaxTriangles];
 	TrailParticle3D trailParticles_[kMaxTriangles];
 	TrailParticleParameter trailParam_;
-	TextureID textureID_ = TextureID::None;
+
+	TextureHandle textureID_ = kTextureNone;
+	TextureHandle texHandles_[2] = {};
 
 	void DrawGrid();
 	void DrawImGui();

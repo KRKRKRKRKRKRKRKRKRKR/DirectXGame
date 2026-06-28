@@ -57,7 +57,6 @@
     <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\Pipeline.cpp" />
     <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
-    <ClCompile Include="Engine\Graphics\DirectXManager.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
     <ClCompile Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.cpp" />
@@ -75,6 +74,11 @@
     <ClCompile Include="Engine\Graphics\ResourceFactory\ResourceFactory.cpp" />
     <ClCompile Include="Engine\Graphics\DirectXDevice\DirectXDevice.cpp" />
     <ClCompile Include="Engine\Graphics\CommandManager\CommandManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Renderer\DirectXManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Renderer\Renderer.cpp" />
+    <ClCompile Include="Engine\Graphics\SwapChainManager\SwapChainManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
+    <ClCompile Include="Math\Collision.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\MathTypes.h">
@@ -123,7 +127,6 @@
     <ClInclude Include="Engine\Graphics\Pipeline\LinePipeline.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\Pipeline.h" />
     <ClInclude Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.h" />
-    <ClInclude Include="Engine\Graphics\DirectXManager.h" />
     <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
     <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />
     <ClInclude Include="Engine\Graphics\Object\Triangle\Triangle.h" />
@@ -142,6 +145,11 @@
     <ClInclude Include="Engine\Graphics\ResourceFactory\ResourceFactory.h" />
     <ClInclude Include="Engine\Graphics\DirectXDevice\DirectXDevice.h" />
     <ClInclude Include="Engine\Graphics\CommandManager\CommandManager.h" />
+    <ClInclude Include="Engine\Graphics\Renderer\DirectXManager.h" />
+    <ClInclude Include="Engine\Graphics\Renderer\Renderer.h" />
+    <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
+    <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
+    <ClInclude Include="Math\Collision.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">
