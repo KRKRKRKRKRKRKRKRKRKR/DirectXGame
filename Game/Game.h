@@ -1,5 +1,5 @@
 #pragma once
-#include "../Engine/Graphics/Renderer/DirectXManager.h"
+#include "../Engine/Graphics/Renderer/Renderer.h"
 #include "../Engine/Camera/Camera.h"
 #include "../Particle/TrailParticle3D.h"
 #include "../Math/MathTypes.h"
@@ -9,12 +9,12 @@ public:
 	Game() = default;
 	~Game() = default;
 
-	void Initialize(DirectXManager* directX, Camera* camera);
+	void Initialize(Renderer* renderer, Camera* camera);
 	void Update(float deltaTime);
 	void Render();
 
 private:
-	DirectXManager* directX_ = nullptr;
+	Renderer* renderer_ = nullptr;
 	Camera* camera_ = nullptr;
 
 	Transform transform1_;

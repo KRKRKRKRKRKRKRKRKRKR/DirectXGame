@@ -3,8 +3,8 @@
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
 
-void Game::Initialize(DirectXManager* directX, Camera* camera) {
-	directX_ = directX;
+void Game::Initialize(Renderer* renderer, Camera* camera) {
+	renderer_ = renderer;
 	camera_ = camera;
 
 	transform1_.scale = { 1.0f, 1.0f, 1.0f };
@@ -46,34 +46,28 @@ void Game::Update(float deltaTime) {
 }
 
 void Game::Render() {
-	float aspectRatio = camera_->GetAspectRatio(directX_->GetClientWidth(), directX_->GetClientHeight());
 	Matrix4x4 viewMatrix = camera_->GetViewMatrix();
-	Matrix4x4 projectionMatrix = camera_->GetProjectionMatrix(aspectRatio);
+	Matrix4x4 projectionMatrix = camera_->GetProjectionMatrix(
+		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
 
-	Triangle* triangle = directX_->GetTriangle();
-	auto* commandList = directX_->GetCommandList();
-	auto* textureManager = directX_->GetTextureManager();
+	Triangle* triangle = renderer_->GetTriangle();
+	auto* commandList = renderer_->GetCommandList();
+	auto* textureManager = renderer_->GetTextureManager();
 
-	// --- Step 1: テクスチャなし (None) グループのバッファ書き込み ---
+	// --- グループ A (None): WVP書き込み ---
 	int indexNone = 0;
 
-	// transform1
-	Matrix4x4 worldMatrix = TransformMath::MakeAffineMatrix(transform1_.scale, transform1_.rotation, transform1_.translation);
-	Matrix4x4 wvp = worldMatrix * viewMatrix * projectionMatrix;
+	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(transform1_.scale, transform1_.rotation, transform1_.translation) * viewMatrix * projectionMatrix;
 	triangle->SetWvpMatrix(wvp, indexNone);
-	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone);
-	indexNone++;
+	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone++);
 
-	// transform2
-	worldMatrix = TransformMath::MakeAffineMatrix(transform2_.scale, transform2_.rotation, transform2_.translation);
-	wvp = worldMatrix * viewMatrix * projectionMatrix;
+	wvp = TransformMath::MakeAffineMatrix(transform2_.scale, transform2_.rotation, transform2_.translation) * viewMatrix * projectionMatrix;
 	triangle->SetWvpMatrix(wvp, indexNone);
-	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone);
-	indexNone++;
+	triangle->SetColor(Vector4(1.0f, 1.0f, 0.0f, 1.0f), indexNone++);
 
 	int countNone = indexNone;
 
-	// --- Step 2: テクスチャ付き (textureID_) グループのバッファ書き込み ---
+	// --- グループ B (textureID_): WVP書き込み ---
 	int indexTexture = countNone;
 
 	for (int i = 0; i < kMaxTriangles; i++) {
@@ -83,46 +77,48 @@ void Game::Render() {
 			t.scale = Vector3(p.scale, p.scale, p.scale);
 			t.rotation = p.rotation;
 			t.translation = p.position;
-			worldMatrix = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
-			wvp = worldMatrix * viewMatrix * projectionMatrix;
+			wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * viewMatrix * projectionMatrix;
 			triangle->SetWvpMatrix(wvp, indexTexture);
 			triangle->SetColor(p.color, indexTexture);
 			indexTexture++;
 		}
 	}
 
-	int countTexture = indexTexture - countNone;
-
-	// --- Step 3: グループ A (None) をバッチ描画 ---
+	// --- グループ A バッチ描画 ---
 	triangle->SetPipelineCommands(commandList, textureManager, TextureID::None);
 	for (int i = 0; i < countNone; i++) {
 		triangle->Draw(commandList, i);
 	}
 
-	// --- Step 4: グループ B (textureID_) をバッチ描画 ---
+	// --- グループ B バッチ描画 ---
 	triangle->SetPipelineCommands(commandList, textureManager, textureID_);
 	for (int i = countNone; i < indexTexture; i++) {
 		triangle->Draw(commandList, i);
 	}
 
-	directX_->DrawLineRender(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
+	renderer_->DrawLine(viewMatrix, projectionMatrix, transform1_.translation, transform2_.translation, Vector4(1.0f, 1.0f, 1.0f, 1.0f));
 
 	DrawGrid();
-
 	DrawImGui();
 }
 
 void Game::DrawGrid() {
-	float aspectRatio = camera_->GetAspectRatio(directX_->GetClientWidth(), directX_->GetClientHeight());
 	Matrix4x4 viewMatrix = camera_->GetViewMatrix();
-	Matrix4x4 projMatrix = camera_->GetProjectionMatrix(aspectRatio);
-	directX_->DrawGridBatch(viewMatrix, projMatrix);
+	Matrix4x4 projMatrix = camera_->GetProjectionMatrix(
+		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
+	renderer_->DrawGridBatch(viewMatrix, projMatrix);
 }
 
 void Game::DrawImGui() {
+	int totalTriangles = 0;
+	for (int i = 0; i < kMaxTriangles; i++) {
+		totalTriangles += static_cast<int>(trailParticles_[i].GetActiveList().size());
+	}
+
 	ImGui::Begin("FPS");
 	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 	ImGui::Text("frameTime: %.3f ms", 1000.0f / ImGui::GetIO().Framerate);
+	ImGui::Text("Triangles: %d", totalTriangles);
 	ImGui::End();
 
 	ImGui::Begin("Camera");

@@ -131,6 +131,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Particle\TrailParticle3D.cpp" />
     <ClCompile Include="Engine\Graphics\Renderer\DirectXManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Renderer\Renderer.cpp" />
     <ClCompile Include="Engine\Graphics\SwapChainManager\SwapChainManager.cpp" />
     <ClCompile Include="Engine\Utils\DeltaTime.cpp" />
     <ClCompile Include="Engine\Utils\Logger.cpp" />
@@ -164,6 +165,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.h" />
     <ClInclude Include="Engine\Graphics\Texture\TextureManager.h" />
     <ClInclude Include="Engine\Graphics\Renderer\DirectXManager.h" />
+    <ClInclude Include="Engine\Graphics\Renderer\Renderer.h" />
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\InputDevice\InputDevice.h" />
     <ClInclude Include="Game\Game.h" />

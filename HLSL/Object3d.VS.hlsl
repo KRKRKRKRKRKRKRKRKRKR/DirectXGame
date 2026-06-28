@@ -1,23 +1,19 @@
 #include "Object3d.hlsli"
 
-struct TransformationMatrix
-{
-    float4x4 WVP;
-};
-ConstantBuffer<TransformationMatrix> gTransformationMatrix : register(b0);
+StructuredBuffer<float4x4> gWvpMatrices : register(t1);
+StructuredBuffer<float4>   gColors      : register(t2);
 
 struct VertexShaderInput
 {
-    float4 position : POSITION0; 
+    float4 position : POSITION0;
     float2 texcoord : TEXCOORD0;
 };
 
-
-
-VertexShaderOutput main(VertexShaderInput input)
+VertexShaderOutput main(VertexShaderInput input, uint instanceId : SV_InstanceID)
 {
     VertexShaderOutput output;
-    output.position = mul(input.position,gTransformationMatrix.WVP);
+    output.position = mul(input.position, gWvpMatrices[instanceId]);
     output.texcoord = input.texcoord;
+    output.color    = gColors[instanceId];
     return output;
 }
