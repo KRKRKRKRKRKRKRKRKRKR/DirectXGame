@@ -14,6 +14,7 @@
 #include "../Object/Line/Line.h"
 #include "../Object/Sprite/Sprite.h"
 #include "../Object/Sphere/Sphere.h"
+#include "../Object/Model/Model.h"
 #include "../Lighting/DirectionalLight.h"
 #include "../../../Math/MathTypes.h"
 #include "../../../Math/TransformMath.h"
@@ -32,6 +33,13 @@ public:
 
 	// テクスチャをファイルから読み込んでハンドルを返す（同じパスは二重ロードしない）
 	TextureHandle LoadTexture(const std::string& filePath);
+
+	// OBJ を読み込んでハンドルを返す
+	using ModelHandle = uint32_t;
+	ModelHandle LoadModel(const std::string& directoryPath, const std::string& filename);
+
+	void DrawModel(ModelHandle handle, const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void FlushModels();
 
 	// フレーム先頭で一度だけ呼ぶ。以降の Draw(Transform,...) はこの行列を使う
 	void SetCamera(const Matrix4x4& view, const Matrix4x4& projection) {
@@ -102,6 +110,13 @@ private:
 		bool          useLighting;
 		UVTransform   uvTransform;
 	};
+	struct ModelCommand {
+		ModelHandle   handle;
+		Matrix4x4     wvp;
+		Vector4       color;
+		TextureHandle texture;
+		bool          useLighting;
+	};
 
 	ID3D12Device* device_ = nullptr;
 	ID3D12GraphicsCommandList* commandList_ = nullptr;
@@ -120,11 +135,15 @@ private:
 	std::unique_ptr<Sphere>   sphere_;
 	DirectionalLight light_;
 
+	std::vector<std::unique_ptr<Model>> models_;
+	uint32_t nextModelHeapIndex_ = 20; // 0-19 は他オブジェクトが使用
+
 	std::vector<TriangleCommand>  triangleCommands_;
 	std::vector<CubeCommand>      cubeCommands_;
 	std::vector<LineCommand>      lineCommands_;
 	std::vector<SphereCommand>    sphereCommands_;
 	std::vector<Sprite2DCommand>  sprite2DCommands_;
+	std::vector<ModelCommand>     modelCommands_;
 
 	DescriptorHeaps* heaps_ = nullptr;
 	uint32_t currentLineIndex_ = 0;

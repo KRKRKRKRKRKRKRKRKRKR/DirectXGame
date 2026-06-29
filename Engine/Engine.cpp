@@ -33,6 +33,7 @@ bool Engine::Update() {
 void Engine::Flush() {
 	renderer_.FlushTriangles();
 	renderer_.FlushCubes();
+	renderer_.FlushModels();
 	renderer_.FlushLines();
 	renderer_.FlushSpheres();
 	renderer_.FlushSprites2D(); // 2DスプライトはDepth無効で最後に描画 → 常に最前面

@@ -3,7 +3,6 @@
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
 #include "../Engine/Audio/AudioManager.h"
-
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
 	camera_ = camera;
@@ -53,6 +52,10 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	bgm.Load("Resources/Audio/BGM.mp3");
 	bgm.Play(true, SoundType::BGM);
 	AudioManager::GetInstance().RegisterSound("BGM", &bgm, SoundType::BGM, true);
+
+	modelHandle_ = renderer_->LoadModel("Resources/Model", "player.obj");
+	modelTransform_.translation = { 5.0f, 0.0f, 0.0f };
+	modelTex_ = textures_[1].handle; // デフォルトで t.png を使用
 }
 
 void Game::Update(float deltaTime) {
@@ -73,6 +76,7 @@ void Game::Render() {
 	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting);
 	renderer_->DrawCube(cube, cubeColor, textures_[cubeTexIndex_].handle, cubeLighting);
 	renderer_->DrawSphere(sphere, sphereColor, textures_[sphereTexIndex_].handle, sphereLighting);
+	renderer_->DrawModel(modelHandle_, modelTransform_, modelColor_);
 	renderer_->DrawSprite3D(sprite3D, sprite3DColor, textures_[sprite3DTexIndex_].handle, sprite3DLighting, sprite3DUV);
 	renderer_->DrawSprite2D(sprite2D, sprite2DColor, textures_[sprite2DTexIndex_].handle, sprite2DLighting, sprite2DUV);
 

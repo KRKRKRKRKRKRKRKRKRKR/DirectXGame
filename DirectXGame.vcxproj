@@ -110,6 +110,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Engine\Graphics\DirectXDevice\DirectXDevice.cpp" />
     <ClCompile Include="Engine\Graphics\Lighting\DirectionalLight.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sphere\Sphere.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sprite\Sprite.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
@@ -151,6 +152,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Graphics\DirectXDevice\DirectXDevice.h" />
     <ClInclude Include="Engine\Graphics\Lighting\DirectionalLight.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
+    <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />
     <ClInclude Include="Engine\Graphics\Object\Sphere\Sphere.h" />
     <ClInclude Include="Engine\Graphics\Object\Sprite\Sprite.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\LinePipeline.h" />

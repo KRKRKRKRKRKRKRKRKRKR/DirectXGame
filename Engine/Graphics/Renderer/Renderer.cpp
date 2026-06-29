@@ -75,6 +75,45 @@ TextureHandle Renderer::LoadTexture(const std::string& filePath) {
 	return textureManager_.Load(filePath, heaps_);
 }
 
+Renderer::ModelHandle Renderer::LoadModel(const std::string& directoryPath, const std::string& filename) {
+	auto model = std::make_unique<Model>();
+	model->Initialize(device_, &textureManager_,
+		pipeline_.GetRootSignature(), pipeline_.GetPipelineState(), heaps_,
+		directoryPath, filename,
+		nextModelHeapIndex_, nextModelHeapIndex_ + 1);
+	nextModelHeapIndex_ += 2;
+
+	ModelHandle handle = static_cast<ModelHandle>(models_.size());
+	models_.push_back(std::move(model));
+	return handle;
+}
+
+void Renderer::DrawModel(ModelHandle handle, const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
+	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
+	modelCommands_.push_back({ handle, wvp, color, texture, useLighting });
+}
+
+void Renderer::FlushModels() {
+	if (modelCommands_.empty()) return;
+
+	for (int i = 0; i < (int)modelCommands_.size(); i++) {
+		auto& cmd = modelCommands_[i];
+		Model* model = models_[cmd.handle].get();
+
+		model->SetWvpMatrix(cmd.wvp, i);
+		model->SetColor(cmd.color, i);
+
+		// 呼び出し側がテクスチャを指定していればそれを使い、なければモデルのMTLテクスチャを使う
+		TextureHandle tex = (cmd.texture != kTextureNone) ? cmd.texture : model->GetTextureHandle();
+		model->SetPipelineCommands(commandList_, &textureManager_, tex);
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(cmd.useLighting));
+		commandList_->SetGraphicsRoot32BitConstant(4, static_cast<UINT>(i), 0);
+		model->Draw(commandList_, 1, i);
+	}
+
+	modelCommands_.clear();
+}
+
 // ---- Transform 版 ----
 
 void Renderer::DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {

@@ -36,6 +36,11 @@ private:
 
 	Sound bgm;
 
+	Renderer::ModelHandle modelHandle_ = 0;
+	Transform             modelTransform_;
+	Vector4               modelColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
+	TextureHandle         modelTex_;
+
 	bool sphereLighting   = true;
 	bool cubeLighting     = true;
 	bool triangleLighting = true;

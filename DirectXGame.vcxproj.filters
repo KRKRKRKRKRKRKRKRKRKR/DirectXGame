@@ -80,6 +80,9 @@
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Math\Collision.cpp" />
     <ClCompile Include="Engine\Graphics\Lighting\DirectionalLight.cpp" />
+    <ClCompile Include="Engine\Audio\AudioManager.cpp" />
+    <ClCompile Include="Engine\Audio\Sound.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\MathTypes.h">
@@ -152,6 +155,9 @@
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Math\Collision.h" />
     <ClInclude Include="Engine\Graphics\Lighting\DirectionalLight.h" />
+    <ClInclude Include="Engine\Audio\AudioManager.h" />
+    <ClInclude Include="Engine\Audio\Sound.h" />
+    <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">
