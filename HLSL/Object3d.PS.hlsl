@@ -8,7 +8,9 @@ cbuffer LightData : register(b0)
     float3 gLightDirection;
     float  gAmbient;
     float3 gLightColor;
-    float  gPadding;
+    uint   gEnableLighting;
+    float  gHalfLambertPower;
+    float3 gPad;
 };
 
 struct PixelShaderOutput
@@ -19,12 +21,16 @@ struct PixelShaderOutput
 PixelShaderOutput main(VertexShaderOutput input)
 {
     PixelShaderOutput output;
-
-    float3 normal = normalize(input.normal);
-    float  NdotL  = max(0.0f, dot(normal, -normalize(gLightDirection)));
-    float  diffuse = gAmbient + (1.0f - gAmbient) * NdotL;
-
     output.color = input.color * gTexture.Sample(gSampler, input.texcoord);
-    output.color.rgb *= diffuse * gLightColor;
+
+    if (gEnableLighting != 0)
+    {
+        float3 normal  = normalize(input.normal);
+        float  NdotL   = dot(normal, -normalize(gLightDirection));
+        float  cosVal  = pow(NdotL * 0.5f + 0.5f, gHalfLambertPower);
+        float  diffuse = gAmbient + (1.0f - gAmbient) * cosVal;
+        output.color.rgb *= diffuse * gLightColor;
+    }
+
     return output;
 }

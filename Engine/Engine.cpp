@@ -34,6 +34,7 @@ void Engine::Flush() {
 	renderer_.FlushCubes();
 	renderer_.FlushLines();
 	renderer_.FlushSpheres();
+	renderer_.FlushSprites2D(); // 2DスプライトはDepth無効で最後に描画 → 常に最前面
 	imgui_.EndFrame(&directX_);
 	directX_.EndFrame();
 }

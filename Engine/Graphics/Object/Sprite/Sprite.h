@@ -3,13 +3,19 @@
 #include <d3d12.h>
 #include "../IDrawable.h"
 #include "../../Texture/TextureManager.h"
+#include "../../DescriptorHeaps/DescriptorHeaps.h"
 #include "../../../../Math/MathTypes.h"
+
 class Sprite : public IDrawable {
 public:
     void Initialize(ID3D12Device* device, TextureManager* textureManager,
-        ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState);
+        ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+        DescriptorHeaps* heaps, uint32_t wvpHeapIndex, uint32_t colorHeapIndex);
 
     void SetWvpMatrix(const Matrix4x4& wvpMatrix);
+    void SetColor(const Vector4& color);
+    void SetUVTransform(const UVTransform& uvTransform);
+    void SetFlipV(bool flip);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
         TextureManager* textureManager, TextureHandle texture);
 
@@ -21,10 +27,16 @@ public:
 private:
     ComPtr<ID3D12Resource> vertexResource_;
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
-    ComPtr<ID3D12Resource> transformationMatrixResource_;
-    ComPtr<ID3D12Resource>materialResource_;
-    Matrix4x4* transformationMatrixData_ = nullptr;
-	Vector4* materialData_ = nullptr;
+    VertexData* vertexMappedData_ = nullptr;
+    bool flipV_ = false;
+
+    ComPtr<ID3D12Resource> wvpResource_;
+    Matrix4x4* wvpMappedData_ = nullptr;
+    D3D12_GPU_DESCRIPTOR_HANDLE wvpSrvHandle_{};
+
+    ComPtr<ID3D12Resource> colorResource_;
+    Vector4* colorMappedData_ = nullptr;
+    D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
 
     ID3D12RootSignature* rootSignature_ = nullptr;
     ID3D12PipelineState* pipelineState_ = nullptr;
@@ -34,6 +46,6 @@ private:
 
     void CreateVertexResource(ID3D12Device* device);
     void WriteVertexData();
-    void CreateTransformationMatrixResource(ID3D12Device* device);
-	void CreateMaterialResource(ID3D12Device* device);
+    void CreateWvpResource(ID3D12Device* device);
+    void CreateColorResource(ID3D12Device* device);
 };

@@ -5,6 +5,11 @@ using Vector3 = DirectX::XMFLOAT3;
 using Vector4 = DirectX::XMFLOAT4;
 using Matrix4x4 = DirectX::XMFLOAT4X4;
 
+struct UVTransform {
+	Vector2 offset   = { 0.0f, 0.0f };
+	float   rotation = 0.0f;
+	Vector2 scale    = { 1.0f, 1.0f };
+};
 struct Transform {
 	Vector3 scale = {1.0f, 1.0f, 1.0f};
 	Vector3 rotation = {0.0f, 0.0f, 0.0f};
@@ -29,3 +34,4 @@ struct SphereData {
 	Vector3 center;
 	float radius;
 };
+

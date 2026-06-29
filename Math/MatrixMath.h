@@ -55,6 +55,14 @@ namespace MatrixMath {
             result.m[i][i] = 1.0f;
         return result;
     }
+
+    // 正射影行列（スクリーンピクセル座標系: 左上原点）
+    inline Matrix4x4 MakeOrthographicMatrix(float width, float height) {
+        Matrix4x4 result;
+        DirectX::XMStoreFloat4x4(&result,
+            DirectX::XMMatrixOrthographicOffCenterLH(0.0f, width, height, 0.0f, 0.0f, 1.0f));
+        return result;
+    }
 }
 
 // グローバル演算子

@@ -11,13 +11,14 @@ void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comma
 
 	shaderCompiler_.InitializeDXC();
 	pipeline_.Initialize(device_, &shaderCompiler_);
+	spritePipeline2D_.Initialize(device_, &shaderCompiler_, false); // depth無効（UI用）
 	linePipeline_.Initialize(device_, &shaderCompiler_);
 
 	heaps_ = heaps;
 	textureManager_.SetDevice(device_);
 	textureManager_.SetCommandList(commandList_);
 	textureManager_.InitializeDepthStencil(width, height, heaps);
-	textureManager_.InitializeDefaultTexture(heaps);  // handle=0 を白テクスチャとして登録
+	textureManager_.InitializeDefaultTexture(heaps);
 
 	triangle_ = std::make_unique<Triangle>();
 	triangle_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState(), heaps);
@@ -28,11 +29,15 @@ void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comma
 	line_ = std::make_unique<Line>();
 	line_->Initialize(device_, &textureManager_, linePipeline_.GetRootSignature(), linePipeline_.GetPipelineState());
 
-	sprite_ = std::make_unique<Sprite>();
-	sprite_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
+	sprite3D_ = std::make_unique<Sprite>();
+	sprite3D_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState(), heaps_, 16, 17);
+
+	sprite2D_ = std::make_unique<Sprite>();
+	sprite2D_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), spritePipeline2D_.GetPipelineState(), heaps_, 18, 19);
+	sprite2D_->SetFlipV(true); // スクリーン座標系（Y-down）に合わせて V を反転
 
 	sphere_ = std::make_unique<Sphere>();
-	sphere_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState(),heaps);
+	sphere_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState(), heaps);
 
 	light_.Initialize(device_);
 
@@ -70,31 +75,46 @@ TextureHandle Renderer::LoadTexture(const std::string& filePath) {
 	return textureManager_.Load(filePath, heaps_);
 }
 
-void Renderer::DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture) {
+// ---- Transform 版 ----
+
+void Renderer::DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
 	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
-	DrawTriangle(wvp, color, texture);
+	DrawTriangle(wvp, color, texture, useLighting);
 }
 
-void Renderer::DrawSphere(const Transform& t, const Vector4& color, TextureHandle texture) {
+void Renderer::DrawSphere(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
 	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
-	DrawSphere(wvp, color, texture);
+	DrawSphere(wvp, color, texture, useLighting);
 }
 
-void Renderer::DrawCube(const Transform& t, const Vector4& color, TextureHandle texture) {
+void Renderer::DrawCube(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
 	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
-	DrawCube(wvp, color, texture);
+	DrawCube(wvp, color, texture, useLighting);
 }
 
-void Renderer::DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture) {
-	triangleCommands_.push_back({ wvp, color, texture });
+// ---- WVP 直接指定版 ----
+
+void Renderer::DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting) {
+	triangleCommands_.push_back({ wvp, color, texture, useLighting });
 }
+
+void Renderer::DrawCube(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting) {
+	cubeCommands_.push_back({ wvp, color, texture, useLighting });
+}
+
+void Renderer::DrawSphere(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting) {
+	sphereCommands_.push_back({ wvp, color, texture, useLighting });
+}
+
+// ---- Flush ----
 
 void Renderer::FlushTriangles() {
 	if (triangleCommands_.empty()) return;
 
 	std::stable_sort(triangleCommands_.begin(), triangleCommands_.end(),
 		[](const TriangleCommand& a, const TriangleCommand& b) {
-			return a.texture < b.texture;
+			if (a.texture != b.texture) return a.texture < b.texture;
+			return (int)a.useLighting > (int)b.useLighting;
 		});
 
 	for (int i = 0; i < (int)triangleCommands_.size(); i++) {
@@ -104,20 +124,20 @@ void Renderer::FlushTriangles() {
 
 	int start = 0;
 	while (start < (int)triangleCommands_.size()) {
-		TextureHandle currentTex = triangleCommands_[start].texture;
+		TextureHandle currentTex    = triangleCommands_[start].texture;
+		bool          batchLighting = triangleCommands_[start].useLighting;
 		int end = start;
-		while (end < (int)triangleCommands_.size() && triangleCommands_[end].texture == currentTex) end++;
+		while (end < (int)triangleCommands_.size() &&
+			   triangleCommands_[end].texture     == currentTex &&
+			   triangleCommands_[end].useLighting == batchLighting) end++;
 		triangle_->SetPipelineCommands(commandList_, &textureManager_, currentTex);
-		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress()); // b0: ライト
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
+		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
 		triangle_->Draw(commandList_, end - start, start);
 		start = end;
 	}
-	
-	triangleCommands_.clear();
-}
 
-void Renderer::DrawCube(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture) {
-	cubeCommands_.push_back({ wvp, color, texture });
+	triangleCommands_.clear();
 }
 
 void Renderer::FlushCubes() {
@@ -125,7 +145,8 @@ void Renderer::FlushCubes() {
 
 	std::stable_sort(cubeCommands_.begin(), cubeCommands_.end(),
 		[](const CubeCommand& a, const CubeCommand& b) {
-			return a.texture < b.texture;
+			if (a.texture != b.texture) return a.texture < b.texture;
+			return (int)a.useLighting > (int)b.useLighting;
 		});
 
 	for (int i = 0; i < (int)cubeCommands_.size(); i++) {
@@ -135,17 +156,55 @@ void Renderer::FlushCubes() {
 
 	int start = 0;
 	while (start < (int)cubeCommands_.size()) {
-		TextureHandle currentTex = cubeCommands_[start].texture;
+		TextureHandle currentTex    = cubeCommands_[start].texture;
+		bool          batchLighting = cubeCommands_[start].useLighting;
 		int end = start;
-		while (end < (int)cubeCommands_.size() && cubeCommands_[end].texture == currentTex) end++;
+		while (end < (int)cubeCommands_.size() &&
+			   cubeCommands_[end].texture     == currentTex &&
+			   cubeCommands_[end].useLighting == batchLighting) end++;
 		cube_->SetPipelineCommands(commandList_, &textureManager_, currentTex);
-		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress()); // b0: ライト
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
+		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
 		cube_->Draw(commandList_, end - start, start);
 		start = end;
 	}
 
 	cubeCommands_.clear();
 }
+
+void Renderer::FlushSpheres() {
+	if (sphereCommands_.empty()) return;
+
+	std::stable_sort(sphereCommands_.begin(), sphereCommands_.end(),
+		[](const SphereCommand& a, const SphereCommand& b) {
+			if (a.texture != b.texture) return a.texture < b.texture;
+			return (int)a.useLighting > (int)b.useLighting;
+		});
+
+	for (int i = 0; i < (int)sphereCommands_.size(); i++) {
+		sphere_->SetWvpMatrix(sphereCommands_[i].wvp, i);
+		sphere_->SetColor(sphereCommands_[i].color, i);
+	}
+
+	int start = 0;
+	while (start < (int)sphereCommands_.size()) {
+		TextureHandle currentTex    = sphereCommands_[start].texture;
+		bool          batchLighting = sphereCommands_[start].useLighting;
+		int end = start;
+		while (end < (int)sphereCommands_.size() &&
+			   sphereCommands_[end].texture     == currentTex &&
+			   sphereCommands_[end].useLighting == batchLighting) end++;
+		sphere_->SetPipelineCommands(commandList_, &textureManager_, currentTex);
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
+		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
+		sphere_->Draw(commandList_, end - start, start);
+		start = end;
+	}
+
+	sphereCommands_.clear();
+}
+
+// ---- Line / Grid ----
 
 void Renderer::DrawLine(const Vector3& start, const Vector3& end, const Vector4& color, const Matrix4x4& view, const Matrix4x4& projection) {
 	lineCommands_.push_back({ start, end, color, view * projection });
@@ -178,40 +237,38 @@ void Renderer::DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection)
 	line_->DrawBatch(commandList_, 0, 202, kGridWvpIndex);
 }
 
-void Renderer::DrawSprite(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform) {
-	Matrix4x4 wvpMatrix = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation) * view * projection;
-	sprite_->SetWvpMatrix(wvpMatrix);
-	sprite_->SetPipelineCommands(commandList_, &textureManager_, kTextureNone);
-	sprite_->Draw(commandList_, 0);
+// ---- Sprite ----
+
+void Renderer::DrawSprite3D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform) {
+	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation) * view_ * projection_;
+	sprite3D_->SetWvpMatrix(wvp);
+	sprite3D_->SetColor(color);
+	sprite3D_->SetUVTransform(uvTransform);
+	sprite3D_->SetPipelineCommands(commandList_, &textureManager_, texture);
+	commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(useLighting));
+	commandList_->SetGraphicsRoot32BitConstant(4, 0u, 0);
+	sprite3D_->Draw(commandList_, 0);
 }
 
-void Renderer::DrawSphere(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture) {
-	sphereCommands_.push_back({ wvp, color, texture });
+void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform) {
+	Matrix4x4 ortho = MatrixMath::MakeOrthographicMatrix(
+		static_cast<float>(windowWidth_), static_cast<float>(windowHeight_));
+	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation) * ortho;
+	sprite2DCommands_.push_back({ wvp, color, texture, useLighting, uvTransform });
 }
 
-void Renderer::FlushSpheres() {
-	if (sphereCommands_.empty()) return;
+void Renderer::FlushSprites2D() {
+	if (sprite2DCommands_.empty()) return;
 
-	std::stable_sort(sphereCommands_.begin(), sphereCommands_.end(),
-		[](const SphereCommand& a, const SphereCommand& b) {
-			return a.texture < b.texture;
-		});
-
-	for (int i = 0; i < (int)sphereCommands_.size(); i++) {
-		sphere_->SetWvpMatrix(sphereCommands_[i].wvp, i);
-		sphere_->SetColor(sphereCommands_[i].color, i);
+	for (auto& cmd : sprite2DCommands_) {
+		sprite2D_->SetWvpMatrix(cmd.wvp);
+		sprite2D_->SetColor(cmd.color);
+		sprite2D_->SetUVTransform(cmd.uvTransform);
+		sprite2D_->SetPipelineCommands(commandList_, &textureManager_, cmd.texture);
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(cmd.useLighting));
+		commandList_->SetGraphicsRoot32BitConstant(4, 0u, 0);
+		sprite2D_->Draw(commandList_, 0);
 	}
 
-	int start = 0;
-	while (start < (int)sphereCommands_.size()) {
-		TextureHandle currentTex = sphereCommands_[start].texture;
-		int end = start;
-		while (end < (int)sphereCommands_.size() && sphereCommands_[end].texture == currentTex) end++;
-		sphere_->SetPipelineCommands(commandList_, &textureManager_, currentTex);
-		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress()); // b0: ライト
-		sphere_->Draw(commandList_, end - start, start);
-		start = end;
-	}
-
-	sphereCommands_.clear();
+	sprite2DCommands_.clear();
 }

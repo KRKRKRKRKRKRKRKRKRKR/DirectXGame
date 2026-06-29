@@ -4,9 +4,10 @@
 #include <cassert>
 
 //Piplineの初期化
-void Pipeline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler) {
+void Pipeline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler, bool enableDepth) {
 	device_ = device;
     shaderCompiler_ = shaderCompiler;
+	enableDepth_ = enableDepth;
 	CreateDescriptorRange();
 	CreateStaticSamplers();
 	CreatePSO();
@@ -90,7 +91,7 @@ void Pipeline::CreateRootSignature() {
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
 	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_ROOT_PARAMETER rootParameters[4] = {};
+	D3D12_ROOT_PARAMETER rootParameters[5] = {};
 
 	// [0] t0: テクスチャ（PS）
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -115,6 +116,13 @@ void Pipeline::CreateRootSignature() {
 	rootParameters[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[3].Descriptor.ShaderRegister = 0;
 	rootParameters[3].Descriptor.RegisterSpace = 0;
+
+	// [4] b1: インスタンスオフセット（VS）- SV_InstanceIDはStartInstanceLocationでオフセットされないため必要
+	rootParameters[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	rootParameters[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParameters[4].Constants.ShaderRegister = 1;
+	rootParameters[4].Constants.RegisterSpace = 0;
+	rootParameters[4].Constants.Num32BitValues = 1;
 
 	descriptionRootSignature.pParameters = rootParameters;
 	descriptionRootSignature.NumParameters = _countof(rootParameters);
@@ -179,8 +187,8 @@ void Pipeline::PixelShader() {
 
 //PSOのDepthStencilStateの設定
 void Pipeline::DepthStencilState() {
-	depthStencilDesc_.DepthEnable = TRUE;
-	depthStencilDesc_.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc_.DepthEnable = enableDepth_ ? TRUE : FALSE;
+	depthStencilDesc_.DepthWriteMask = enableDepth_ ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
 	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 }
 #pragma endregion

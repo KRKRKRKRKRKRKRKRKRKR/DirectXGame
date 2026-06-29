@@ -39,14 +39,14 @@ public:
 	}
 
 	// Transform 版（内部で world * view * proj を計算）
-	void DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone);
-	void DrawSphere  (const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone);
-	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone);
+	void DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void DrawSphere  (const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
 
 	// WVP 直接指定版（既存、後方互換用）
-	void DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone);
-	void DrawSphere  (const Matrix4x4& wvp, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone);
-	void DrawCube    (const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone);
+	void DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void DrawSphere  (const Matrix4x4& wvp, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void DrawCube    (const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
 
 	void FlushTriangles();
 	void FlushSpheres();
@@ -55,7 +55,11 @@ public:
 	void DrawLine(const Vector3& start, const Vector3& end, const Vector4& color, const Matrix4x4& view, const Matrix4x4& projection);
 	void FlushLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
-	void DrawSprite(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
+	// 3Dスプライト（カメラ付き WVP）
+	void DrawSprite3D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, const UVTransform& uvTransform = {});
+	// 2DスプライトUI（ピクセル座標、奥行きなし）。FlushSprites2D() で最後に描画される
+	void DrawSprite2D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = false, const UVTransform& uvTransform = {});
+	void FlushSprites2D();
 
 	DirectionalLight& GetLight() { return light_; }
 
@@ -71,6 +75,7 @@ private:
 		Matrix4x4     wvp;
 		Vector4       color;
 		TextureHandle texture;
+		bool          useLighting;
 	};
 	struct LineCommand {
 		Vector3   start;
@@ -82,11 +87,20 @@ private:
 		Matrix4x4     wvp;
 		Vector4       color;
 		TextureHandle texture;
+		bool          useLighting;
 	};
 	struct CubeCommand {
 		Matrix4x4     wvp;
 		Vector4       color;
 		TextureHandle texture;
+		bool          useLighting;
+	};
+	struct Sprite2DCommand {
+		Matrix4x4     wvp;
+		Vector4       color;
+		TextureHandle texture;
+		bool          useLighting;
+		UVTransform   uvTransform;
 	};
 
 	ID3D12Device* device_ = nullptr;
@@ -94,20 +108,23 @@ private:
 
 	ShaderCompiler shaderCompiler_;
 	Pipeline pipeline_;
+	Pipeline spritePipeline2D_;
 	LinePipeline linePipeline_;
 	TextureManager textureManager_;
 
 	std::unique_ptr<Triangle> triangle_;
 	std::unique_ptr<Cube>     cube_;
 	std::unique_ptr<Line>     line_;
-	std::unique_ptr<Sprite>   sprite_;
+	std::unique_ptr<Sprite>   sprite3D_;
+	std::unique_ptr<Sprite>   sprite2D_;
 	std::unique_ptr<Sphere>   sphere_;
 	DirectionalLight light_;
 
-	std::vector<TriangleCommand> triangleCommands_;
-	std::vector<CubeCommand>     cubeCommands_;
-	std::vector<LineCommand>     lineCommands_;
-	std::vector<SphereCommand>   sphereCommands_;
+	std::vector<TriangleCommand>  triangleCommands_;
+	std::vector<CubeCommand>      cubeCommands_;
+	std::vector<LineCommand>      lineCommands_;
+	std::vector<SphereCommand>    sphereCommands_;
+	std::vector<Sprite2DCommand>  sprite2DCommands_;
 
 	DescriptorHeaps* heaps_ = nullptr;
 	uint32_t currentLineIndex_ = 0;

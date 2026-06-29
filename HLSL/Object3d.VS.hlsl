@@ -3,6 +3,12 @@
 StructuredBuffer<float4x4> gWvpMatrices : register(t1);
 StructuredBuffer<float4>   gColors      : register(t2);
 
+// SV_InstanceIDはStartInstanceLocationでオフセットされないため、CPUから渡す
+cbuffer InstanceOffset : register(b1)
+{
+    uint gInstanceOffset;
+};
+
 struct VertexShaderInput
 {
     float4 position : POSITION0;
@@ -12,10 +18,11 @@ struct VertexShaderInput
 
 VertexShaderOutput main(VertexShaderInput input, uint instanceId : SV_InstanceID)
 {
+    uint idx = instanceId + gInstanceOffset;
     VertexShaderOutput output;
-    output.position = mul(input.position, gWvpMatrices[instanceId]);
+    output.position = mul(input.position, gWvpMatrices[idx]);
     output.texcoord = input.texcoord;
-    output.color    = gColors[instanceId];
-    output.normal   = input.normal; 
+    output.color    = gColors[idx];
+    output.normal   = input.normal;
     return output;
 }

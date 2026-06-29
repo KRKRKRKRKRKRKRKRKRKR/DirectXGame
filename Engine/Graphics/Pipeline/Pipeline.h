@@ -12,7 +12,7 @@ public:
 	~Pipeline() = default;
 
 	//Piplineの初期化
-	void Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler);
+	void Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler, bool enableDepth = true);
 
 	//ゲッター
 	ID3D12RootSignature* GetRootSignature() const { return rootSignature_.Get(); }
@@ -41,6 +41,7 @@ private:
 	D3D12_DESCRIPTOR_RANGE descriptorRange_[DESCRIPTOR_RANGE_COUNT] = {};
 	D3D12_STATIC_SAMPLER_DESC staticSamplers_[STATIC_SAMPLER_COUNT] = {};
 
+	bool enableDepth_ = true;
 	ComPtr<ID3DBlob> signatureBlob_ = nullptr;
 	ComPtr<ID3DBlob> errorBlob_ = nullptr;
 	ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
