@@ -36,6 +36,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 		triangleTransforms_[i].translation = Vector3(0.0f, 70.0f - (i * 3.0f), 0.0f);
 		trailParticles_[i].Init(trailParam_);
 	}
+
 }
 
 void Game::Update(float deltaTime) {
@@ -46,6 +47,7 @@ void Game::Update(float deltaTime) {
 	for (int i = 0; i < kMaxTriangles; i++) {
 		trailParticles_[i].Update(triangleTransforms_[i].translation, triangleTransforms_[i].rotation, deltaTime);
 	}
+
 }
 
 void Game::Render() {

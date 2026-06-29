@@ -3,7 +3,6 @@
 #include "../Engine/Camera/Camera.h"
 #include "../Particle/TrailParticle3D.h"
 #include "../Math/MathTypes.h"
-
 class Game {
 public:
 	Game() = default;
