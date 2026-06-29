@@ -1,6 +1,7 @@
 #pragma once
 #include "../Engine/Graphics/Renderer/Renderer.h"
 #include "../Engine/Camera/Camera.h"
+#include "../Engine/Audio/Sound.h"
 #include "../Math/MathTypes.h"
 #include <vector>
 #include <string>
@@ -32,6 +33,8 @@ private:
 	Vector4 triangleColor = { 1,1,1,1 };
 	Vector4 sprite3DColor = { 1,1,1,1 };
 	Vector4 sprite2DColor = { 1,1,1,1 };
+
+	Sound bgm;
 
 	bool sphereLighting   = true;
 	bool cubeLighting     = true;

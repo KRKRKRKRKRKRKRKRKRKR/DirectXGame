@@ -7,6 +7,7 @@
 #include "../Externals/imgui/imguiManager.h"
 #include "InputDevice/InputDevice.h"
 #include "Utils/DeltaTime.h"
+#include "Audio/AudioManager.h"
 
 class Engine {
 public:

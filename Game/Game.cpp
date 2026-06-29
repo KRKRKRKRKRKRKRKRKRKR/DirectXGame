@@ -2,6 +2,7 @@
 #include "../Externals/imgui/imgui.h"
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
+#include "../Engine/Audio/AudioManager.h"
 
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
@@ -48,6 +49,10 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	// 2DスプライトUI（ピクセル座標、左上原点）
 	sprite2D.translation = { 100.0f, 100.0f, 0.0f };
 	sprite2D.scale       = { 200.0f, 200.0f, 1.0f };
+
+	bgm.Load("Resources/Audio/BGM.mp3");
+	bgm.Play(true, SoundType::BGM);
+	AudioManager::GetInstance().RegisterSound("BGM", &bgm, SoundType::BGM, true);
 }
 
 void Game::Update(float deltaTime) {
@@ -167,6 +172,8 @@ void Game::DrawImGui() {
 	ImGui::DragFloat2("2D UV Scale", &sprite2DUV.scale.x, 0.01f, 0.01f, 10.0f);
 
 	ImGui::End();
+
+	AudioManager::GetInstance().DrawImGui();
 
 	auto& light = renderer_->GetLight();
 	auto& data = light.GetData();

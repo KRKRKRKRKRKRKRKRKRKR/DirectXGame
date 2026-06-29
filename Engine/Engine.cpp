@@ -15,6 +15,7 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	Debug::SetupInfoQueue(directX_.GetDevice());
 	camera_.Initialize({0.0f, 0.5f, -5.0f});
 	imgui_.Initialize(window_.GetHWND(), &directX_);
+	AudioManager::GetInstance().Initialize();
 	deltaTime_.Start();
 }
 
@@ -40,6 +41,7 @@ void Engine::Flush() {
 }
 
 void Engine::Finalize() {
+	AudioManager::GetInstance().Finalize();
 	imgui_.Finalize();
 	renderer_.Finalize();
 	InputDevice::GetInstance().Finalize();
