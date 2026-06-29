@@ -3,6 +3,7 @@
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
 #include "../Engine/Audio/AudioManager.h"
+//test
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
 	camera_ = camera;
