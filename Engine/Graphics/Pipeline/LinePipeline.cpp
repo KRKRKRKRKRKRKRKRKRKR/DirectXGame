@@ -67,7 +67,11 @@ void LinePipeline::CreateRootSignature() {
 
 	HRESULT hr = D3D12SerializeRootSignature(&desc, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob_, &errorBlob_);
 	if (FAILED(hr)) {
-		Logger::Log(reinterpret_cast<char*>(errorBlob_->GetBufferPointer()));
+		if (errorBlob_) {
+			Logger::Log(reinterpret_cast<char*>(errorBlob_->GetBufferPointer()));
+		} else {
+			Logger::Log("LinePipeline: D3D12SerializeRootSignature failed (no error blob)\n");
+		}
 	}
 	assert(SUCCEEDED(hr));
 
@@ -92,12 +96,15 @@ void LinePipeline::InputLayout() {
 }
 
 void LinePipeline::BlendState() {
+	blendDesc_ = {};
 	blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 }
 
 void LinePipeline::RasterizerState() {
+	rasterizerDesc_ = {};
 	rasterizerDesc_.CullMode = D3D12_CULL_MODE_NONE;
 	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
+	rasterizerDesc_.DepthClipEnable = TRUE;
 }
 
 void LinePipeline::VertexShader() {
@@ -112,6 +119,7 @@ void LinePipeline::PixelShader() {
 }
 
 void LinePipeline::DepthStencilState() {
+	depthStencilDesc_ = {};
 	depthStencilDesc_.DepthEnable = TRUE;
 	depthStencilDesc_.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
 	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;

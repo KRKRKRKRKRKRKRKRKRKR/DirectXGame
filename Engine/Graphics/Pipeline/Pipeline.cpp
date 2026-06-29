@@ -132,7 +132,11 @@ void Pipeline::CreateRootSignature() {
 
 	HRESULT hr = D3D12SerializeRootSignature(&descriptionRootSignature, D3D_ROOT_SIGNATURE_VERSION_1, &signatureBlob_, &errorBlob_);
 	if (FAILED(hr)) {
-		Logger::Log(reinterpret_cast<char*>(errorBlob_->GetBufferPointer()));
+		if (errorBlob_) {
+			Logger::Log(reinterpret_cast<char*>(errorBlob_->GetBufferPointer()));
+		} else {
+			Logger::Log("Pipeline: D3D12SerializeRootSignature failed (no error blob)\n");
+		}
 	}
 	assert(SUCCEEDED(hr));
 
@@ -164,13 +168,16 @@ void Pipeline::InputLayout() {
 
 //PSOのBlendStateの設定
 void Pipeline::BlendState() {
+	blendDesc_ = {};
 	blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 }
 
 //PSOのRasterizerStateの設定
 void Pipeline::RasterizerState() {
+	rasterizerDesc_ = {};
 	rasterizerDesc_.CullMode = D3D12_CULL_MODE_NONE;
 	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
+	rasterizerDesc_.DepthClipEnable = TRUE;
 }
 
 //PSOのVertexShaderの設定
@@ -187,6 +194,7 @@ void Pipeline::PixelShader() {
 
 //PSOのDepthStencilStateの設定
 void Pipeline::DepthStencilState() {
+	depthStencilDesc_ = {};
 	depthStencilDesc_.DepthEnable = enableDepth_ ? TRUE : FALSE;
 	depthStencilDesc_.DepthWriteMask = enableDepth_ ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
 	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
