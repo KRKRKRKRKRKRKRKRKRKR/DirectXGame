@@ -36,6 +36,7 @@ private:
 	struct VertexData {
 		Vector4 position;
 		Vector2 texcoord;
+		Vector3 normal;
 	};
 
 	// 6面 × 2三角形 × 3頂点

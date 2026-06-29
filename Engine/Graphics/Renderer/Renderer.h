@@ -14,6 +14,7 @@
 #include "../Object/Line/Line.h"
 #include "../Object/Sprite/Sprite.h"
 #include "../Object/Sphere/Sphere.h"
+#include "../Lighting/DirectionalLight.h"
 #include "../../../Math/MathTypes.h"
 #include "../../../Math/TransformMath.h"
 
@@ -32,16 +33,31 @@ public:
 	// テクスチャをファイルから読み込んでハンドルを返す（同じパスは二重ロードしない）
 	TextureHandle LoadTexture(const std::string& filePath);
 
+	// フレーム先頭で一度だけ呼ぶ。以降の Draw(Transform,...) はこの行列を使う
+	void SetCamera(const Matrix4x4& view, const Matrix4x4& projection) {
+		view_ = view; projection_ = projection;
+	}
+
+	// Transform 版（内部で world * view * proj を計算）
+	void DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone);
+	void DrawSphere  (const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone);
+	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone);
+
+	// WVP 直接指定版（既存、後方互換用）
 	void DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone);
+	void DrawSphere  (const Matrix4x4& wvp, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone);
+	void DrawCube    (const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone);
+
 	void FlushTriangles();
+	void FlushSpheres();
+	void FlushCubes();
+
 	void DrawLine(const Vector3& start, const Vector3& end, const Vector4& color, const Matrix4x4& view, const Matrix4x4& projection);
 	void FlushLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
 	void DrawSprite(const Matrix4x4& view, const Matrix4x4& projection, const Transform& transform);
-	void DrawSphere(const Matrix4x4& wvp, TextureHandle texture = kTextureNone);
-	void FlushSpheres();
-	void DrawCube(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone);
-	void FlushCubes();
+
+	DirectionalLight& GetLight() { return light_; }
 
 	void InitializeGridLines();
 	void ResetFrameIndex();
@@ -64,6 +80,7 @@ private:
 	};
 	struct SphereCommand {
 		Matrix4x4     wvp;
+		Vector4       color;
 		TextureHandle texture;
 	};
 	struct CubeCommand {
@@ -85,6 +102,7 @@ private:
 	std::unique_ptr<Line>     line_;
 	std::unique_ptr<Sprite>   sprite_;
 	std::unique_ptr<Sphere>   sphere_;
+	DirectionalLight light_;
 
 	std::vector<TriangleCommand> triangleCommands_;
 	std::vector<CubeCommand>     cubeCommands_;
@@ -95,4 +113,7 @@ private:
 	uint32_t currentLineIndex_ = 0;
 	int windowWidth_ = 0;
 	int windowHeight_ = 0;
+
+	Matrix4x4 view_{};
+	Matrix4x4 projection_{};
 };

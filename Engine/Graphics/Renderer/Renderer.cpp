@@ -32,7 +32,9 @@ void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comma
 	sprite_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
 
 	sphere_ = std::make_unique<Sphere>();
-	sphere_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState());
+	sphere_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), pipeline_.GetPipelineState(),heaps);
+
+	light_.Initialize(device_);
 
 	InitializeGridLines();
 	triangleCommands_.reserve(4096);
@@ -68,6 +70,21 @@ TextureHandle Renderer::LoadTexture(const std::string& filePath) {
 	return textureManager_.Load(filePath, heaps_);
 }
 
+void Renderer::DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture) {
+	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
+	DrawTriangle(wvp, color, texture);
+}
+
+void Renderer::DrawSphere(const Transform& t, const Vector4& color, TextureHandle texture) {
+	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
+	DrawSphere(wvp, color, texture);
+}
+
+void Renderer::DrawCube(const Transform& t, const Vector4& color, TextureHandle texture) {
+	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
+	DrawCube(wvp, color, texture);
+}
+
 void Renderer::DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture) {
 	triangleCommands_.push_back({ wvp, color, texture });
 }
@@ -91,6 +108,7 @@ void Renderer::FlushTriangles() {
 		int end = start;
 		while (end < (int)triangleCommands_.size() && triangleCommands_[end].texture == currentTex) end++;
 		triangle_->SetPipelineCommands(commandList_, &textureManager_, currentTex);
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress()); // b0: ライト
 		triangle_->Draw(commandList_, end - start, start);
 		start = end;
 	}
@@ -121,6 +139,7 @@ void Renderer::FlushCubes() {
 		int end = start;
 		while (end < (int)cubeCommands_.size() && cubeCommands_[end].texture == currentTex) end++;
 		cube_->SetPipelineCommands(commandList_, &textureManager_, currentTex);
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress()); // b0: ライト
 		cube_->Draw(commandList_, end - start, start);
 		start = end;
 	}
@@ -166,17 +185,32 @@ void Renderer::DrawSprite(const Matrix4x4& view, const Matrix4x4& projection, co
 	sprite_->Draw(commandList_, 0);
 }
 
-void Renderer::DrawSphere(const Matrix4x4& wvp, TextureHandle texture) {
-	sphereCommands_.push_back({ wvp, texture });
+void Renderer::DrawSphere(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture) {
+	sphereCommands_.push_back({ wvp, color, texture });
 }
 
 void Renderer::FlushSpheres() {
 	if (sphereCommands_.empty()) return;
 
-	for (const auto& cmd : sphereCommands_) {
-		sphere_->SetWvpMatrix(cmd.wvp);
-		sphere_->SetPipelineCommands(commandList_, &textureManager_, cmd.texture);
-		sphere_->Draw(commandList_, 1, 0);
+	std::stable_sort(sphereCommands_.begin(), sphereCommands_.end(),
+		[](const SphereCommand& a, const SphereCommand& b) {
+			return a.texture < b.texture;
+		});
+
+	for (int i = 0; i < (int)sphereCommands_.size(); i++) {
+		sphere_->SetWvpMatrix(sphereCommands_[i].wvp, i);
+		sphere_->SetColor(sphereCommands_[i].color, i);
+	}
+
+	int start = 0;
+	while (start < (int)sphereCommands_.size()) {
+		TextureHandle currentTex = sphereCommands_[start].texture;
+		int end = start;
+		while (end < (int)sphereCommands_.size() && sphereCommands_[end].texture == currentTex) end++;
+		sphere_->SetPipelineCommands(commandList_, &textureManager_, currentTex);
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress()); // b0: ライト
+		sphere_->Draw(commandList_, end - start, start);
+		start = end;
 	}
 
 	sphereCommands_.clear();

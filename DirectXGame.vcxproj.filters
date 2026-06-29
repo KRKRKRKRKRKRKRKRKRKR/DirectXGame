@@ -79,8 +79,7 @@
     <ClCompile Include="Engine\Graphics\SwapChainManager\SwapChainManager.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Math\Collision.cpp" />
-    <ClCompile Include="UI\UIEditor.cpp" />
-    <ClCompile Include="UI\UIManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Lighting\DirectionalLight.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\MathTypes.h">
@@ -152,10 +151,7 @@
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Math\Collision.h" />
-    <ClInclude Include="UI\UIEditor.h" />
-    <ClInclude Include="UI\UIElement.h" />
-    <ClInclude Include="UI\UILayout.h" />
-    <ClInclude Include="UI\UIManager.h" />
+    <ClInclude Include="Engine\Graphics\Lighting\DirectionalLight.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">

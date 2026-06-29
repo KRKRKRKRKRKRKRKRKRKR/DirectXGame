@@ -5,16 +5,25 @@
 #include "../IDrawable.h"
 #include "../../Texture/TextureManager.h"
 #include "../../../../Math/MathTypes.h"
-
+#include "../../DescriptorHeaps/DescriptorHeaps.h"
 using Microsoft::WRL::ComPtr;
+
+class TextureManager;
 
 class Sphere : public IDrawable {
 public:
+    Sphere() = default;
+    virtual ~Sphere();
+
+    static constexpr uint32_t kMaxInstanceCount = 4096;
+
     void Initialize(ID3D12Device* device, TextureManager* textureManager,
         ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+        DescriptorHeaps* heaps,
         uint32_t subdivision = 30, float radius = 1.0f);
 
-    void SetWvpMatrix(const Matrix4x4& wvpMatrix);
+    void SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t index);
+    void SetColor(const Vector4& color, uint32_t index);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
         TextureManager* textureManager, TextureHandle texture);
 
@@ -26,10 +35,17 @@ public:
 private:
     ComPtr<ID3D12Resource> vertexResource_;
     D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
+
     ComPtr<ID3D12Resource> wvpResource_;
-    Matrix4x4* wvpData_ = nullptr;
-    ComPtr<ID3D12Resource> materialResource_;
-    Vector4* materialData_ = nullptr;
+    uint8_t* wvpMappedData_ = nullptr;
+    uint32_t wvpStride_ = 0;
+    D3D12_GPU_DESCRIPTOR_HANDLE wvpSrvHandle_{};
+
+    ComPtr<ID3D12Resource> colorResource_;
+    uint8_t* colorMappedData_ = nullptr;
+    uint32_t colorStride_ = 0;
+    D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
+
     uint32_t vertexCount_ = 0;
 
     ID3D12RootSignature* rootSignature_ = nullptr;
@@ -38,5 +54,5 @@ private:
 
     void CreateVertexResource(ID3D12Device* device, uint32_t subdivision, float radius);
     void CreateWvpResource(ID3D12Device* device);
-    void CreateMaterialResource(ID3D12Device* device);
+    void CreateColorResource(ID3D12Device* device);
 };

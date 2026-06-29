@@ -18,7 +18,6 @@ public:
 	Triangle() = default;
 	virtual ~Triangle();
 
-	// kMaxTriangles(20) × maxParticles(100) + 直接描画分 = 最大2002
 	static constexpr uint32_t kMaxInstanceCount = 4096;
 
 	// 初期化（DirectXManager から呼び出し）

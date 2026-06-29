@@ -45,7 +45,7 @@ private:
 	ComPtr<ID3DBlob> errorBlob_ = nullptr;
 	ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
 	ComPtr<ID3D12PipelineState> graphicsPipelineState_ = nullptr;
-	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[2] = {};
+	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[3] = {};
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc_ = {};
 	D3D12_BLEND_DESC blendDesc_ = {};
 	D3D12_RASTERIZER_DESC rasterizerDesc_ = {};

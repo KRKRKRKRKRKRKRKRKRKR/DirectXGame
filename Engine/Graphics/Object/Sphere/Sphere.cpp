@@ -2,36 +2,69 @@
 #include "../../../../Math/MatrixMath.h"
 #include "../../ResourceFactory/ResourceFactory.h"
 #include <cassert>
+#include <cstring>
+
+Sphere::~Sphere() {
+    if (wvpResource_ && wvpMappedData_) {
+        wvpResource_->Unmap(0, nullptr);
+        wvpMappedData_ = nullptr;
+        wvpResource_.Reset();
+    }
+    if (colorResource_ && colorMappedData_) {
+        colorResource_->Unmap(0, nullptr);
+        colorMappedData_ = nullptr;
+        colorResource_.Reset();
+    }
+    vertexResource_.Reset();
+}
 
 void Sphere::Initialize(ID3D12Device* device, TextureManager* textureManager,
     ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+    DescriptorHeaps* heaps,
     uint32_t subdivision, float radius) {
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
     pipelineState_ = pipelineState;
+
     CreateVertexResource(device, subdivision, radius);
     CreateWvpResource(device);
-    CreateMaterialResource(device);
+    CreateColorResource(device);
+
+    // SRVをDescriptorHeapsに登録（index 14: WVP, index 15: 色）
+    auto wvpSrv = heaps->CreateStructuredBufferSRV(
+        device, wvpResource_.Get(), kMaxInstanceCount, sizeof(Matrix4x4), 14);
+    auto colorSrv = heaps->CreateStructuredBufferSRV(
+        device, colorResource_.Get(), kMaxInstanceCount, sizeof(Vector4), 15);
+
+    wvpSrvHandle_ = wvpSrv.gpuHandle;
+    colorSrvHandle_ = colorSrv.gpuHandle;
 }
 
-void Sphere::SetWvpMatrix(const Matrix4x4& wvpMatrix) {
-    *wvpData_ = wvpMatrix;
+void Sphere::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t index) {
+    if (!wvpMappedData_) return;
+    uint8_t* dst = wvpMappedData_ + index * wvpStride_;
+    std::memcpy(dst, &wvpMatrix, sizeof(Matrix4x4));
+}
+
+void Sphere::SetColor(const Vector4& color, uint32_t index) {
+    if (!colorMappedData_) return;
+    Vector4* data = reinterpret_cast<Vector4*>(colorMappedData_ + index * colorStride_);
+    *data = color;
 }
 
 void Sphere::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
     TextureManager* textureManager, TextureHandle texture) {
     commandList->SetGraphicsRootSignature(rootSignature_);
     commandList->SetPipelineState(pipelineState_);
-    commandList->SetGraphicsRootConstantBufferView(1, wvpResource_->GetGPUVirtualAddress()); // 1 = WVP
-    commandList->SetGraphicsRootDescriptorTable(2, textureManager->GetSrvGpuHandle(texture)); // 2 = Texture
+    commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
+    commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
+    commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
 }
 
 void Sphere::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {
-    (void)instanceCount; (void)startInstance;
-    commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress()); // 0 = Material
     commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
     commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    commandList->DrawInstanced(vertexCount_, 1, 0, 0);
+    commandList->DrawInstanced(vertexCount_, instanceCount, 0, startInstance);
 }
 
 void Sphere::CreateVertexResource(ID3D12Device* device, uint32_t subdivision, float radius) {
@@ -56,26 +89,25 @@ void Sphere::CreateVertexResource(ID3D12Device* device, uint32_t subdivision, fl
             uint32_t start = (latIndex * subdivision + lonIndex) * 6;
             float lon = lonIndex * kLonEvery;
 
-            // 4頂点 a,b,c,d を計算
             Vector3 a = { radius * cosf(lat) * cosf(lon),            radius * sinf(lat),            radius * cosf(lat) * sinf(lon) };
             Vector3 b = { radius * cosf(lat + kLatEvery) * cosf(lon),            radius * sinf(lat + kLatEvery), radius * cosf(lat + kLatEvery) * sinf(lon) };
             Vector3 c = { radius * cosf(lat) * cosf(lon + kLonEvery), radius * sinf(lat),            radius * cosf(lat) * sinf(lon + kLonEvery) };
             Vector3 d = { radius * cosf(lat + kLatEvery) * cosf(lon + kLonEvery), radius * sinf(lat + kLatEvery), radius * cosf(lat + kLatEvery) * sinf(lon + kLonEvery) };
 
-            // UV
             float u0 = lonIndex / static_cast<float>(subdivision);
             float u1 = (lonIndex + 1) / static_cast<float>(subdivision);
             float v0 = 1.0f - latIndex / static_cast<float>(subdivision);
             float v1 = 1.0f - (latIndex + 1) / static_cast<float>(subdivision);
 
             // 三角形1: a, b, c
-            vertexData[start + 0] = { {a.x, a.y, a.z, 1.0f}, {u0, v0} };
-            vertexData[start + 1] = { {b.x, b.y, b.z, 1.0f}, {u0, v1} };
-            vertexData[start + 2] = { {c.x, c.y, c.z, 1.0f}, {u1, v0} };
+            vertexData[start + 0] = { {a.x, a.y, a.z, 1.0f}, {u0, v0}, {a.x / radius, a.y / radius, a.z / radius} };
+            vertexData[start + 1] = { {b.x, b.y, b.z, 1.0f}, {u0, v1}, {b.x / radius, b.y / radius, b.z / radius} };
+            vertexData[start + 2] = { {c.x, c.y, c.z, 1.0f}, {u1, v0}, {c.x / radius, c.y / radius, c.z / radius} };
+
             // 三角形2: c, b, d
-            vertexData[start + 3] = { {c.x, c.y, c.z, 1.0f}, {u1, v0} };
-            vertexData[start + 4] = { {b.x, b.y, b.z, 1.0f}, {u0, v1} };
-            vertexData[start + 5] = { {d.x, d.y, d.z, 1.0f}, {u1, v1} };
+            vertexData[start + 3] = { {c.x, c.y, c.z, 1.0f}, {u1, v0}, {c.x / radius, c.y / radius, c.z / radius} };
+            vertexData[start + 4] = { {b.x, b.y, b.z, 1.0f}, {u0, v1}, {b.x / radius, b.y / radius, b.z / radius} };
+            vertexData[start + 5] = { {d.x, d.y, d.z, 1.0f}, {u1, v1}, {d.x / radius, d.y / radius, d.z / radius} };
         }
     }
 
@@ -83,13 +115,25 @@ void Sphere::CreateVertexResource(ID3D12Device* device, uint32_t subdivision, fl
 }
 
 void Sphere::CreateWvpResource(ID3D12Device* device) {
-    wvpResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Matrix4x4));
-    wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpData_));
-    *wvpData_ = MatrixMath::Identity();
+    wvpStride_ = sizeof(Matrix4x4);
+    wvpResource_ = ResourceFactory::CreateBufferResource(device, wvpStride_ * kMaxInstanceCount);
+    assert(wvpResource_);
+
+    HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
+    assert(SUCCEEDED(hr) && wvpMappedData_);
 }
 
-void Sphere::CreateMaterialResource(ID3D12Device* device) {
-    materialResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Vector4));
-    materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData_));
-    *materialData_ = Vector4(1.0f, 1.0f, 1.0f, 1.0f); // 白
+void Sphere::CreateColorResource(ID3D12Device* device) {
+    colorStride_ = sizeof(Vector4);
+    colorResource_ = ResourceFactory::CreateBufferResource(device, colorStride_ * kMaxInstanceCount);
+    assert(colorResource_);
+
+    HRESULT hr = colorResource_->Map(0, nullptr, reinterpret_cast<void**>(&colorMappedData_));
+    assert(SUCCEEDED(hr) && colorMappedData_);
+
+    // デフォルト白
+    for (uint32_t i = 0; i < kMaxInstanceCount; i++) {
+        Vector4* data = reinterpret_cast<Vector4*>(colorMappedData_ + i * colorStride_);
+        *data = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+    }
 }

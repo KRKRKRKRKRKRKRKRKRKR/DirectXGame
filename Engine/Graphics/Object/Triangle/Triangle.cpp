@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <cmath>
 
 namespace {
 	constexpr uint32_t AlignUp(uint32_t value, uint32_t alignment) {
@@ -142,25 +143,38 @@ void Triangle::WriteVertexData() {
 	Vector4 posC = Vector4(0.5f, -0.2887f, 0.2887f, 1.0f); // 手前右
 	Vector4 posD = Vector4(0.0f, -0.2887f, -0.5774f, 1.0f); // 奥
 
+	// 3頂点 p0,p1,p2 の外積で面法線を計算するラムダ
+	auto calcNormal = [](const Vector4& p0, const Vector4& p1, const Vector4& p2) -> Vector3 {
+		Vector3 e1 = { p1.x - p0.x, p1.y - p0.y, p1.z - p0.z };
+		Vector3 e2 = { p2.x - p0.x, p2.y - p0.y, p2.z - p0.z };
+		Vector3 n  = { e1.y*e2.z - e1.z*e2.y, e1.z*e2.x - e1.x*e2.z, e1.x*e2.y - e1.y*e2.x };
+		float len  = sqrtf(n.x*n.x + n.y*n.y + n.z*n.z);
+		return { n.x/len, n.y/len, n.z/len };
+	};
+
 	// --- 面1: 底面 (B, D, C) ---
-	vertexData[0].position = posB;  vertexData[0].texcoord = Vector2(0.0f, 1.0f);
-	vertexData[1].position = posD;  vertexData[1].texcoord = Vector2(0.5f, 0.0f);
-	vertexData[2].position = posC;  vertexData[2].texcoord = Vector2(1.0f, 1.0f);
+	{ Vector3 n = calcNormal(posB, posD, posC);
+	  vertexData[0] = { posB, {0.0f, 1.0f}, n };
+	  vertexData[1] = { posD, {0.5f, 0.0f}, n };
+	  vertexData[2] = { posC, {1.0f, 1.0f}, n }; }
 
 	// --- 面2: 前面 (A, C, B) ---
-	vertexData[3].position = posA;  vertexData[3].texcoord = Vector2(0.5f, 0.0f);
-	vertexData[4].position = posC;  vertexData[4].texcoord = Vector2(1.0f, 1.0f);
-	vertexData[5].position = posB;  vertexData[5].texcoord = Vector2(0.0f, 1.0f);
+	{ Vector3 n = calcNormal(posA, posC, posB);
+	  vertexData[3] = { posA, {0.5f, 0.0f}, n };
+	  vertexData[4] = { posC, {1.0f, 1.0f}, n };
+	  vertexData[5] = { posB, {0.0f, 1.0f}, n }; }
 
 	// --- 面3: 左側面 (A, B, D) ---
-	vertexData[6].position = posA;  vertexData[6].texcoord = Vector2(0.5f, 0.0f);
-	vertexData[7].position = posB;  vertexData[7].texcoord = Vector2(0.0f, 1.0f);
-	vertexData[8].position = posD;  vertexData[8].texcoord = Vector2(1.0f, 1.0f);
+	{ Vector3 n = calcNormal(posA, posB, posD);
+	  vertexData[6] = { posA, {0.5f, 0.0f}, n };
+	  vertexData[7] = { posB, {0.0f, 1.0f}, n };
+	  vertexData[8] = { posD, {1.0f, 1.0f}, n }; }
 
 	// --- 面4: 右側面 (A, D, C) ---
-	vertexData[9].position = posA; vertexData[9].texcoord = Vector2(0.5f, 0.0f);
-	vertexData[10].position = posD; vertexData[10].texcoord = Vector2(0.0f, 1.0f);
-	vertexData[11].position = posC; vertexData[11].texcoord = Vector2(1.0f, 1.0f);
+	{ Vector3 n = calcNormal(posA, posD, posC);
+	  vertexData[9]  = { posA, {0.5f, 0.0f}, n };
+	  vertexData[10] = { posD, {0.0f, 1.0f}, n };
+	  vertexData[11] = { posC, {1.0f, 1.0f}, n }; }
 
 	vertexResource_->Unmap(0, nullptr);
 
