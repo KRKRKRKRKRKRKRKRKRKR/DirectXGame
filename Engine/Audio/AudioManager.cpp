@@ -103,9 +103,9 @@ void AudioManager::DrawSoundSection(SoundType sectionType) {
         // 再生状態インジケーター
         bool playing = entry.sound->IsPlaying();
         if (playing) {
-            ImGui::TextColored({ 0.2f, 1.0f, 0.2f, 1.0f }, "[再生中]");
+            ImGui::TextColored({ 0.2f, 1.0f, 0.2f, 1.0f }, "play");
         } else {
-            ImGui::TextColored({ 0.6f, 0.6f, 0.6f, 1.0f }, "[停止中]");
+            ImGui::TextColored({ 0.6f, 0.6f, 0.6f, 1.0f }, "stop");
         }
         ImGui::SameLine();
         ImGui::Text("%s", entry.name.c_str());
@@ -137,10 +137,25 @@ void AudioManager::DrawImGui() {
 
     // ---- Master ----
     ImGui::Text("Master");
+    if (ImGui::Button("Play##master")) {
+        if (xAudio2_) xAudio2_->StartEngine();
+        masterPlaying_ = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Stop##master")) {
+        if (xAudio2_) xAudio2_->StopEngine();
+        masterPlaying_ = false;
+    }
+
+    ImGui::SameLine();
+    ImGui::TextColored(
+        masterPlaying_ ? ImVec4{ 0.2f, 1.0f, 0.2f, 1.0f } : ImVec4{ 0.6f, 0.6f, 0.6f, 1.0f },
+        masterPlaying_ ? "play" : "stop");
     ImGui::SetNextItemWidth(200.0f);
     if (ImGui::SliderFloat("##master", &masterVolume_, 0.0f, 1.0f)) {
         if (!muteMaster_ && masterVoice_) masterVoice_->SetVolume(masterVolume_);
     }
+
     ImGui::SameLine();
     if (ImGui::Checkbox("Mute##master", &muteMaster_)) {
         if (masterVoice_) masterVoice_->SetVolume(muteMaster_ ? 0.0f : masterVolume_);

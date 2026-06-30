@@ -67,7 +67,7 @@ void Game::Update(float deltaTime) {
 void Game::Render() {
 	Matrix4x4 view = camera_->GetViewMatrix();
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
-		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
+	camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
 	renderer_->SetCamera(view, proj);
 
 	for (auto& t : gridCubes_) {
