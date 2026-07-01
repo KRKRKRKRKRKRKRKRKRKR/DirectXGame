@@ -1,7 +1,7 @@
-#include "DirectionalLight.h"
+#include "SceneLight.h"
 #include <cassert>
 
-void DirectionalLight::Initialize(ID3D12Device* device) {
+void SceneLight::Initialize(ID3D12Device* device) {
     resource_ = ResourceFactory::CreateBufferResource(device, sizeof(LightData));
     assert(resource_);
     HRESULT hr = resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_));
@@ -17,7 +17,7 @@ void DirectionalLight::Initialize(ID3D12Device* device) {
     Upload();
 }
 
-void DirectionalLight::Upload() {
+void SceneLight::Upload() {
     if (mapped_) {
         *mapped_ = data_;
         // enableLighting は常に 1

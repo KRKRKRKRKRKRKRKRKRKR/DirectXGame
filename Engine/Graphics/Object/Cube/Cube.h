@@ -7,8 +7,11 @@
 #include "../../../../Math/MathTypes.h"
 #include "../../Texture/TextureManager.h"
 #include "../../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../Pipeline/BlendMode.h"
 
 using Microsoft::WRL::ComPtr;
+
+class Pipeline;
 
 class Cube : public IDrawable {
 public:
@@ -18,7 +21,7 @@ public:
 	static constexpr uint32_t kMaxInstanceCount = 4096;
 
 	void Initialize(ID3D12Device* device, TextureManager* textureManager,
-		ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+		ID3D12RootSignature* rootSignature, Pipeline* pipeline,
 		DescriptorHeaps* heaps);
 
 	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
@@ -27,13 +30,13 @@ public:
 	// 0=フラット, 1=スムース のブレンド率。変更時に頂点バッファを書き直す
 	void SetSmoothness(float s);
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-		TextureManager* textureManager, TextureHandle texture);
+		TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 
 	void Draw(ID3D12GraphicsCommandList* commandList,
 		uint32_t instanceCount, uint32_t startInstance = 0) override;
 
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
-	ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
+	ID3D12PipelineState* GetPipelineState() const override;
 
 private:
 	struct VertexData {
@@ -59,7 +62,7 @@ private:
 	D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
 
 	ID3D12RootSignature* rootSignature_ = nullptr;
-	ID3D12PipelineState* pipelineState_ = nullptr;
+	Pipeline* pipeline_ = nullptr;
 	TextureManager* textureManager_ = nullptr;
 
 	float smoothness_ = 1.0f;

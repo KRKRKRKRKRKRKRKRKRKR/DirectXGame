@@ -4,12 +4,15 @@
 #include "../IDrawable.h"
 #include "../../Texture/TextureManager.h"
 #include "../../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../Pipeline/BlendMode.h"
 #include "../../../../Math/MathTypes.h"
+
+class Pipeline;
 
 class Sprite : public IDrawable {
 public:
     void Initialize(ID3D12Device* device, TextureManager* textureManager,
-        ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+        ID3D12RootSignature* rootSignature, Pipeline* pipeline,
         DescriptorHeaps* heaps, uint32_t wvpHeapIndex, uint32_t colorHeapIndex);
 
     void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world);
@@ -17,12 +20,12 @@ public:
     void SetUVTransform(const UVTransform& uvTransform);
     void SetFlipV(bool flip);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-        TextureManager* textureManager, TextureHandle texture);
+        TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 
     // IDrawable 実装
     void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0) override;
     ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
-    ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
+    ID3D12PipelineState* GetPipelineState() const override;
 
 private:
     ComPtr<ID3D12Resource> vertexResource_;
@@ -42,7 +45,7 @@ private:
     D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
 
     ID3D12RootSignature* rootSignature_ = nullptr;
-    ID3D12PipelineState* pipelineState_ = nullptr;
+    Pipeline* pipeline_ = nullptr;
     TextureManager* textureManager_ = nullptr;
 
     static constexpr int kVertexCount = 4;

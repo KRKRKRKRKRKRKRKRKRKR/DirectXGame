@@ -1,5 +1,6 @@
 #pragma once
 #include "../Engine/Graphics/Renderer/Renderer.h"
+#include "../Engine/Graphics/Pipeline/BlendMode.h"
 #include "../Engine/Camera/Camera.h"
 #include "../Engine/Audio/Sound.h"
 #include "../Math/MathTypes.h"
@@ -39,7 +40,8 @@ private:
 	Renderer::ModelHandle modelHandle_ = 0;
 	Transform             modelTransform_;
 	Vector4               modelColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
-	TextureHandle         modelTex_;
+	bool                  modelLighting_ = true;
+	int                   modelTexIndex_ = 0;
 
 	bool sphereLighting   = true;
 	bool cubeLighting     = true;
@@ -67,6 +69,23 @@ private:
 
 	float triangleSmoothness_ = 1.0f;
 	float cubeSmoothness_     = 1.0f;
+
+	BlendMode gridCubeBlendMode_ = BlendMode::kNone;
+	BlendMode triangleBlendMode_ = BlendMode::kNone;
+	BlendMode cubeBlendMode_     = BlendMode::kNone;
+	BlendMode sphereBlendMode_   = BlendMode::kNone;
+	BlendMode modelBlendMode_    = BlendMode::kNone;
+	BlendMode sprite3DBlendMode_ = BlendMode::kNone;
+	BlendMode sprite2DBlendMode_ = BlendMode::kNone;
+
+	// OMSetBlendFactorに渡す0〜1の強さ。kNormal/kAdd/kSubtractのみ効果がある
+	float gridCubeBlendStrength_ = 1.0f;
+	float triangleBlendStrength_ = 1.0f;
+	float cubeBlendStrength_     = 1.0f;
+	float sphereBlendStrength_   = 1.0f;
+	float modelBlendStrength_    = 1.0f;
+	float sprite3DBlendStrength_ = 1.0f;
+	float sprite2DBlendStrength_ = 1.0f;
 
 	void DrawGrid();
 	void DrawImGui();

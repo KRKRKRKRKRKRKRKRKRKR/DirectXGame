@@ -1,6 +1,7 @@
 #include "Sphere.h"
 #include "../../../../Math/MatrixMath.h"
 #include "../../ResourceFactory/ResourceFactory.h"
+#include "../../Pipeline/Pipeline.h"
 #include <cassert>
 #include <cstring>
 
@@ -19,12 +20,12 @@ Sphere::~Sphere() {
 }
 
 void Sphere::Initialize(ID3D12Device* device, TextureManager* textureManager,
-    ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+    ID3D12RootSignature* rootSignature, Pipeline* pipeline,
     DescriptorHeaps* heaps,
     uint32_t subdivision, float radius) {
     textureManager_ = textureManager;
     rootSignature_ = rootSignature;
-    pipelineState_ = pipelineState;
+    pipeline_ = pipeline;
 
     CreateVertexResource(device, subdivision, radius);
     CreateWvpResource(device);
@@ -55,12 +56,18 @@ void Sphere::SetColor(const Vector4& color, uint32_t index) {
 }
 
 void Sphere::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-    TextureManager* textureManager, TextureHandle texture) {
+    TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength) {
     commandList->SetGraphicsRootSignature(rootSignature_);
-    commandList->SetPipelineState(pipelineState_);
+    commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
+    const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
+    commandList->OMSetBlendFactor(blendFactor);
     commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
     commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
     commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
+}
+
+ID3D12PipelineState* Sphere::GetPipelineState() const {
+    return pipeline_->GetPipelineState(BlendMode::kNone);
 }
 
 void Sphere::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {

@@ -53,7 +53,6 @@ void Pipeline::CreateStaticSamplers() {
 void Pipeline::CreatePSO() {
 	CreateRootSignature();
 	InputLayout();
-	BlendState();
 	RasterizerState();
 	VertexShader();
 	PixelShader();
@@ -64,7 +63,6 @@ void Pipeline::CreatePSO() {
 	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc_;
 	graphicsPipelineStateDesc.VS = { vertexShaderBlob_->GetBufferPointer(), vertexShaderBlob_->GetBufferSize() };
 	graphicsPipelineStateDesc.PS = { pixelShaderBlob_->GetBufferPointer(), pixelShaderBlob_->GetBufferSize() };
-	graphicsPipelineStateDesc.BlendState = blendDesc_;
 	graphicsPipelineStateDesc.RasterizerState = rasterizerDesc_;
 
 	graphicsPipelineStateDesc.NumRenderTargets = 1;
@@ -78,11 +76,19 @@ void Pipeline::CreatePSO() {
 	graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc_;
 	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-	HRESULT hr = device_->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState_));
-	if (FAILED(hr)) {
-		Logger::Log("Failed CreateGraphicsPipelineState\n");
+	// BlendStateだけが異なるPSOをブレンドモードの数だけ作る
+	// ルートシグネチャ・シェーダー・ラスタライザ等は全モード共通なのでここでは使い回す
+	for (size_t i = 0; i < static_cast<size_t>(BlendMode::kCount); ++i) {
+		BlendMode blendMode = static_cast<BlendMode>(i);
+		BlendState(blendMode);
+		graphicsPipelineStateDesc.BlendState = blendDesc_;
+
+		HRESULT hr = device_->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineStates_[i]));
+		if (FAILED(hr)) {
+			Logger::Log("Failed CreateGraphicsPipelineState (BlendMode)\n");
+		}
+		assert(SUCCEEDED(hr));
 	}
-	assert(SUCCEEDED(hr));
 }
 
 #pragma region PSOの内部関数
@@ -166,10 +172,71 @@ void Pipeline::InputLayout() {
 	inputLayoutDesc_.NumElements = _countof(inputElementDescs_);
 }
 
-//PSOのBlendStateの設定
-void Pipeline::BlendState() {
+//PSOのBlendStateの設定（blendModeごとにSrc/Dest/Opの組み合わせを切り替える）
+void Pipeline::BlendState(BlendMode blendMode) {
 	blendDesc_ = {};
-	blendDesc_.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	D3D12_RENDER_TARGET_BLEND_DESC& rt = blendDesc_.RenderTarget[0];
+	rt.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	// アルファ(SrcBlendAlpha/DestBlendAlpha)は全モード共通で「Srcのアルファをそのまま書く」にしておく
+	// （このエンジンではRTVのアルファ値を後段で使っていないため、カラーの合成式だけ考えればよい）
+	rt.SrcBlendAlpha = D3D12_BLEND_ONE;
+	rt.DestBlendAlpha = D3D12_BLEND_ZERO;
+	rt.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+
+	switch (blendMode) {
+	case BlendMode::kNone:
+	default:
+		// ブレンドしない＝Srcでそのまま上書き（従来の挙動）
+		rt.BlendEnable = FALSE;
+		break;
+
+	case BlendMode::kNormal:
+		// 通常のアルファブレンド： Src*s + Dest*(1-s)
+		// s は per-pixelのアルファ値ではなく、描画直前に commandList->OMSetBlendFactor() で
+		// 指定する「定数」。D3D12_BLEND_(INV_)BLEND_FACTOR がその定数を参照する
+		rt.BlendEnable = TRUE;
+		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
+		rt.DestBlend = D3D12_BLEND_INV_BLEND_FACTOR;
+		rt.BlendOp = D3D12_BLEND_OP_ADD;
+		break;
+
+	case BlendMode::kAdd:
+		// 加算： Src*s + Dest*1
+		rt.BlendEnable = TRUE;
+		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
+		rt.DestBlend = D3D12_BLEND_ONE;
+		rt.BlendOp = D3D12_BLEND_OP_ADD;
+		break;
+
+	case BlendMode::kSubtract:
+		// 減算： Dest*1 - Src*s
+		rt.BlendEnable = TRUE;
+		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
+		rt.DestBlend = D3D12_BLEND_ONE;
+		rt.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
+		break;
+
+	case BlendMode::kMultiply:
+		// 乗算： Dest*SrcColor（Srcの寄与はゼロにして掛け算だけ残す）
+		// NOTE: DestBlendはSrcColorという「ピクセルごとに違う値」を参照するため、
+		// OMSetBlendFactorの定数１つでは s=0(効果なし)〜s=1(全開)を補間できない
+		// （固定機能ブレンダーの制約）。そのためこのモードは強さ調整の対象外
+		rt.BlendEnable = TRUE;
+		rt.SrcBlend = D3D12_BLEND_ZERO;
+		rt.DestBlend = D3D12_BLEND_SRC_COLOR;
+		rt.BlendOp = D3D12_BLEND_OP_ADD;
+		break;
+
+	case BlendMode::kScreen:
+		// スクリーン： Src*1 + Dest*(1-SrcColor)
+		// kMultiplyと同じ理由でDestBlendがSrcColor依存のため強さ調整の対象外
+		rt.BlendEnable = TRUE;
+		rt.SrcBlend = D3D12_BLEND_ONE;
+		rt.DestBlend = D3D12_BLEND_INV_SRC_COLOR;
+		rt.BlendOp = D3D12_BLEND_OP_ADD;
+		break;
+	}
 }
 
 //PSOのRasterizerStateの設定

@@ -15,7 +15,7 @@
 #include "../Object/Sprite/Sprite.h"
 #include "../Object/Sphere/Sphere.h"
 #include "../Object/Model/Model.h"
-#include "../Lighting/DirectionalLight.h"
+#include "../Lighting/SceneLight.h"
 #include "../../../Math/MathTypes.h"
 #include "../../../Math/TransformMath.h"
 
@@ -38,23 +38,25 @@ public:
 	using ModelHandle = uint32_t;
 	ModelHandle LoadModel(const std::string& directoryPath, const std::string& filename);
 
-	void DrawModel(ModelHandle handle, const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void DrawModel(ModelHandle handle, const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 	void FlushModels();
 
 	// フレーム先頭で一度だけ呼ぶ。以降の Draw(Transform,...) はこの行列を使う
-	void SetCamera(const Matrix4x4& view, const Matrix4x4& projection) {
+	// cameraPosition はスペキュラ/リムライト計算用に毎フレームライトへ転送する
+	void SetCamera(const Matrix4x4& view, const Matrix4x4& projection, const Vector3& cameraPosition) {
 		view_ = view; projection_ = projection;
+		light_.SetCameraPosition(cameraPosition);
 	}
 
 	// Transform 版（内部で world * view * proj を計算）
-	void DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
-	void DrawSphere  (const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true);
-	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawSphere  (const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 
 	// WVP 直接指定版（既存、後方互換用）
-	void DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
-	void DrawSphere  (const Matrix4x4& wvp, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true);
-	void DrawCube    (const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true);
+	void DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawSphere  (const Matrix4x4& wvp, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawCube    (const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 
 	void FlushTriangles();
 	void FlushSpheres();
@@ -64,12 +66,12 @@ public:
 	void FlushLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
 	// 3Dスプライト（カメラ付き WVP）
-	void DrawSprite3D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, const UVTransform& uvTransform = {});
+	void DrawSprite3D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 	// 2DスプライトUI（ピクセル座標、奥行きなし）。FlushSprites2D() で最後に描画される
-	void DrawSprite2D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = false, const UVTransform& uvTransform = {});
+	void DrawSprite2D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = false, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 	void FlushSprites2D();
 
-	DirectionalLight& GetLight() { return light_; }
+	SceneLight& GetLight() { return light_; }
 
 	void SetTriangleSmoothness(float s) { triangle_->SetSmoothness(s); }
 	void SetCubeSmoothness(float s)     { cube_->SetSmoothness(s); }
@@ -88,6 +90,8 @@ private:
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
+		BlendMode     blendMode;
+		float         blendStrength;
 	};
 	struct LineCommand {
 		Vector3   start;
@@ -101,6 +105,8 @@ private:
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
+		BlendMode     blendMode;
+		float         blendStrength;
 	};
 	struct CubeCommand {
 		Matrix4x4     wvp;
@@ -108,6 +114,8 @@ private:
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
+		BlendMode     blendMode;
+		float         blendStrength;
 	};
 	struct Sprite2DCommand {
 		Matrix4x4     wvp;
@@ -116,6 +124,8 @@ private:
 		TextureHandle texture;
 		bool          useLighting;
 		UVTransform   uvTransform;
+		BlendMode     blendMode;
+		float         blendStrength;
 	};
 	struct ModelCommand {
 		ModelHandle   handle;
@@ -124,6 +134,8 @@ private:
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
+		BlendMode     blendMode;
+		float         blendStrength;
 	};
 
 	ID3D12Device* device_ = nullptr;
@@ -141,7 +153,7 @@ private:
 	std::unique_ptr<Sprite>   sprite3D_;
 	std::unique_ptr<Sprite>   sprite2D_;
 	std::unique_ptr<Sphere>   sphere_;
-	DirectionalLight light_;
+	SceneLight light_;
 
 	std::vector<std::unique_ptr<Model>> models_;
 	uint32_t nextModelHeapIndex_ = 20; // 0-19 は他オブジェクトが使用

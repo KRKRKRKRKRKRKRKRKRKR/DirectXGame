@@ -2,6 +2,7 @@
 #include "../../Texture/TextureManager.h"
 #include "../../../Utils/Logger.h"
 #include "../../../Graphics/ResourceFactory/ResourceFactory.h"
+#include "../../Pipeline/Pipeline.h"
 
 #include <cassert>
 #include <cstring>
@@ -30,13 +31,13 @@ Triangle::~Triangle() {
 }
 
 void Triangle::Initialize(ID3D12Device* device, TextureManager* textureManager,
-	ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+	ID3D12RootSignature* rootSignature, Pipeline* pipeline,
 	DescriptorHeaps* heaps) {
 
 	// 既存の処理はそのまま
 	textureManager_ = textureManager;
 	rootSignature_ = rootSignature;
-	pipelineState_ = pipelineState;
+	pipeline_ = pipeline;
 
 	CreateVertexResource(device);
 	CreateMaterialResource(device);
@@ -235,13 +236,19 @@ void Triangle::SetViewportAndScissorRect(int32_t width, int32_t height) {
 	scissorRect_.bottom = height;
 }
 
-void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager, TextureHandle texture) {
+void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength) {
 	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(pipelineState_);
+	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
+	const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
+	commandList->OMSetBlendFactor(blendFactor);
 
 	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
 	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
 	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
+}
+
+ID3D12PipelineState* Triangle::GetPipelineState() const {
+	return pipeline_->GetPipelineState(BlendMode::kNone);
 }
 
 void Triangle::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {

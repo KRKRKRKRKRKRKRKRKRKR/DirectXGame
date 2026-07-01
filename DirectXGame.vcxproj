@@ -108,7 +108,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClCompile Include="Engine\Camera\Camera.cpp" />
     <ClCompile Include="Engine\Graphics\CommandManager\CommandManager.cpp" />
     <ClCompile Include="Engine\Graphics\DirectXDevice\DirectXDevice.cpp" />
-    <ClCompile Include="Engine\Graphics\Lighting\DirectionalLight.cpp" />
+    <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sphere\Sphere.cpp" />
@@ -150,7 +150,7 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
     <ClInclude Include="Engine\Camera\Camera.h" />
     <ClInclude Include="Engine\Graphics\CommandManager\CommandManager.h" />
     <ClInclude Include="Engine\Graphics\DirectXDevice\DirectXDevice.h" />
-    <ClInclude Include="Engine\Graphics\Lighting\DirectionalLight.h" />
+    <ClInclude Include="Engine\Graphics\Lighting\SceneLight.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />
     <ClInclude Include="Engine\Graphics\Object\Sphere\Sphere.h" />

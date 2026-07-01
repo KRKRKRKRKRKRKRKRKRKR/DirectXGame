@@ -79,7 +79,7 @@
     <ClCompile Include="Engine\Graphics\SwapChainManager\SwapChainManager.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Math\Collision.cpp" />
-    <ClCompile Include="Engine\Graphics\Lighting\DirectionalLight.cpp" />
+    <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Audio\AudioManager.cpp" />
     <ClCompile Include="Engine\Audio\Sound.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
@@ -154,7 +154,7 @@
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Math\Collision.h" />
-    <ClInclude Include="Engine\Graphics\Lighting\DirectionalLight.h" />
+    <ClInclude Include="Engine\Graphics\Lighting\SceneLight.h" />
     <ClInclude Include="Engine\Audio\AudioManager.h" />
     <ClInclude Include="Engine\Audio\Sound.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />

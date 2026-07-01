@@ -1,6 +1,7 @@
 #include "Cube.h"
 #include "../../ResourceFactory/ResourceFactory.h"
 #include "../../../Utils/Logger.h"
+#include "../../Pipeline/Pipeline.h"
 #include <cassert>
 #include <cstring>
 #include <cmath>
@@ -20,12 +21,12 @@ Cube::~Cube() {
 }
 
 void Cube::Initialize(ID3D12Device* device, TextureManager* textureManager,
-	ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+	ID3D12RootSignature* rootSignature, Pipeline* pipeline,
 	DescriptorHeaps* heaps) {
 
 	textureManager_ = textureManager;
 	rootSignature_  = rootSignature;
-	pipelineState_  = pipelineState;
+	pipeline_       = pipeline;
 
 	CreateVertexResource(device);
 	WriteVertexData();
@@ -165,12 +166,18 @@ void Cube::SetColor(const Vector4& color, uint32_t index) {
 }
 
 void Cube::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-	TextureManager* textureManager, TextureHandle texture) {
+	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength) {
 	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(pipelineState_);
+	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
+	const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
+	commandList->OMSetBlendFactor(blendFactor);
 	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
 	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
 	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
+}
+
+ID3D12PipelineState* Cube::GetPipelineState() const {
+	return pipeline_->GetPipelineState(BlendMode::kNone);
 }
 
 void Cube::Draw(ID3D12GraphicsCommandList* commandList,

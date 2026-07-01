@@ -3,6 +3,7 @@
 #include <d3d12.h>
 #include <dxcapi.h>
 #include <wrl.h>
+#include "BlendMode.h"
 using Microsoft::WRL::ComPtr;
 
 class ShaderCompiler;
@@ -16,7 +17,10 @@ public:
 
 	//ゲッター
 	ID3D12RootSignature* GetRootSignature() const { return rootSignature_.Get(); }
-	ID3D12PipelineState* GetPipelineState() const { return graphicsPipelineState_.Get(); }
+	// blendMode に対応するPSOを返す（BlendStateだけが異なるPSOを事前に全種類作っておき、描画時に選ぶ）
+	ID3D12PipelineState* GetPipelineState(BlendMode blendMode = BlendMode::kNone) const {
+		return graphicsPipelineStates_[static_cast<size_t>(blendMode)].Get();
+	}
 
 private:
 
@@ -27,7 +31,7 @@ private:
 	void CreatePSO();
 	void CreateRootSignature();
 	void InputLayout();
-	void BlendState();
+	void BlendState(BlendMode blendMode);
 	void RasterizerState();
 	void VertexShader();
 	void PixelShader();
@@ -45,7 +49,8 @@ private:
 	ComPtr<ID3DBlob> signatureBlob_ = nullptr;
 	ComPtr<ID3DBlob> errorBlob_ = nullptr;
 	ComPtr<ID3D12RootSignature> rootSignature_ = nullptr;
-	ComPtr<ID3D12PipelineState> graphicsPipelineState_ = nullptr;
+	// ブレンドモードごとに1つずつ、計 BlendMode::kCount 個のPSOを保持する
+	ComPtr<ID3D12PipelineState> graphicsPipelineStates_[static_cast<size_t>(BlendMode::kCount)];
 	D3D12_INPUT_ELEMENT_DESC inputElementDescs_[3] = {};
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc_ = {};
 	D3D12_BLEND_DESC blendDesc_ = {};

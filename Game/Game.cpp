@@ -32,22 +32,20 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	cube.translation     = { -3.0f, 1.0f,  0.0f };
 	triangle.translation = { -0.0f, 1.0f, 0.0f };
 
-	constexpr int   kGridSize = 10;
+	constexpr int   kGridSize = 50;
 	constexpr float kSpacing  = 2.0f;
 	constexpr float kOffset   = (kGridSize - 1) * kSpacing / 2.0f;
-	gridCubes_.reserve(kGridSize * kGridSize * kGridSize);
-	for (int y = 0; y < kGridSize; y++) {
-		for (int z = 0; z < kGridSize; z++) {
-			for (int x = 0; x < kGridSize; x++) {
-				Transform t;
-				t.translation = {
-					x * kSpacing - kOffset,
-					y * kSpacing,
-					z * kSpacing - kOffset
-				};
-				t.scale = { 3.0f, 3.0f, 3.0f };
-				gridCubes_.push_back(t);
-			}
+	gridCubes_.reserve(kGridSize * kGridSize);
+	for (int z = 0; z < kGridSize; z++) {
+		for (int x = 0; x < kGridSize; x++) {
+			Transform t;
+			t.translation = {
+				x * kSpacing - kOffset,
+				0.0f,
+				z * kSpacing - kOffset
+			};
+			t.scale = { 1.0f, 1.0f, 1.0f };
+			gridCubes_.push_back(t);
 		}
 	}
 
@@ -64,7 +62,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 	modelHandle_ = renderer_->LoadModel("Resources/Model", "player.obj");
 	modelTransform_.translation = { 5.0f, 0.0f, 0.0f };
-	modelTex_ = textures_[1].handle; // デフォルトで t.png を使用
+	modelTexIndex_ = 1; // デフォルトで t.png を使用
 }
 
 void Game::Update(float deltaTime) {
@@ -76,20 +74,20 @@ void Game::Render() {
 	Matrix4x4 view = camera_->GetViewMatrix();
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
 	camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
-	renderer_->SetCamera(view, proj);
+	renderer_->SetCamera(view, proj, camera_->GetCameraData().position);
 
 	for (auto& t : gridCubes_) {
 		Transform rotated = t;
 		rotated.rotation = gridCubeRotation_;
-		renderer_->DrawCube(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_);
+		renderer_->DrawCube(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_, gridCubeBlendMode_, gridCubeBlendStrength_);
 	}
 
-	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting);
-	renderer_->DrawCube(cube, cubeColor, textures_[cubeTexIndex_].handle, cubeLighting);
-	renderer_->DrawSphere(sphere, sphereColor, textures_[sphereTexIndex_].handle, sphereLighting);
-	renderer_->DrawModel(modelHandle_, modelTransform_, modelColor_);
-	renderer_->DrawSprite3D(sprite3D, sprite3DColor, textures_[sprite3DTexIndex_].handle, sprite3DLighting, sprite3DUV);
-	renderer_->DrawSprite2D(sprite2D, sprite2DColor, textures_[sprite2DTexIndex_].handle, sprite2DLighting, sprite2DUV);
+	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting, triangleBlendMode_, triangleBlendStrength_);
+	renderer_->DrawCube(cube, cubeColor, textures_[cubeTexIndex_].handle, cubeLighting, cubeBlendMode_, cubeBlendStrength_);
+	renderer_->DrawSphere(sphere, sphereColor, textures_[sphereTexIndex_].handle, sphereLighting, sphereBlendMode_, sphereBlendStrength_);
+	renderer_->DrawModel(modelHandle_, modelTransform_, modelColor_, textures_[modelTexIndex_].handle, modelLighting_, modelBlendMode_, modelBlendStrength_);
+	renderer_->DrawSprite3D(sprite3D, sprite3DColor, textures_[sprite3DTexIndex_].handle, sprite3DLighting, sprite3DUV, sprite3DBlendMode_, sprite3DBlendStrength_);
+	renderer_->DrawSprite2D(sprite2D, sprite2DColor, textures_[sprite2DTexIndex_].handle, sprite2DLighting, sprite2DUV, sprite2DBlendMode_, sprite2DBlendStrength_);
 
 	// 光源を可視化：direction の逆方向 × 15 の位置に黄色い球、原点へのラインで方向を表示
 	{
@@ -97,7 +95,7 @@ void Game::Render() {
 		float len = sqrtf(d.x*d.x + d.y*d.y + d.z*d.z);
 		if (len > 0.001f) {
 			// 光源位置 = ライトが向く方向の逆方向に 15 進んだ点
-			Vector3 lightPos = { -d.x/len * 15.0f, -d.y/len * 30.0f, -d.z/len * 15.0f };
+			Vector3 lightPos = { -d.x/len * 15.0f, -d.y/len * 15.0f, -d.z/len * 15.0f };
 
 			// 光源位置に黄色い球（ライティングOFF で常に同じ色）
 			Transform lightSphere;
@@ -110,7 +108,42 @@ void Game::Render() {
 		}
 	}
 
-	DrawGrid();
+	// Point Light を可視化：位置に球を表示（ライティングOFFで色そのまま）
+	{
+		auto& data = renderer_->GetLight().GetData();
+		if (data.enablePoint != 0) {
+			Transform pointSphere;
+			pointSphere.translation = data.pointPosition;
+			pointSphere.scale       = { 0.3f, 0.3f, 0.3f };
+			Vector4 c = { data.pointColor.x, data.pointColor.y, data.pointColor.z, 1.0f };
+			renderer_->DrawSphere(pointSphere, c, kTextureNone, false);
+		}
+	}
+
+	// Spot Light を可視化：位置に球、照射方向にラインを表示
+	{
+		auto& data = renderer_->GetLight().GetData();
+		if (data.enableSpot != 0) {
+			Transform spotSphere;
+			spotSphere.translation = data.spotPosition;
+			spotSphere.scale       = { 0.3f, 0.3f, 0.3f };
+			Vector4 c = { data.spotColor.x, data.spotColor.y, data.spotColor.z, 1.0f };
+			renderer_->DrawSphere(spotSphere, c, kTextureNone, false);
+
+			const Vector3& sd = data.spotDirection;
+			float len = sqrtf(sd.x*sd.x + sd.y*sd.y + sd.z*sd.z);
+			if (len > 0.001f) {
+				Vector3 tip = {
+					data.spotPosition.x + sd.x/len * 3.0f,
+					data.spotPosition.y + sd.y/len * 3.0f,
+					data.spotPosition.z + sd.z/len * 3.0f
+				};
+				renderer_->DrawLine(data.spotPosition, tip, c, view, proj);
+			}
+		}
+	}
+
+	//DrawGrid();
 	DrawImGui();
 }
 
@@ -146,6 +179,31 @@ void Game::DrawImGui() {
 		}
 	};
 
+	// BlendMode選択コンボ。表示名の並びは BlendMode.h のenum定義順と対応させること
+	static const char* kBlendModeNames[] = { "None", "Normal (Alpha)", "Add", "Subtract", "Multiply", "Screen" };
+	auto blendModeCombo = [&](const char* label, BlendMode& mode) {
+		int current = static_cast<int>(mode);
+		if (ImGui::BeginCombo(label, kBlendModeNames[current])) {
+			for (int i = 0; i < static_cast<int>(BlendMode::kCount); i++) {
+				bool selected = (i == current);
+				if (ImGui::Selectable(kBlendModeNames[i], selected))
+					mode = static_cast<BlendMode>(i);
+				if (selected) ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+	};
+
+	// ブレンドの強さ（commandList->OMSetBlendFactor()に渡す0〜1の定数）。
+	// None/Multiply/ScreenはDestBlendがSrcColor依存かブレンド自体が無効なため、
+	// この定数では強さを補間できない（GPU固定機能ブレンダーの制約）のでスライダーを無効化する
+	auto blendStrengthSlider = [&](const char* label, BlendMode mode, float& strength) {
+		bool effective = (mode == BlendMode::kNormal || mode == BlendMode::kAdd || mode == BlendMode::kSubtract);
+		if (!effective) ImGui::BeginDisabled();
+		ImGui::SliderFloat(label, &strength, 0.0f, 1.0f);
+		if (!effective) ImGui::EndDisabled();
+	};
+
 	ImGui::Begin("Objects");
 	ImGui::Text("Grid Cubes");
 	ImGui::Checkbox("Grid Lighting", &gridCubeLighting_);
@@ -154,6 +212,8 @@ void Game::DrawImGui() {
 	if (ImGui::SliderFloat("Grid Smoothness", &cubeSmoothness_, 0.0f, 1.0f))
 		renderer_->SetCubeSmoothness(cubeSmoothness_);
 	textureCombo("Grid Texture", gridCubeTexIndex_);
+	blendModeCombo("Grid BlendMode", gridCubeBlendMode_);
+	blendStrengthSlider("Grid Blend Strength", gridCubeBlendMode_, gridCubeBlendStrength_);
 
 	ImGui::Separator();
 	ImGui::Text("Triangle");
@@ -165,6 +225,8 @@ void Game::DrawImGui() {
 	ImGui::DragFloat3("Triangle Rotation", &triangle.rotation.x, 0.01f, -3.14f, 3.14f);
 	ImGui::DragFloat3("Triangle Translation", &triangle.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Triangle Texture", triangleTexIndex_);
+	blendModeCombo("Triangle BlendMode", triangleBlendMode_);
+	blendStrengthSlider("Triangle Blend Strength", triangleBlendMode_, triangleBlendStrength_);
 
 	ImGui::Separator();
 	ImGui::Text("Cube");
@@ -176,6 +238,8 @@ void Game::DrawImGui() {
 	ImGui::DragFloat3("Cube Rotation", &cube.rotation.x, 0.01f, -3.14f, 3.14f);
 	ImGui::DragFloat3("Cube Translation", &cube.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Cube Texture", cubeTexIndex_);
+	blendModeCombo("Cube BlendMode", cubeBlendMode_);
+	blendStrengthSlider("Cube Blend Strength", cubeBlendMode_, cubeBlendStrength_);
 
 	ImGui::Separator();
 	ImGui::Text("Sphere");
@@ -185,6 +249,19 @@ void Game::DrawImGui() {
 	ImGui::DragFloat3("Sphere Rotation", &sphere.rotation.x, 0.01f, -3.14f, 3.14f);
 	ImGui::DragFloat3("Sphere Translation", &sphere.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Sphere Texture", sphereTexIndex_);
+	blendModeCombo("Sphere BlendMode", sphereBlendMode_);
+	blendStrengthSlider("Sphere Blend Strength", sphereBlendMode_, sphereBlendStrength_);
+
+	ImGui::Separator();
+	ImGui::Text("Model (OBJ)");
+	ImGui::Checkbox("Model Lighting", &modelLighting_);
+	ImGui::ColorEdit4("Model Color", &modelColor_.x);
+	ImGui::DragFloat3("Model Scale", &modelTransform_.scale.x, 0.01f, 0.1f, 10.0f);
+	ImGui::DragFloat3("Model Rotation", &modelTransform_.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Model Translation", &modelTransform_.translation.x, 0.01f, -10.0f, 10.0f);
+	textureCombo("Model Texture", modelTexIndex_);
+	blendModeCombo("Model BlendMode", modelBlendMode_);
+	blendStrengthSlider("Model Blend Strength", modelBlendMode_, modelBlendStrength_);
 
 	ImGui::Separator();
 	ImGui::Text("Sprite3D (world space)");
@@ -194,6 +271,8 @@ void Game::DrawImGui() {
 	ImGui::DragFloat3("Sprite3D Rotation", &sprite3D.rotation.x, 0.01f, -3.14f, 3.14f);
 	ImGui::DragFloat3("Sprite3D Translation", &sprite3D.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Sprite3D Texture", sprite3DTexIndex_);
+	blendModeCombo("Sprite3D BlendMode", sprite3DBlendMode_);
+	blendStrengthSlider("Sprite3D Blend Strength", sprite3DBlendMode_, sprite3DBlendStrength_);
 	ImGui::Text("Sprite3D UV Transform");
 	ImGui::DragFloat2("3D UV Offset", &sprite3DUV.offset.x, 0.01f, -10.0f, 10.0f);
 	ImGui::DragFloat("3D UV Rotation", &sprite3DUV.rotation, 0.01f, -3.14f, 3.14f);
@@ -207,6 +286,8 @@ void Game::DrawImGui() {
 	ImGui::DragFloat2("Sprite2D Size (px)", &sprite2D.scale.x, 1.0f, 1.0f, 1920.0f);
 	ImGui::DragFloat("Sprite2D Rotation", &sprite2D.rotation.z, 0.01f, -3.14f, 3.14f);
 	textureCombo("Sprite2D Texture", sprite2DTexIndex_);
+	blendModeCombo("Sprite2D BlendMode", sprite2DBlendMode_);
+	blendStrengthSlider("Sprite2D Blend Strength", sprite2DBlendMode_, sprite2DBlendStrength_);
 	ImGui::Text("Sprite2D UV Transform");
 	ImGui::DragFloat2("2D UV Offset", &sprite2DUV.offset.x, 0.01f, -10.0f, 10.0f);
 	ImGui::DragFloat("2D UV Rotation", &sprite2DUV.rotation, 0.01f, -3.14f, 3.14f);
@@ -220,6 +301,12 @@ void Game::DrawImGui() {
 	auto& data = light.GetData();
 
 	ImGui::Begin("Lighting");
+
+	ImGui::Text("Directional Light");
+	bool enableDirectional = data.enableDirectional != 0;
+	if (ImGui::Checkbox("Enable Directional Light", &enableDirectional)) {
+		light.SetEnableDirectional(enableDirectional);
+	}
 	if (ImGui::SliderFloat3("Direction", &data.direction.x, 0.00f, -1.0f)) {
 		light.SetDirection(data.direction);
 	}
@@ -229,11 +316,102 @@ void Game::DrawImGui() {
 	if (ImGui::SliderFloat("Ambient", &data.ambient, 0.0f, 1.0f)) {
 		light.SetAmbient(data.ambient);
 	}
-	ImGui::Separator();
-	ImGui::Text("Half Lambert");
-	if (ImGui::SliderFloat("Power", &data.halfLambertPower, 0.1f, 8.0f)) {
+	if (ImGui::SliderFloat("Half Lambert Power", &data.halfLambertPower, 0.1f, 8.0f)) {
 		light.SetHalfLambertPower(data.halfLambertPower);
 	}
+
+	ImGui::Separator();
+	ImGui::Text("Toon Shading");
+	bool enableToon = data.enableToon != 0;
+	if (ImGui::Checkbox("Enable Toon", &enableToon)) {
+		light.SetEnableToon(enableToon);
+	}
+	if (ImGui::SliderFloat("Toon Threshold", &data.toonThreshold, 0.0f, 1.0f)) {
+		light.SetToonThreshold(data.toonThreshold);
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Specular (Blinn-Phong)");
+	bool enableSpecular = data.enableSpecular != 0;
+	if (ImGui::Checkbox("Enable Specular", &enableSpecular)) {
+		light.SetEnableSpecular(enableSpecular);
+	}
+	if (ImGui::ColorEdit3("Specular Color", &data.specularColor.x)) {
+		light.SetSpecularColor(data.specularColor);
+	}
+	if (ImGui::SliderFloat("Shininess", &data.shininess, 1.0f, 200.0f)) {
+		light.SetShininess(data.shininess);
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Rim Light");
+	bool enableRim = data.enableRim != 0;
+	if (ImGui::Checkbox("Enable Rim", &enableRim)) {
+		light.SetEnableRim(enableRim);
+	}
+	if (ImGui::ColorEdit3("Rim Color", &data.rimColor.x)) {
+		light.SetRimColor(data.rimColor);
+	}
+	if (ImGui::SliderFloat("Rim Power", &data.rimPower, 0.1f, 8.0f)) {
+		light.SetRimPower(data.rimPower);
+	}
+	if (ImGui::SliderFloat("Rim Strength", &data.rimStrength, 0.0f, 4.0f)) {
+		light.SetRimStrength(data.rimStrength);
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Point Light");
+	bool enablePoint = data.enablePoint != 0;
+	if (ImGui::Checkbox("Enable Point Light", &enablePoint)) {
+		light.SetEnablePointLight(enablePoint);
+	}
+	if (ImGui::DragFloat3("Point Position", &data.pointPosition.x, 0.05f, -20.0f, 20.0f)) {
+		light.SetPointPosition(data.pointPosition);
+	}
+	if (ImGui::ColorEdit3("Point Color", &data.pointColor.x)) {
+		light.SetPointColor(data.pointColor);
+	}
+	if (ImGui::SliderFloat("Point Intensity", &data.pointIntensity, 0.0f, 5.0f)) {
+		light.SetPointIntensity(data.pointIntensity);
+	}
+	if (ImGui::SliderFloat("Point Radius", &data.pointRadius, 0.1f, 30.0f)) {
+		light.SetPointRadius(data.pointRadius);
+	}
+	if (ImGui::SliderFloat("Point Decay", &data.pointDecay, 0.1f, 4.0f)) {
+		light.SetPointDecay(data.pointDecay);
+	}
+
+	ImGui::Separator();
+	ImGui::Text("Spot Light");
+	bool enableSpot = data.enableSpot != 0;
+	if (ImGui::Checkbox("Enable Spot Light", &enableSpot)) {
+		light.SetEnableSpotLight(enableSpot);
+	}
+	if (ImGui::DragFloat3("Spot Position", &data.spotPosition.x, 0.05f, -20.0f, 20.0f)) {
+		light.SetSpotPosition(data.spotPosition);
+	}
+	if (ImGui::SliderFloat3("Spot Direction", &data.spotDirection.x, -1.0f, 1.0f)) {
+		light.SetSpotDirection(data.spotDirection);
+	}
+	if (ImGui::ColorEdit3("Spot Color", &data.spotColor.x)) {
+		light.SetSpotColor(data.spotColor);
+	}
+	if (ImGui::SliderFloat("Spot Intensity", &data.spotIntensity, 0.0f, 5.0f)) {
+		light.SetSpotIntensity(data.spotIntensity);
+	}
+	if (ImGui::SliderFloat("Spot Distance", &data.spotDistance, 0.1f, 30.0f)) {
+		light.SetSpotDistance(data.spotDistance);
+	}
+	if (ImGui::SliderFloat("Spot Decay", &data.spotDecay, 0.1f, 4.0f)) {
+		light.SetSpotDecay(data.spotDecay);
+	}
+	bool spotAngleChanged = false;
+	spotAngleChanged |= ImGui::SliderFloat("Spot Cos Angle (outer)", &data.spotCosAngle, 0.0f, 0.999f);
+	spotAngleChanged |= ImGui::SliderFloat("Spot Cos Falloff Start (inner)", &data.spotCosFalloffStart, 0.0f, 0.999f);
+	if (spotAngleChanged) {
+		light.SetSpotConeAngles(data.spotCosAngle, data.spotCosFalloffStart);
+	}
+
 	ImGui::End();
 
 }

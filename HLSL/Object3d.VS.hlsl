@@ -25,9 +25,10 @@ VertexShaderOutput main(VertexShaderInput input, uint instanceId : SV_InstanceID
 {
     uint idx = instanceId + gInstanceOffset;
     VertexShaderOutput output;
-    output.position = mul(input.position, gTransformationMatrices[idx].WVP);
-    output.texcoord = input.texcoord;
-    output.color    = gColors[idx];
-    output.normal   = mul(input.normal, (float3x3)gTransformationMatrices[idx].World);
+    output.position      = mul(input.position, gTransformationMatrices[idx].WVP);
+    output.texcoord      = input.texcoord;
+    output.color         = gColors[idx];
+    output.normal        = mul(input.normal, (float3x3)gTransformationMatrices[idx].World);
+    output.worldPosition = mul(input.position, gTransformationMatrices[idx].World).xyz;
     return output;
 }

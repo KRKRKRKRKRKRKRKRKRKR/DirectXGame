@@ -5,18 +5,83 @@ SamplerState      gSampler : register(s0);
 
 cbuffer LightData : register(b0)
 {
+    // --- Directional Light ---
     float3 gLightDirection;
     float  gAmbient;
+
     float3 gLightColor;
     uint   gEnableLighting;
+
     float  gHalfLambertPower;
-    float3 gPad;
+    uint   gEnableToon;
+    float  gToonThreshold;
+    uint   gEnableDirectional;
+
+    // --- Camera / Specular ---
+    float3 gCameraPosition;
+    float  gShininess;
+
+    float3 gSpecularColor;
+    uint   gEnableSpecular;
+
+    // --- Rim Light ---
+    float3 gRimColor;
+    float  gRimPower;
+
+    float  gRimStrength;
+    uint   gEnableRim;
+    float2 gPad1;
+
+    // --- Point Light ---
+    float3 gPointPosition;
+    float  gPointIntensity;
+
+    float3 gPointColor;
+    uint   gEnablePoint;
+
+    float  gPointRadius;
+    float  gPointDecay;
+    float2 gPad2;
+
+    // --- Spot Light ---
+    float3 gSpotPosition;
+    float  gSpotIntensity;
+
+    float3 gSpotDirection;
+    uint   gEnableSpot;
+
+    float3 gSpotColor;
+    float  gSpotCosAngle;
+
+    float  gSpotCosFalloffStart;
+    float  gSpotDistance;
+    float  gSpotDecay;
+    float  gPad3;
 };
 
 struct PixelShaderOutput
 {
     float4 color : SV_TARGET0;
 };
+
+// 平行光源/点光源/スポットライト共通の拡散反射(Half-Lambert or Toon)計算
+float CalcDiffuseFactor(float NdotL)
+{
+    float cosVal = pow(NdotL * 0.5f + 0.5f, gHalfLambertPower);
+    if (gEnableToon != 0)
+    {
+        return cosVal >= gToonThreshold ? 1.0f : gAmbient;
+    }
+    return gAmbient + (1.0f - gAmbient) * cosVal;
+}
+
+// Blinn-Phongの鏡面反射
+float3 CalcSpecular(float3 normal, float3 lightDir, float3 viewDir, float3 lightColor)
+{
+    float3 halfVector = normalize(-lightDir + viewDir);
+    float  NdotH      = saturate(dot(normal, halfVector));
+    return pow(NdotH, gShininess) * gSpecularColor * lightColor;
+}
 
 PixelShaderOutput main(VertexShaderOutput input)
 {
@@ -26,10 +91,75 @@ PixelShaderOutput main(VertexShaderOutput input)
     if (gEnableLighting != 0)
     {
         float3 normal  = normalize(input.normal);
-        float  NdotL   = dot(normal, -normalize(gLightDirection));
-        float  cosVal  = pow(NdotL * 0.5f + 0.5f, gHalfLambertPower);
-        float  diffuse = gAmbient + (1.0f - gAmbient) * cosVal;
-        output.color.rgb *= diffuse * gLightColor;
+        float3 viewDir = normalize(gCameraPosition - input.worldPosition);
+
+        float3 diffuse  = float3(0.0f, 0.0f, 0.0f);
+        float3 specular = float3(0.0f, 0.0f, 0.0f);
+
+        // ---- Directional Light ----
+        if (gEnableDirectional != 0)
+        {
+            float3 lightDir = normalize(gLightDirection);
+            float  NdotL    = dot(normal, -lightDir);
+            diffuse += CalcDiffuseFactor(NdotL) * gLightColor;
+
+            if (gEnableSpecular != 0)
+            {
+                specular += CalcSpecular(normal, lightDir, viewDir, gLightColor);
+            }
+        }
+
+        // ---- Point Light ----
+        if (gEnablePoint != 0)
+        {
+            float3 toLight  = gPointPosition - input.worldPosition;
+            float  distance = length(toLight);
+            float3 lightDir = toLight / max(distance, 1e-5f);
+            float  NdotL    = saturate(dot(normal, lightDir));
+
+            float attenuation = pow(saturate(1.0f - distance / max(gPointRadius, 1e-4f)), gPointDecay);
+            float3 radiance   = gPointColor * gPointIntensity * attenuation;
+
+            diffuse += NdotL * radiance;
+
+            if (gEnableSpecular != 0)
+            {
+                specular += CalcSpecular(normal, -lightDir, viewDir, radiance);
+            }
+        }
+
+        // ---- Spot Light ----
+        if (gEnableSpot != 0)
+        {
+            float3 toLight  = gSpotPosition - input.worldPosition;
+            float  distance = length(toLight);
+            float3 lightDir = toLight / max(distance, 1e-5f);
+            float  NdotL    = saturate(dot(normal, lightDir));
+
+            float distanceAttenuation = pow(saturate(1.0f - distance / max(gSpotDistance, 1e-4f)), gSpotDecay);
+            float cosAngle            = dot(-lightDir, normalize(gSpotDirection));
+            float spotAttenuation     = saturate((cosAngle - gSpotCosAngle) / max(gSpotCosFalloffStart - gSpotCosAngle, 1e-4f));
+
+            float  attenuation = distanceAttenuation * spotAttenuation;
+            float3 radiance    = gSpotColor * gSpotIntensity * attenuation;
+
+            diffuse += NdotL * radiance;
+
+            if (gEnableSpecular != 0)
+            {
+                specular += CalcSpecular(normal, -lightDir, viewDir, radiance);
+            }
+        }
+
+        output.color.rgb *= diffuse;
+        output.color.rgb += specular;
+
+        // ---- Rim Light ----
+        if (gEnableRim != 0)
+        {
+            float rim = pow(1.0f - saturate(dot(normal, viewDir)), gRimPower) * gRimStrength;
+            output.color.rgb += rim * gRimColor;
+        }
     }
 
     return output;

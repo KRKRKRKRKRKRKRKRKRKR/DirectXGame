@@ -8,9 +8,11 @@
 #include "../../Texture/TextureManager.h"
 #include "../../ResourceFactory/ResourceFactory.h"
 #include "../../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../Pipeline/BlendMode.h"
 using Microsoft::WRL::ComPtr;
 
 class TextureManager;
+class Pipeline;
 
 // 三角形描画オブジェクト
 class Triangle : public IDrawable {
@@ -21,7 +23,7 @@ public:
 	static constexpr uint32_t kMaxInstanceCount = 4096;
 
 	// 初期化（DirectXManager から呼び出し）
-	void Initialize(ID3D12Device* device, TextureManager* textureManager, ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState, DescriptorHeaps* heaps);
+	void Initialize(ID3D12Device* device, TextureManager* textureManager, ID3D12RootSignature* rootSignature, Pipeline* pipeline, DescriptorHeaps* heaps);
 
 	// ワールド・ビュー・プロジェクション行列を設定
 	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t wvpIndex);
@@ -33,7 +35,7 @@ public:
 	void SetViewportAndScissorRect(int32_t width, int32_t height);
 
 	// パイプラインコマンドを設定
-	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager, TextureHandle texture);
+	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 
 	void SetColor(const Vector4& color, uint32_t materialIndex);
 
@@ -41,7 +43,7 @@ public:
 	void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0);
 
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
-	ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
+	ID3D12PipelineState* GetPipelineState() const override;
 	// ゲッター
 	D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const { return vertexBufferView_; }
 	ComPtr<ID3D12Resource> GetVertexResource() const { return vertexResource_; }
@@ -77,7 +79,7 @@ private:
 
 	// パイプライン参照
 	ID3D12RootSignature* rootSignature_ = nullptr;
-	ID3D12PipelineState* pipelineState_ = nullptr;
+	Pipeline* pipeline_ = nullptr;
 
 	// テクスチャ マネージャー参照
 	TextureManager* textureManager_ = nullptr;

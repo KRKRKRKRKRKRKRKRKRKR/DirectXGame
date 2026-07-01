@@ -6,9 +6,11 @@
 #include "../../Texture/TextureManager.h"
 #include "../../../../Math/MathTypes.h"
 #include "../../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../Pipeline/BlendMode.h"
 using Microsoft::WRL::ComPtr;
 
 class TextureManager;
+class Pipeline;
 
 class Sphere : public IDrawable {
 public:
@@ -18,19 +20,19 @@ public:
     static constexpr uint32_t kMaxInstanceCount = 4096;
 
     void Initialize(ID3D12Device* device, TextureManager* textureManager,
-        ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+        ID3D12RootSignature* rootSignature, Pipeline* pipeline,
         DescriptorHeaps* heaps,
         uint32_t subdivision = 30, float radius = 1.0f);
 
     void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
     void SetColor(const Vector4& color, uint32_t index);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-        TextureManager* textureManager, TextureHandle texture);
+        TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 
     // IDrawable 実装
     void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0) override;
     ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
-    ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
+    ID3D12PipelineState* GetPipelineState() const override;
 
 private:
     ComPtr<ID3D12Resource> vertexResource_;
@@ -49,7 +51,7 @@ private:
     uint32_t vertexCount_ = 0;
 
     ID3D12RootSignature* rootSignature_ = nullptr;
-    ID3D12PipelineState* pipelineState_ = nullptr;
+    Pipeline* pipeline_ = nullptr;
     TextureManager* textureManager_ = nullptr;
 
     void CreateVertexResource(ID3D12Device* device, uint32_t subdivision, float radius);

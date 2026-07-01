@@ -14,6 +14,7 @@ void ImGuiManager::Initialize(HWND hwnd, DirectXManager* dx) {
 		srvHeap->GetCPUDescriptorHandleForHeapStart(),
 		srvHeap->GetGPUDescriptorHandleForHeapStart());
 	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	io.Fonts->Build();
 }
 
@@ -21,6 +22,10 @@ void ImGuiManager::BeginFrame() {
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+
+	// 画面全体を覆うドッキング先（透明・タイトルバーなし）を用意する。
+	// 各ウィンドウはここへドラッグ＆ドロップで自由にくっつけられる。
+	ImGui::DockSpaceOverViewport(0, nullptr, ImGuiDockNodeFlags_PassthruCentralNode);
 }
 
 void ImGuiManager::EndFrame(DirectXManager* dx) {

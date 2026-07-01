@@ -1,17 +1,18 @@
 #include "Sprite.h"
 #include "../../../../Math/MatrixMath.h"
 #include "../../ResourceFactory/ResourceFactory.h"
+#include "../../Pipeline/Pipeline.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <cmath>
 
 void Sprite::Initialize(ID3D12Device* device, TextureManager* textureManager,
-	ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+	ID3D12RootSignature* rootSignature, Pipeline* pipeline,
 	DescriptorHeaps* heaps, uint32_t wvpHeapIndex, uint32_t colorHeapIndex) {
 	textureManager_ = textureManager;
 	rootSignature_ = rootSignature;
-	pipelineState_ = pipelineState;
+	pipeline_ = pipeline;
 
 	CreateVertexResource(device);
 	CreateIndexResource(device);
@@ -65,12 +66,19 @@ void Sprite::SetUVTransform(const UVTransform& uvTransform) {
 }
 
 void Sprite::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-	TextureManager* textureManager, TextureHandle texture) {
+	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength) {
 	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(pipelineState_);
+	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
+	// D3D12_BLEND_(INV_)BLEND_FACTOR が参照する定数。kNormal/kAdd/kSubtractのみ効果がある
+	const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
+	commandList->OMSetBlendFactor(blendFactor);
 	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
 	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
 	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
+}
+
+ID3D12PipelineState* Sprite::GetPipelineState() const {
+	return pipeline_->GetPipelineState(BlendMode::kNone);
 }
 
 void Sprite::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {

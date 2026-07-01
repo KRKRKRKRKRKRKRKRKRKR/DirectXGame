@@ -1,6 +1,7 @@
 #include "Model.h"
 #include "../../ResourceFactory/ResourceFactory.h"
 #include "../../../Utils/Logger.h"
+#include "../../Pipeline/Pipeline.h"
 #include <fstream>
 #include <sstream>
 #include <cassert>
@@ -23,14 +24,14 @@ Model::~Model() {
 // ---- 初期化 ----
 
 void Model::Initialize(ID3D12Device* device, TextureManager* textureManager,
-	ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
+	ID3D12RootSignature* rootSignature, Pipeline* pipeline,
 	DescriptorHeaps* heaps,
 	const std::string& directoryPath, const std::string& filename,
 	uint32_t wvpHeapIndex, uint32_t colorHeapIndex) {
 
 	textureManager_ = textureManager;
 	rootSignature_  = rootSignature;
-	pipelineState_  = pipelineState;
+	pipeline_       = pipeline;
 
 	ModelData modelData = LoadObjFile(directoryPath, filename);
 	vertexCount_ = static_cast<uint32_t>(modelData.vertices.size());
@@ -219,12 +220,18 @@ void Model::SetColor(const Vector4& color, uint32_t index) {
 }
 
 void Model::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-	TextureManager* textureManager, TextureHandle texture) {
+	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength) {
 	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(pipelineState_);
+	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
+	const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
+	commandList->OMSetBlendFactor(blendFactor);
 	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture));
 	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);
 	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);
+}
+
+ID3D12PipelineState* Model::GetPipelineState() const {
+	return pipeline_->GetPipelineState(BlendMode::kNone);
 }
 
 void Model::Draw(ID3D12GraphicsCommandList* commandList,
