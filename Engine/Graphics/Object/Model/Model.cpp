@@ -109,6 +109,7 @@ Model::ModelData Model::LoadObjFile(
 		} else if (identifier == "v") {
 			Vector3 p;
 			s >> p.x >> p.y >> p.z;
+			p.x *= -1.0f;
 			positions.push_back(p);
 
 		} else if (identifier == "vt") {
@@ -119,6 +120,7 @@ Model::ModelData Model::LoadObjFile(
 		} else if (identifier == "vn") {
 			Vector3 n;
 			s >> n.x >> n.y >> n.z;
+			n.x *= -1.0f;
 			normals.push_back(n);
 
 		} else if (identifier == "f") {
@@ -148,11 +150,11 @@ Model::ModelData Model::LoadObjFile(
 				faceVerts.push_back(vert);
 			}
 
-			// ファンアルゴリズムで三角形に分割
+			// ファンアルゴリズムで三角形に分割（左手系に合わせて逆順登録）
 			for (size_t i = 1; i + 1 < faceVerts.size(); ++i) {
 				modelData.vertices.push_back(faceVerts[0]);
-				modelData.vertices.push_back(faceVerts[i]);
 				modelData.vertices.push_back(faceVerts[i + 1]);
+				modelData.vertices.push_back(faceVerts[i]);
 			}
 		}
 	}
