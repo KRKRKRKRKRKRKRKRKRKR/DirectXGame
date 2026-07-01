@@ -32,6 +32,22 @@ void SwapChainManager::CreateSwapChain(IDXGIFactory7* factory, ID3D12CommandQueu
 	assert(SUCCEEDED(hr));
 }
 
+void SwapChainManager::Resize(ID3D12Device* device, int width, int height) {
+	// 既存のバックバッファ参照を解放してからResizeBuffersを呼ぶ必要がある
+	swapChainResources_[0].Reset();
+	swapChainResources_[1].Reset();
+
+	HRESULT hr = swapChain_->ResizeBuffers(2, static_cast<UINT>(width), static_cast<UINT>(height), DXGI_FORMAT_R8G8B8A8_UNORM, 0);
+	if (FAILED(hr)) {
+		Logger::Log("Failed ResizeBuffers\n");
+	}
+	assert(SUCCEEDED(hr));
+
+	GetSwapChainResources();
+	InitializeRenderTarget(device);
+	SetViewportAndScissorRect(width, height);
+}
+
 void SwapChainManager::GetSwapChainResources() {
 	backBufferIndex_ = swapChain_->GetCurrentBackBufferIndex();
 	for (int i = 0; i < 2; i++) {

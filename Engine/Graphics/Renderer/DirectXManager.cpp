@@ -52,6 +52,26 @@ void DirectXManager::EndFrame() {
 	command_.ResetCommandList();
 }
 
+void DirectXManager::Resize(int width, int height) {
+	if (!initialized_ || width <= 0 || height <= 0) {
+		return;
+	}
+	windowWidth_ = width;
+	windowHeight_ = height;
+
+	// コマンドリストは通常このタイミングでオープン中(次フレーム用にリセット済み)なので、
+	// GPU待機の前に一旦閉じておく
+	ID3D12GraphicsCommandList* commandList = command_.GetCommandList();
+	commandList->Close();
+
+	command_.Signal();
+	command_.WaitForFence();
+
+	swapChain_.Resize(device_.GetDevice(), width, height);
+
+	command_.ResetCommandList();
+}
+
 void DirectXManager::Finalize() {
 	if (!initialized_) {
 		return;

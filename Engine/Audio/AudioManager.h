@@ -60,7 +60,7 @@ private:
     bool  muteMaster_   = false;
     bool  muteBGM_      = false;
     bool  muteSE_       = false;
-    bool  masterPlaying_ = true;
+    bool  masterPlaying_ = false;
 
     std::vector<SoundEntry> sounds_;
 };

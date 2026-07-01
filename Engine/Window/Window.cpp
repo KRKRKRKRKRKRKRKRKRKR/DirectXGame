@@ -5,6 +5,8 @@
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+Window* Window::instance_ = nullptr;
+
 Window::~Window() {
     if (hwnd_) {
         DestroyWindow(hwnd_);
@@ -14,6 +16,7 @@ Window::~Window() {
 }
 
 void Window::Create(const std::wstring& title,int32_t width, int32_t height) {
+    instance_ = this;
     clientWidth_ = width;
     clientHeight_ = height;
 
@@ -64,6 +67,39 @@ LRESULT CALLBACK Window::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
     switch (msg) {
     case WM_DESTROY:
         PostQuitMessage(0);
+        return 0;
+    case WM_SIZE:
+        // 枠ドラッグ中は同じサイズでWM_SIZEが連続するため、最大化/リストアなど
+        // ドラッグを伴わない変化のみここで即時反映する（ドラッグ中の分は下のWM_EXITSIZEMOVEで処理）
+        if (instance_ && wparam != SIZE_MINIMIZED) {
+            int32_t width = LOWORD(lparam);
+            int32_t height = HIWORD(lparam);
+            if (width > 0 && height > 0 && (width != instance_->clientWidth_ || height != instance_->clientHeight_)) {
+                if (wparam == SIZE_MAXIMIZED || wparam == SIZE_RESTORED) {
+                    instance_->clientWidth_ = width;
+                    instance_->clientHeight_ = height;
+                    if (instance_->onResize_) {
+                        instance_->onResize_(width, height);
+                    }
+                }
+            }
+        }
+        return 0;
+    case WM_EXITSIZEMOVE:
+        // 枠ドラッグでのリサイズが終わったタイミングでスワップチェーン等を更新する
+        if (instance_) {
+            RECT rect{};
+            GetClientRect(hwnd, &rect);
+            int32_t width = rect.right - rect.left;
+            int32_t height = rect.bottom - rect.top;
+            if (width > 0 && height > 0 && (width != instance_->clientWidth_ || height != instance_->clientHeight_)) {
+                instance_->clientWidth_ = width;
+                instance_->clientHeight_ = height;
+                if (instance_->onResize_) {
+                    instance_->onResize_(width, height);
+                }
+            }
+        }
         return 0;
     }
     return DefWindowProc(hwnd, msg, wparam, lparam);

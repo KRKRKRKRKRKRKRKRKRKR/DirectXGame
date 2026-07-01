@@ -35,7 +35,7 @@ private:
 	void RasterizerState();
 	void VertexShader();
 	void PixelShader();
-	void DepthStencilState();
+	void DepthStencilState(BlendMode blendMode);
 
 	ComPtr<ID3D12Device> device_;
 	ShaderCompiler* shaderCompiler_ = nullptr;

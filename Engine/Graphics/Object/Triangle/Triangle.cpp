@@ -245,6 +245,8 @@ void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, Textu
 	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
 	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
 	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
+	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(blendMode), 0);              // b2.x: blendMode
+	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&blendStrength), 1); // b2.y: blendStrength
 }
 
 ID3D12PipelineState* Triangle::GetPipelineState() const {

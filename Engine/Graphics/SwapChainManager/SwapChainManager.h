@@ -13,6 +13,9 @@ class SwapChainManager {
 public:
 	void Initialize(IDXGIFactory7* factory, ID3D12Device* device, ID3D12CommandQueue* commandQueue, HWND hwnd, int width, int height);
 
+	// ウィンドウリサイズ時に呼ぶ。呼び出し前にGPUの処理完了を待機しておくこと
+	void Resize(ID3D12Device* device, int width, int height);
+
 	void BeginTransitionBarrier(ID3D12GraphicsCommandList* commandList);
 	void SetRenderTarget(ID3D12GraphicsCommandList* commandList);
 	void SetViewport(ID3D12GraphicsCommandList* commandList);

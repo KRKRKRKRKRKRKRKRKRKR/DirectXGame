@@ -228,6 +228,8 @@ void Model::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture));
 	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);
 	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);
+	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(blendMode), 0);              // b2.x: blendMode
+	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&blendStrength), 1); // b2.y: blendStrength
 }
 
 ID3D12PipelineState* Model::GetPipelineState() const {

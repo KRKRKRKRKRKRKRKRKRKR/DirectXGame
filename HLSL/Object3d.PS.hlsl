@@ -3,6 +3,17 @@
 Texture2D<float4> gTexture : register(t0);
 SamplerState      gSampler : register(s0);
 
+// BlendMode.h と対応する値。kMultiply/kScreenはBlendFactor(定数)ではSrcColor依存の
+// DestBlendを補間できないため、PS側でSrcColorをgBlendStrengthで補間して代用する
+static const uint kBlendModeMultiply = 4;
+static const uint kBlendModeScreen   = 5;
+
+cbuffer BlendData : register(b2)
+{
+    uint  gBlendMode;
+    float gBlendStrength;
+};
+
 cbuffer LightData : register(b0)
 {
     // --- Directional Light ---
@@ -160,6 +171,17 @@ PixelShaderOutput main(VertexShaderOutput input)
             float rim = pow(1.0f - saturate(dot(normal, viewDir)), gRimPower) * gRimStrength;
             output.color.rgb += rim * gRimColor;
         }
+    }
+
+    // kMultiply: Dest*SrcColor がブレンド式のため、SrcColorを白へ補間するとstrength=0で無効化できる
+    // kScreen  : Src*1 + Dest*(1-SrcColor) がブレンド式のため、SrcColorを黒へ補間するとstrength=0で無効化できる
+    if (gBlendMode == kBlendModeMultiply)
+    {
+        output.color.rgb = lerp(float3(1.0f, 1.0f, 1.0f), output.color.rgb, gBlendStrength);
+    }
+    else if (gBlendMode == kBlendModeScreen)
+    {
+        output.color.rgb = lerp(float3(0.0f, 0.0f, 0.0f), output.color.rgb, gBlendStrength);
     }
 
     return output;

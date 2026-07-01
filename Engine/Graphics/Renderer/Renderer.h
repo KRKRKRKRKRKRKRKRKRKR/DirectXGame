@@ -29,6 +29,9 @@ public:
 	void Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, DescriptorHeaps* heaps, int width, int height);
 	void Finalize();
 
+	// ウィンドウリサイズ時に呼ぶ。DepthStencilバッファを新しいサイズで再生成する
+	void Resize(int width, int height);
+
 	void SetCommandList(ID3D12GraphicsCommandList* commandList) { commandList_ = commandList; }
 
 	// テクスチャをファイルから読み込んでハンドルを返す（同じパスは二重ロードしない）

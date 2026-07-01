@@ -56,7 +56,6 @@ void Pipeline::CreatePSO() {
 	RasterizerState();
 	VertexShader();
 	PixelShader();
-	DepthStencilState();
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
 	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
@@ -73,15 +72,19 @@ void Pipeline::CreatePSO() {
 	graphicsPipelineStateDesc.SampleDesc.Count = 1;
 	graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
 
-	graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc_;
 	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-	// BlendStateだけが異なるPSOをブレンドモードの数だけ作る
+	// BlendState・DepthStencilStateが異なるPSOをブレンドモードの数だけ作る
 	// ルートシグネチャ・シェーダー・ラスタライザ等は全モード共通なのでここでは使い回す
 	for (size_t i = 0; i < static_cast<size_t>(BlendMode::kCount); ++i) {
 		BlendMode blendMode = static_cast<BlendMode>(i);
 		BlendState(blendMode);
 		graphicsPipelineStateDesc.BlendState = blendDesc_;
+
+		// kNone以外（半透明合成）は深度テストのみ行い、深度書き込みはしない。
+		// 書き込むと、色は透けて見えても奥のオブジェクトが深度テストで棄却されてしまうため
+		DepthStencilState(blendMode);
+		graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc_;
 
 		HRESULT hr = device_->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineStates_[i]));
 		if (FAILED(hr)) {
@@ -97,7 +100,7 @@ void Pipeline::CreateRootSignature() {
 	D3D12_ROOT_SIGNATURE_DESC descriptionRootSignature{};
 	descriptionRootSignature.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	D3D12_ROOT_PARAMETER rootParameters[5] = {};
+	D3D12_ROOT_PARAMETER rootParameters[6] = {};
 
 	// [0] t0: テクスチャ（PS）
 	rootParameters[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -129,6 +132,14 @@ void Pipeline::CreateRootSignature() {
 	rootParameters[4].Constants.ShaderRegister = 1;
 	rootParameters[4].Constants.RegisterSpace = 0;
 	rootParameters[4].Constants.Num32BitValues = 1;
+
+	// [5] b2: ブレンド情報（PS）- kMultiply/kScreenはBlendFactor定数では強さ調整できないため、
+	// PS側でSrcColorを補間する。x=blendMode(int), y=blendStrength
+	rootParameters[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	rootParameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParameters[5].Constants.ShaderRegister = 2;
+	rootParameters[5].Constants.RegisterSpace = 0;
+	rootParameters[5].Constants.Num32BitValues = 2;
 
 	descriptionRootSignature.pParameters = rootParameters;
 	descriptionRootSignature.NumParameters = _countof(rootParameters);
@@ -260,10 +271,13 @@ void Pipeline::PixelShader() {
 }
 
 //PSOのDepthStencilStateの設定
-void Pipeline::DepthStencilState() {
+// kNone以外（半透明合成）は深度テストのみ・深度書き込みなし（DepthWriteMask=ZERO）にする。
+// 深度を書き込むと、色は薄く合成されても奥のオブジェクトが深度テストで棄却されて描かれなくなるため
+void Pipeline::DepthStencilState(BlendMode blendMode) {
 	depthStencilDesc_ = {};
 	depthStencilDesc_.DepthEnable = enableDepth_ ? TRUE : FALSE;
-	depthStencilDesc_.DepthWriteMask = enableDepth_ ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+	bool writeDepth = enableDepth_ && (blendMode == BlendMode::kNone);
+	depthStencilDesc_.DepthWriteMask = writeDepth ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
 	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 }
 #pragma endregion

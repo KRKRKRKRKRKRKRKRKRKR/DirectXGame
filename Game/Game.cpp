@@ -17,7 +17,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 		"Resources/s.png",
 		"Resources/monsterBall.png.png",
 		"Resources/White.png",
-	}) {
+		}) {
 		TextureHandle h = renderer_->LoadTexture(path);
 		textures_.push_back({ h, path.substr(path.find_last_of('/') + 1) });
 	}
@@ -28,13 +28,18 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	cubeTexIndex_ = 1;
 	sphereTexIndex_ = 1;
 
-	sphere.translation   = { 3.0f, 1.0f,  0.0f };
-	cube.translation     = { -3.0f, 1.0f,  0.0f };
+	sphere.translation = { 3.0f, 1.0f,  0.0f };
+	cube.translation = { -3.0f, 1.0f,  0.0f };
 	triangle.translation = { -0.0f, 1.0f, 0.0f };
 
+	// 大きなFloor（Cubeを平たく大きく引き伸ばして床として使う）
+	floor_.translation = { 0.0f, -0.5f, 0.0f };
+	floor_.scale        = { 100.0f, 1.0f, 100.0f };
+	floorTexIndex_       = 1;
+
 	constexpr int   kGridSize = 50;
-	constexpr float kSpacing  = 2.0f;
-	constexpr float kOffset   = (kGridSize - 1) * kSpacing / 2.0f;
+	constexpr float kSpacing = 2.0f;
+	constexpr float kOffset = (kGridSize - 1) * kSpacing / 2.0f;
 	gridCubes_.reserve(kGridSize * kGridSize);
 	for (int z = 0; z < kGridSize; z++) {
 		for (int x = 0; x < kGridSize; x++) {
@@ -54,10 +59,9 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 	// 2DスプライトUI（ピクセル座標、左上原点）
 	sprite2D.translation = { 100.0f, 100.0f, 0.0f };
-	sprite2D.scale       = { 200.0f, 200.0f, 1.0f };
+	sprite2D.scale = { 200.0f, 200.0f, 1.0f };
 
 	bgm.Load("Resources/Audio/BGM.mp3");
-	bgm.Play(true, SoundType::BGM);
 	AudioManager::GetInstance().RegisterSound("BGM", &bgm, SoundType::BGM, true);
 
 	modelHandle_ = renderer_->LoadModel("Resources/Model", "player.obj");
@@ -73,8 +77,10 @@ void Game::Update(float deltaTime) {
 void Game::Render() {
 	Matrix4x4 view = camera_->GetViewMatrix();
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
-	camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
+		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
 	renderer_->SetCamera(view, proj, camera_->GetCameraData().position);
+
+	renderer_->DrawCube(floor_, floorColor_, textures_[floorTexIndex_].handle, floorLighting_, floorBlendMode_, floorBlendStrength_);
 
 	for (auto& t : gridCubes_) {
 		Transform rotated = t;
@@ -92,15 +98,15 @@ void Game::Render() {
 	// 光源を可視化：direction の逆方向 × 15 の位置に黄色い球、原点へのラインで方向を表示
 	{
 		const Vector3& d = renderer_->GetLight().GetData().direction;
-		float len = sqrtf(d.x*d.x + d.y*d.y + d.z*d.z);
+		float len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
 		if (len > 0.001f) {
 			// 光源位置 = ライトが向く方向の逆方向に 15 進んだ点
-			Vector3 lightPos = { -d.x/len * 15.0f, -d.y/len * 15.0f, -d.z/len * 15.0f };
+			Vector3 lightPos = { -d.x / len * 15.0f, -d.y / len * 15.0f, -d.z / len * 15.0f };
 
 			// 光源位置に黄色い球（ライティングOFF で常に同じ色）
 			Transform lightSphere;
 			lightSphere.translation = lightPos;
-			lightSphere.scale       = { 0.5f, 0.5f, 0.5f };
+			lightSphere.scale = { 0.5f, 0.5f, 0.5f };
 			renderer_->DrawSphere(lightSphere, { 1.0f, 1.0f, 0.0f, 1.0f }, kTextureNone, false);
 
 			// 光源 → 原点 のラインで照射方向を表示
@@ -114,7 +120,7 @@ void Game::Render() {
 		if (data.enablePoint != 0) {
 			Transform pointSphere;
 			pointSphere.translation = data.pointPosition;
-			pointSphere.scale       = { 0.3f, 0.3f, 0.3f };
+			pointSphere.scale = { 0.3f, 0.3f, 0.3f };
 			Vector4 c = { data.pointColor.x, data.pointColor.y, data.pointColor.z, 1.0f };
 			renderer_->DrawSphere(pointSphere, c, kTextureNone, false);
 		}
@@ -126,17 +132,17 @@ void Game::Render() {
 		if (data.enableSpot != 0) {
 			Transform spotSphere;
 			spotSphere.translation = data.spotPosition;
-			spotSphere.scale       = { 0.3f, 0.3f, 0.3f };
+			spotSphere.scale = { 0.3f, 0.3f, 0.3f };
 			Vector4 c = { data.spotColor.x, data.spotColor.y, data.spotColor.z, 1.0f };
 			renderer_->DrawSphere(spotSphere, c, kTextureNone, false);
 
 			const Vector3& sd = data.spotDirection;
-			float len = sqrtf(sd.x*sd.x + sd.y*sd.y + sd.z*sd.z);
+			float len = sqrtf(sd.x * sd.x + sd.y * sd.y + sd.z * sd.z);
 			if (len > 0.001f) {
 				Vector3 tip = {
-					data.spotPosition.x + sd.x/len * 3.0f,
-					data.spotPosition.y + sd.y/len * 3.0f,
-					data.spotPosition.z + sd.z/len * 3.0f
+					data.spotPosition.x + sd.x / len * 3.0f,
+					data.spotPosition.y + sd.y / len * 3.0f,
+					data.spotPosition.z + sd.z / len * 3.0f
 				};
 				renderer_->DrawLine(data.spotPosition, tip, c, view, proj);
 			}
@@ -165,6 +171,9 @@ void Game::DrawImGui() {
 	ImGui::Text("move wasd");
 	ImGui::Text("rotate mouse rightbutton + move mouse");
 	ImGui::Text("zoom mouse wheel or up/down arrow");
+	ImGui::Text("pos.x = %.1f", camera_->GetCameraData().position.x);
+	ImGui::Text("pos.y = %.1f", camera_->GetCameraData().position.y);
+	ImGui::Text("pos.z= %.1f", camera_->GetCameraData().position.z);
 	ImGui::End();
 
 	auto textureCombo = [&](const char* label, int& index) {
@@ -177,7 +186,7 @@ void Game::DrawImGui() {
 			}
 			ImGui::EndCombo();
 		}
-	};
+		};
 
 	// BlendMode選択コンボ。表示名の並びは BlendMode.h のenum定義順と対応させること
 	static const char* kBlendModeNames[] = { "None", "Normal (Alpha)", "Add", "Subtract", "Multiply", "Screen" };
@@ -192,7 +201,7 @@ void Game::DrawImGui() {
 			}
 			ImGui::EndCombo();
 		}
-	};
+		};
 
 	// ブレンドの強さ（commandList->OMSetBlendFactor()に渡す0〜1の定数）。
 	// None/Multiply/ScreenはDestBlendがSrcColor依存かブレンド自体が無効なため、
@@ -202,9 +211,20 @@ void Game::DrawImGui() {
 		if (!effective) ImGui::BeginDisabled();
 		ImGui::SliderFloat(label, &strength, 0.0f, 1.0f);
 		if (!effective) ImGui::EndDisabled();
-	};
+		};
 
 	ImGui::Begin("Objects");
+	ImGui::Text("Floor");
+	ImGui::Checkbox("Floor Lighting", &floorLighting_);
+	ImGui::ColorEdit4("Floor Color", &floorColor_.x);
+	ImGui::DragFloat3("Floor Scale", &floor_.scale.x, 0.1f, 0.1f, 200.0f);
+	ImGui::DragFloat3("Floor Rotation", &floor_.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Floor Translation", &floor_.translation.x, 0.1f, -100.0f, 100.0f);
+	textureCombo("Floor Texture", floorTexIndex_);
+	blendModeCombo("Floor BlendMode", floorBlendMode_);
+	blendStrengthSlider("Floor Blend Strength", floorBlendMode_, floorBlendStrength_);
+
+	ImGui::Separator();
 	ImGui::Text("Grid Cubes");
 	ImGui::Checkbox("Grid Lighting", &gridCubeLighting_);
 	ImGui::ColorEdit4("Grid Color", &gridCubeColor_.x);

@@ -25,6 +25,7 @@ private:
 	Transform triangle;
 	Transform sprite3D;
 	Transform sprite2D;
+	Transform floor_;
 
 	UVTransform sprite2DUV;
 	UVTransform sprite3DUV;
@@ -34,6 +35,7 @@ private:
 	Vector4 triangleColor = { 1,1,1,1 };
 	Vector4 sprite3DColor = { 1,1,1,1 };
 	Vector4 sprite2DColor = { 1,1,1,1 };
+	Vector4 floorColor_   = { 1,1,1,1 };
 
 	Sound bgm;
 
@@ -48,6 +50,7 @@ private:
 	bool triangleLighting = true;
 	bool sprite3DLighting = true;
 	bool sprite2DLighting = false;
+	bool floorLighting_   = true;
 
 	std::vector<Transform> gridCubes_;
 
@@ -62,6 +65,7 @@ private:
 	int cubeTexIndex_      = 0;
 	int sphereTexIndex_    = 0;
 	int gridCubeTexIndex_  = 0;
+	int floorTexIndex_     = 0;
 
 	Vector4 gridCubeColor_    = { 1,1,1,1 };
 	bool    gridCubeLighting_ = true;
@@ -77,6 +81,7 @@ private:
 	BlendMode modelBlendMode_    = BlendMode::kNone;
 	BlendMode sprite3DBlendMode_ = BlendMode::kNone;
 	BlendMode sprite2DBlendMode_ = BlendMode::kNone;
+	BlendMode floorBlendMode_    = BlendMode::kNone;
 
 	// OMSetBlendFactorに渡す0〜1の強さ。kNormal/kAdd/kSubtractのみ効果がある
 	float gridCubeBlendStrength_ = 1.0f;
@@ -86,6 +91,7 @@ private:
 	float modelBlendStrength_    = 1.0f;
 	float sprite3DBlendStrength_ = 1.0f;
 	float sprite2DBlendStrength_ = 1.0f;
+	float floorBlendStrength_    = 1.0f;
 
 	void DrawGrid();
 	void DrawImGui();

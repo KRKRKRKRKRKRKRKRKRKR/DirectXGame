@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <cstdint>
 #include <string>
+#include <functional>
 class Window {
 public:
 	Window() = default;
@@ -14,6 +15,9 @@ public:
 
 	// メッセージ処理（trueの間ループ継続）
 	bool ProcessMessage();
+
+	// リサイズ完了時に呼ばれるコールバック（新しいクライアント幅・高さを渡す）
+	void SetResizeCallback(std::function<void(int32_t, int32_t)> callback) { onResize_ = std::move(callback); }
 
 	// ゲッター
 	HWND    GetHWND()        const { return hwnd_; }
@@ -29,4 +33,7 @@ private:
 	WNDCLASS wc_ = {};
 	int32_t  clientWidth_;
 	int32_t  clientHeight_ ;
+	std::function<void(int32_t, int32_t)> onResize_;
+
+	static Window* instance_; // WindowProc（static）からインスタンスへアクセスするため
 };

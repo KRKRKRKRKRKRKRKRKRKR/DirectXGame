@@ -17,6 +17,11 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 	imgui_.Initialize(window_.GetHWND(), &directX_);
 	AudioManager::GetInstance().Initialize();
 	deltaTime_.Start();
+
+	window_.SetResizeCallback([this](int32_t width, int32_t height) {
+		directX_.Resize(width, height);
+		renderer_.Resize(width, height);
+	});
 }
 
 bool Engine::Update() {

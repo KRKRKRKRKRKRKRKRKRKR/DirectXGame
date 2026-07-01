@@ -3,6 +3,13 @@
 #include "../../../Math/MatrixMath.h"
 #include "../DescriptorHeaps/DescriptorHeaps.h"
 
+void Renderer::Resize(int width, int height) {
+	windowWidth_ = width;
+	windowHeight_ = height;
+	// GPUがDepthStencilバッファを使い終わっている前提（呼び出し元でGPU待機済み）
+	textureManager_.InitializeDepthStencil(width, height, heaps_);
+}
+
 void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, DescriptorHeaps* heaps, int width, int height) {
 	device_ = device;
 	commandList_ = commandList;

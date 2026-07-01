@@ -31,6 +31,9 @@ public:
 	void EndFrame();
 	void Finalize();
 
+	// ウィンドウリサイズ時に呼ぶ。スワップチェーンのバッファを再生成する
+	void Resize(int width, int height);
+
 	// ===== ゲッター =====
 	ID3D12Device* GetDevice() const { return device_.GetDevice(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return command_.GetCommandList(); }
