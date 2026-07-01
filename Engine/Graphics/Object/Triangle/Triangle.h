@@ -26,6 +26,9 @@ public:
 	// ワールド・ビュー・プロジェクション行列を設定
 	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t wvpIndex);
 
+	// 0=フラット, 1=スムース のブレンド率。変更時に頂点バッファを書き直す
+	void SetSmoothness(float s);
+
 	// ビューポート・シザーレクトを設定
 	void SetViewportAndScissorRect(int32_t width, int32_t height);
 
@@ -65,6 +68,8 @@ private:
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
 	uint8_t* wvpMappedData_ = nullptr;
 	uint32_t wvpStride_ = 0;
+
+	float smoothness_ = 1.0f;
 
 	// ビューポート・シザーレクト
 	D3D12_VIEWPORT viewport_{};

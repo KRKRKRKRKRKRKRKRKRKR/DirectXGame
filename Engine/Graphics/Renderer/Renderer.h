@@ -71,6 +71,9 @@ public:
 
 	DirectionalLight& GetLight() { return light_; }
 
+	void SetTriangleSmoothness(float s) { triangle_->SetSmoothness(s); }
+	void SetCubeSmoothness(float s)     { cube_->SetSmoothness(s); }
+
 	void InitializeGridLines();
 	void ResetFrameIndex();
 

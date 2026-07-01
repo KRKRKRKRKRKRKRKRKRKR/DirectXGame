@@ -152,11 +152,11 @@ void Triangle::WriteVertexData() {
 		return { n.x/len, n.y/len, n.z/len };
 	};
 
-	// 4面の法線を計算
-	Vector3 n1 = calcNormal(posB, posD, posC); // 面1: 底面
-	Vector3 n2 = calcNormal(posA, posC, posB); // 面2: 前面
-	Vector3 n3 = calcNormal(posA, posB, posD); // 面3: 左側面
-	Vector3 n4 = calcNormal(posA, posD, posC); // 面4: 右側面
+	// 4面の法線を計算（側面3つは外向きになるよう頂点順を逆にする）
+	Vector3 n1 = calcNormal(posB, posD, posC); // 面1: 底面  → 下向き (0,-1,0)
+	Vector3 n2 = calcNormal(posA, posB, posC); // 面2: 前面  → 前上向き
+	Vector3 n3 = calcNormal(posA, posD, posB); // 面3: 左側面 → 左上向き
+	Vector3 n4 = calcNormal(posA, posC, posD); // 面4: 右側面 → 右上向き
 
 	// 各頂点は3面に属するので、その3面の法線を平均・正規化してスムース法線を求める
 	//   A → 面2,3,4  /  B → 面1,2,3  /  C → 面1,2,4  /  D → 面1,3,4
@@ -170,29 +170,44 @@ void Triangle::WriteVertexData() {
 	Vector3 sC = avg3(n1, n2, n4);
 	Vector3 sD = avg3(n1, n3, n4);
 
-	// --- 面1: 底面 (B, D, C) ---
-	vertexData[0] = { posB, {0.0f, 1.0f}, sB };
-	vertexData[1] = { posD, {0.5f, 0.0f}, sD };
-	vertexData[2] = { posC, {1.0f, 1.0f}, sC };
+	// smoothness_ で flat(面法線) と smooth(平均法線) をブレンド
+	// lerp 後に正規化（lerp された中間ベクトルは単位長でないため）
+	auto blend = [&](const Vector3& flat, const Vector3& smooth) -> Vector3 {
+		float x = flat.x + (smooth.x - flat.x) * smoothness_;
+		float y = flat.y + (smooth.y - flat.y) * smoothness_;
+		float z = flat.z + (smooth.z - flat.z) * smoothness_;
+		float len = sqrtf(x*x + y*y + z*z);
+		return { x/len, y/len, z/len };
+	};
 
-	// --- 面2: 前面 (A, C, B) ---
-	vertexData[3] = { posA, {0.5f, 0.0f}, sA };
-	vertexData[4] = { posC, {1.0f, 1.0f}, sC };
-	vertexData[5] = { posB, {0.0f, 1.0f}, sB };
+	// --- 面1: 底面 (B, D, C)  flat=n1 ---
+	vertexData[0] = { posB, {0.0f, 1.0f}, blend(n1, sB) };
+	vertexData[1] = { posD, {0.5f, 0.0f}, blend(n1, sD) };
+	vertexData[2] = { posC, {1.0f, 1.0f}, blend(n1, sC) };
 
-	// --- 面3: 左側面 (A, B, D) ---
-	vertexData[6] = { posA, {0.5f, 0.0f}, sA };
-	vertexData[7] = { posB, {0.0f, 1.0f}, sB };
-	vertexData[8] = { posD, {1.0f, 1.0f}, sD };
+	// --- 面2: 前面 (A, B, C)  flat=n2 ---
+	vertexData[3] = { posA, {0.5f, 0.0f}, blend(n2, sA) };
+	vertexData[4] = { posB, {0.0f, 1.0f}, blend(n2, sB) };
+	vertexData[5] = { posC, {1.0f, 1.0f}, blend(n2, sC) };
 
-	// --- 面4: 右側面 (A, D, C) ---
-	vertexData[9]  = { posA, {0.5f, 0.0f}, sA };
-	vertexData[10] = { posD, {0.0f, 1.0f}, sD };
-	vertexData[11] = { posC, {1.0f, 1.0f}, sC };
+	// --- 面3: 左側面 (A, D, B)  flat=n3 ---
+	vertexData[6] = { posA, {0.5f, 0.0f}, blend(n3, sA) };
+	vertexData[7] = { posD, {1.0f, 1.0f}, blend(n3, sD) };
+	vertexData[8] = { posB, {0.0f, 1.0f}, blend(n3, sB) };
+
+	// --- 面4: 右側面 (A, C, D)  flat=n4 ---
+	vertexData[9]  = { posA, {0.5f, 0.0f}, blend(n4, sA) };
+	vertexData[10] = { posC, {1.0f, 1.0f}, blend(n4, sC) };
+	vertexData[11] = { posD, {0.0f, 1.0f}, blend(n4, sD) };
 
 	vertexResource_->Unmap(0, nullptr);
 
 	Logger::Log("Triangle vertex data written successfully\n");
+}
+
+void Triangle::SetSmoothness(float s) {
+	smoothness_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s);
+	WriteVertexData();
 }
 
 void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t wvpIndex) {

@@ -58,7 +58,8 @@ private:
 	VertexData* vertexMappedData_ = nullptr;
 
 	// マテリアル（色）関連
-	ComPtr<ID3D12Resource> materialResource_ = nullptr;
+	ComPtr<ID3D12Resource> materialResource_     = nullptr; // カスタムライン用
+	ComPtr<ID3D12Resource> gridMaterialResource_ = nullptr; // グリッド専用（固定色）
 
 	// WVP 行列関連
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
@@ -84,5 +85,6 @@ private:
 	// 内部初期化関数
 	void CreateVertexResource(ID3D12Device* device);
 	void CreateMaterialResource(ID3D12Device* device);
+	void CreateGridMaterialResource(ID3D12Device* device);
 	void CreateWvpMatrixResource(ID3D12Device* device);
 };

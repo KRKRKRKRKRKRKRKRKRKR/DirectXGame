@@ -50,6 +50,7 @@ void Line::Initialize(ID3D12Device* device, TextureManager* textureManager,
 
 	CreateVertexResource(device);
 	CreateMaterialResource(device);
+	CreateGridMaterialResource(device);
 	CreateWvpMatrixResource(device);
 
 	Logger::Log("Line initialized successfully\n");
@@ -104,6 +105,17 @@ void Line::CreateMaterialResource(ID3D12Device* device) {
 	// デフォルト: 白色
 	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
 	materialResource_->Unmap(0, nullptr);
+}
+
+void Line::CreateGridMaterialResource(ID3D12Device* device) {
+	gridMaterialResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Vector4));
+	assert(gridMaterialResource_);
+
+	Vector4* data = nullptr;
+	HRESULT hr = gridMaterialResource_->Map(0, nullptr, reinterpret_cast<void**>(&data));
+	assert(SUCCEEDED(hr) && data);
+	*data = Vector4(0.4f, 0.4f, 0.4f, 1.0f); // グリッド: グレー固定
+	gridMaterialResource_->Unmap(0, nullptr);
 }
 
 void Line::CreateWvpMatrixResource(ID3D12Device* device) {
@@ -242,7 +254,7 @@ void Line::DrawBatch(ID3D12GraphicsCommandList* commandList, uint32_t startVerte
 	}
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+	commandList->SetGraphicsRootConstantBufferView(0, gridMaterialResource_->GetGPUVirtualAddress());
 	D3D12_GPU_VIRTUAL_ADDRESS wvpAddress = wvpResource_->GetGPUVirtualAddress() + (wvpStride_ * wvpIndex);
 	commandList->SetGraphicsRootConstantBufferView(1, wvpAddress);
 	commandList->DrawInstanced(kVerticesPerLine * lineCount, 1, startVertex, 0);

@@ -65,6 +65,9 @@ private:
 	bool    gridCubeLighting_ = true;
 	Vector3 gridCubeRotation_ = { 0.0f, 0.0f, 0.0f };
 
+	float triangleSmoothness_ = 1.0f;
+	float cubeSmoothness_     = 1.0f;
+
 	void DrawGrid();
 	void DrawImGui();
 };

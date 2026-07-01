@@ -3,6 +3,7 @@
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
 #include "../Engine/Audio/AudioManager.h"
+#include <cmath>
 //test
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
@@ -27,19 +28,26 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	cubeTexIndex_ = 1;
 	sphereTexIndex_ = 1;
 
-	sphere.translation   = { 0.0f, 1.0f,  0.0f };
-	cube.translation     = { 3.0f, 1.0f,  0.0f };
-	triangle.translation = { -3.0f, 1.0f, 0.0f };
+	sphere.translation   = { 3.0f, 1.0f,  0.0f };
+	cube.translation     = { -3.0f, 1.0f,  0.0f };
+	triangle.translation = { -0.0f, 1.0f, 0.0f };
 
-	constexpr int   kGridSize = 50;
+	constexpr int   kGridSize = 10;
 	constexpr float kSpacing  = 2.0f;
 	constexpr float kOffset   = (kGridSize - 1) * kSpacing / 2.0f;
-	gridCubes_.reserve(kGridSize * kGridSize);
-	for (int z = 0; z < kGridSize; z++) {
-		for (int x = 0; x < kGridSize; x++) {
-			Transform t;
-			t.translation = { x * kSpacing - kOffset, 5.0f, z * kSpacing - kOffset };
-			gridCubes_.push_back(t);
+	gridCubes_.reserve(kGridSize * kGridSize * kGridSize);
+	for (int y = 0; y < kGridSize; y++) {
+		for (int z = 0; z < kGridSize; z++) {
+			for (int x = 0; x < kGridSize; x++) {
+				Transform t;
+				t.translation = {
+					x * kSpacing - kOffset,
+					y * kSpacing,
+					z * kSpacing - kOffset
+				};
+				t.scale = { 3.0f, 3.0f, 3.0f };
+				gridCubes_.push_back(t);
+			}
 		}
 	}
 
@@ -83,6 +91,25 @@ void Game::Render() {
 	renderer_->DrawSprite3D(sprite3D, sprite3DColor, textures_[sprite3DTexIndex_].handle, sprite3DLighting, sprite3DUV);
 	renderer_->DrawSprite2D(sprite2D, sprite2DColor, textures_[sprite2DTexIndex_].handle, sprite2DLighting, sprite2DUV);
 
+	// 光源を可視化：direction の逆方向 × 15 の位置に黄色い球、原点へのラインで方向を表示
+	{
+		const Vector3& d = renderer_->GetLight().GetData().direction;
+		float len = sqrtf(d.x*d.x + d.y*d.y + d.z*d.z);
+		if (len > 0.001f) {
+			// 光源位置 = ライトが向く方向の逆方向に 15 進んだ点
+			Vector3 lightPos = { -d.x/len * 15.0f, -d.y/len * 30.0f, -d.z/len * 15.0f };
+
+			// 光源位置に黄色い球（ライティングOFF で常に同じ色）
+			Transform lightSphere;
+			lightSphere.translation = lightPos;
+			lightSphere.scale       = { 0.5f, 0.5f, 0.5f };
+			renderer_->DrawSphere(lightSphere, { 1.0f, 1.0f, 0.0f, 1.0f }, kTextureNone, false);
+
+			// 光源 → 原点 のラインで照射方向を表示
+			renderer_->DrawLine(lightPos, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, view, proj);
+		}
+	}
+
 	DrawGrid();
 	DrawImGui();
 }
@@ -124,12 +151,16 @@ void Game::DrawImGui() {
 	ImGui::Checkbox("Grid Lighting", &gridCubeLighting_);
 	ImGui::ColorEdit4("Grid Color", &gridCubeColor_.x);
 	ImGui::DragFloat3("Grid Rotation", &gridCubeRotation_.x, 0.01f, -3.14f, 3.14f);
+	if (ImGui::SliderFloat("Grid Smoothness", &cubeSmoothness_, 0.0f, 1.0f))
+		renderer_->SetCubeSmoothness(cubeSmoothness_);
 	textureCombo("Grid Texture", gridCubeTexIndex_);
 
 	ImGui::Separator();
 	ImGui::Text("Triangle");
 	ImGui::Checkbox("Triangle Lighting", &triangleLighting);
 	ImGui::ColorEdit4("Triangle Color", &triangleColor.x);
+	if (ImGui::SliderFloat("Triangle Smoothness", &triangleSmoothness_, 0.0f, 1.0f))
+		renderer_->SetTriangleSmoothness(triangleSmoothness_);
 	ImGui::DragFloat3("Triangle Scale", &triangle.scale.x, 0.01f, 0.1f, 10.0f);
 	ImGui::DragFloat3("Triangle Rotation", &triangle.rotation.x, 0.01f, -3.14f, 3.14f);
 	ImGui::DragFloat3("Triangle Translation", &triangle.translation.x, 0.01f, -10.0f, 10.0f);
@@ -139,6 +170,8 @@ void Game::DrawImGui() {
 	ImGui::Text("Cube");
 	ImGui::Checkbox("Cube Lighting", &cubeLighting);
 	ImGui::ColorEdit4("Cube Color", &cubeColor.x);
+	if (ImGui::SliderFloat("Cube Smoothness", &cubeSmoothness_, 0.0f, 1.0f))
+		renderer_->SetCubeSmoothness(cubeSmoothness_);
 	ImGui::DragFloat3("Cube Scale", &cube.scale.x, 0.01f, 0.1f, 10.0f);
 	ImGui::DragFloat3("Cube Rotation", &cube.rotation.x, 0.01f, -3.14f, 3.14f);
 	ImGui::DragFloat3("Cube Translation", &cube.translation.x, 0.01f, -10.0f, 10.0f);
@@ -187,7 +220,7 @@ void Game::DrawImGui() {
 	auto& data = light.GetData();
 
 	ImGui::Begin("Lighting");
-	if (ImGui::DragFloat3("Direction", &data.direction.x, 0.01f, -1.0f, 1.0f)) {
+	if (ImGui::SliderFloat3("Direction", &data.direction.x, 0.00f, -1.0f)) {
 		light.SetDirection(data.direction);
 	}
 	if (ImGui::ColorEdit3("Color", &data.color.x)) {

@@ -23,6 +23,9 @@ public:
 
 	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
 	void SetColor(const Vector4& color, uint32_t index);
+
+	// 0=フラット, 1=スムース のブレンド率。変更時に頂点バッファを書き直す
+	void SetSmoothness(float s);
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 		TextureManager* textureManager, TextureHandle texture);
 
@@ -58,6 +61,8 @@ private:
 	ID3D12RootSignature* rootSignature_ = nullptr;
 	ID3D12PipelineState* pipelineState_ = nullptr;
 	TextureManager* textureManager_ = nullptr;
+
+	float smoothness_ = 1.0f;
 
 	void CreateVertexResource(ID3D12Device* device);
 	void WriteVertexData();
