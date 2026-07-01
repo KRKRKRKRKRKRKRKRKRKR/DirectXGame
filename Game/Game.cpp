@@ -73,7 +73,7 @@ void Game::Render() {
 	for (auto& t : gridCubes_) {
 		Transform rotated = t;
 		rotated.rotation = gridCubeRotation_;
-		renderer_->DrawTriangle(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_);
+		renderer_->DrawCube(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_);
 	}
 
 	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting);

@@ -152,29 +152,43 @@ void Triangle::WriteVertexData() {
 		return { n.x/len, n.y/len, n.z/len };
 	};
 
+	// 4面の法線を計算
+	Vector3 n1 = calcNormal(posB, posD, posC); // 面1: 底面
+	Vector3 n2 = calcNormal(posA, posC, posB); // 面2: 前面
+	Vector3 n3 = calcNormal(posA, posB, posD); // 面3: 左側面
+	Vector3 n4 = calcNormal(posA, posD, posC); // 面4: 右側面
+
+	// 各頂点は3面に属するので、その3面の法線を平均・正規化してスムース法線を求める
+	//   A → 面2,3,4  /  B → 面1,2,3  /  C → 面1,2,4  /  D → 面1,3,4
+	auto avg3 = [](const Vector3& a, const Vector3& b, const Vector3& c) -> Vector3 {
+		float x = a.x+b.x+c.x, y = a.y+b.y+c.y, z = a.z+b.z+c.z;
+		float len = sqrtf(x*x + y*y + z*z);
+		return { x/len, y/len, z/len };
+	};
+	Vector3 sA = avg3(n2, n3, n4);
+	Vector3 sB = avg3(n1, n2, n3);
+	Vector3 sC = avg3(n1, n2, n4);
+	Vector3 sD = avg3(n1, n3, n4);
+
 	// --- 面1: 底面 (B, D, C) ---
-	{ Vector3 n = calcNormal(posB, posD, posC);
-	  vertexData[0] = { posB, {0.0f, 1.0f}, n };
-	  vertexData[1] = { posD, {0.5f, 0.0f}, n };
-	  vertexData[2] = { posC, {1.0f, 1.0f}, n }; }
+	vertexData[0] = { posB, {0.0f, 1.0f}, sB };
+	vertexData[1] = { posD, {0.5f, 0.0f}, sD };
+	vertexData[2] = { posC, {1.0f, 1.0f}, sC };
 
 	// --- 面2: 前面 (A, C, B) ---
-	{ Vector3 n = calcNormal(posA, posC, posB);
-	  vertexData[3] = { posA, {0.5f, 0.0f}, n };
-	  vertexData[4] = { posC, {1.0f, 1.0f}, n };
-	  vertexData[5] = { posB, {0.0f, 1.0f}, n }; }
+	vertexData[3] = { posA, {0.5f, 0.0f}, sA };
+	vertexData[4] = { posC, {1.0f, 1.0f}, sC };
+	vertexData[5] = { posB, {0.0f, 1.0f}, sB };
 
 	// --- 面3: 左側面 (A, B, D) ---
-	{ Vector3 n = calcNormal(posA, posB, posD);
-	  vertexData[6] = { posA, {0.5f, 0.0f}, n };
-	  vertexData[7] = { posB, {0.0f, 1.0f}, n };
-	  vertexData[8] = { posD, {1.0f, 1.0f}, n }; }
+	vertexData[6] = { posA, {0.5f, 0.0f}, sA };
+	vertexData[7] = { posB, {0.0f, 1.0f}, sB };
+	vertexData[8] = { posD, {1.0f, 1.0f}, sD };
 
 	// --- 面4: 右側面 (A, D, C) ---
-	{ Vector3 n = calcNormal(posA, posD, posC);
-	  vertexData[9]  = { posA, {0.5f, 0.0f}, n };
-	  vertexData[10] = { posD, {0.0f, 1.0f}, n };
-	  vertexData[11] = { posC, {1.0f, 1.0f}, n }; }
+	vertexData[9]  = { posA, {0.5f, 0.0f}, sA };
+	vertexData[10] = { posD, {0.0f, 1.0f}, sD };
+	vertexData[11] = { posC, {1.0f, 1.0f}, sC };
 
 	vertexResource_->Unmap(0, nullptr);
 
