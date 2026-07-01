@@ -35,7 +35,7 @@ void Camera::HandleInput(float deltaTime) {
 		cameraData_.rotation.y += static_cast<float>(mouseX) * mouseSensitivity;
 		cameraData_.rotation.x += static_cast<float>(mouseY) * mouseSensitivity;
 
-		// 上下の角度制限（クランプ）
+		// 上下の角度制限（クランプ）約88度、ジンバルロック防止
 		if (cameraData_.rotation.x > 1.55f)  cameraData_.rotation.x = 1.55f;
 		if (cameraData_.rotation.x < -1.55f) cameraData_.rotation.x = -1.55f;
 
@@ -50,8 +50,8 @@ void Camera::HandleInput(float deltaTime) {
 
 			// 視野角が狭くなりすぎたり（拡大しすぎ）、広くなりすぎたり（魚眼レンズ化）しないよう制限
 			// 約10度〜90度の範囲に制限する例
-			if (cameraData_.fov < 10) cameraData_.fov = 10;
-			if (cameraData_.fov > 90)  cameraData_.fov = 90;
+			if (cameraData_.fov < 10.0f) cameraData_.fov = 10.0f;
+			if (cameraData_.fov > 90.0f) cameraData_.fov = 90.0f;
 		}
 	}
 

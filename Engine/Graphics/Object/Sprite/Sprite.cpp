@@ -2,6 +2,7 @@
 #include "../../../../Math/MatrixMath.h"
 #include "../../ResourceFactory/ResourceFactory.h"
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <cmath>
 
@@ -13,18 +14,22 @@ void Sprite::Initialize(ID3D12Device* device, TextureManager* textureManager,
 	pipelineState_ = pipelineState;
 
 	CreateVertexResource(device);
+	CreateIndexResource(device);
 	WriteVertexData();
 	CreateWvpResource(device);
 	CreateColorResource(device);
 
-	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   1, sizeof(Matrix4x4), wvpHeapIndex);
+	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   1, sizeof(TransformationMatrix), wvpHeapIndex);
 	auto colorSrv = heaps->CreateStructuredBufferSRV(device, colorResource_.Get(), 1, sizeof(Vector4),   colorHeapIndex);
 	wvpSrvHandle_   = wvpSrv.gpuHandle;
 	colorSrvHandle_ = colorSrv.gpuHandle;
 }
 
-void Sprite::SetWvpMatrix(const Matrix4x4& wvpMatrix) {
-	if (wvpMappedData_) *wvpMappedData_ = wvpMatrix;
+void Sprite::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world) {
+	if (wvpMappedData_) {
+		wvpMappedData_->WVP   = wvpMatrix;
+		wvpMappedData_->World = world;
+	}
 }
 
 void Sprite::SetColor(const Vector4& color) {
@@ -34,10 +39,11 @@ void Sprite::SetColor(const Vector4& color) {
 void Sprite::SetUVTransform(const UVTransform& uvTransform) {
 	if (!vertexMappedData_) return;
 
-	// 基準UV：flipV_=false→3D（Y-up）、true→2D（Y-down スクリーン座標）
-	constexpr float baseU[kVertexCount]    = { 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f };
-	constexpr float baseV3D[kVertexCount]  = { 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f };
-	constexpr float baseV2D[kVertexCount]  = { 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f };
+	// 基準UV（頂点順: 左下, 右下, 左上, 右上）
+	// flipV_=false→3D（Y-up）、true→2D（Y-down スクリーン座標）
+	constexpr float baseU[kVertexCount]   = { 0.0f, 1.0f, 0.0f, 1.0f };
+	constexpr float baseV3D[kVertexCount] = { 1.0f, 1.0f, 0.0f, 0.0f };
+	constexpr float baseV2D[kVertexCount] = { 0.0f, 0.0f, 1.0f, 1.0f };
 	const float* baseV = flipV_ ? baseV2D : baseV3D;
 
 	float c = cosf(uvTransform.rotation);
@@ -70,8 +76,9 @@ void Sprite::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 void Sprite::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {
 	(void)instanceCount; (void)startInstance;
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
+	commandList->IASetIndexBuffer(&indexBufferView_);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->DrawInstanced(kVertexCount, 1, 0, 0);
+	commandList->DrawIndexedInstanced(kIndexCount, 1, 0, 0, 0);
 }
 
 void Sprite::CreateVertexResource(ID3D12Device* device) {
@@ -80,8 +87,21 @@ void Sprite::CreateVertexResource(ID3D12Device* device) {
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
 	vertexBufferView_.SizeInBytes    = static_cast<UINT>(sizeof(VertexData) * kVertexCount);
 	vertexBufferView_.StrideInBytes  = sizeof(VertexData);
-	// ポインタは一度だけ取得して保持
 	vertexResource_->Map(0, nullptr, reinterpret_cast<void**>(&vertexMappedData_));
+}
+
+void Sprite::CreateIndexResource(ID3D12Device* device) {
+	indexResource_ = ResourceFactory::CreateBufferResource(device, sizeof(uint16_t) * kIndexCount);
+	indexBufferView_.BufferLocation = indexResource_->GetGPUVirtualAddress();
+	indexBufferView_.SizeInBytes    = sizeof(uint16_t) * kIndexCount;
+	indexBufferView_.Format         = DXGI_FORMAT_R16_UINT;
+
+	uint16_t* indexData = nullptr;
+	indexResource_->Map(0, nullptr, reinterpret_cast<void**>(&indexData));
+	// 三角形1: 左下→右下→左上、三角形2: 左上→右下→右上
+	indexData[0] = 0; indexData[1] = 1; indexData[2] = 2;
+	indexData[3] = 2; indexData[4] = 1; indexData[5] = 3;
+	indexResource_->Unmap(0, nullptr);
 }
 
 void Sprite::WriteVertexData() {
@@ -89,12 +109,12 @@ void Sprite::WriteVertexData() {
 	// flipV_=true（2D）: Y-down スクリーン座標系に合わせて V を反転
 	float vTop    = flipV_ ? 0.0f : 1.0f;
 	float vBottom = flipV_ ? 1.0f : 0.0f;
+	// 頂点順: 左下[0], 右下[1], 左上[2], 右上[3]
+	// インデックス[0,1,2, 2,1,3]で三角形2枚を構成
 	vertexMappedData_[0] = { {-0.5f, -0.5f, 0.0f, 1.0f}, {0.0f, vTop   }, {0.0f, 0.0f, -1.0f} };
 	vertexMappedData_[1] = { { 0.5f, -0.5f, 0.0f, 1.0f}, {1.0f, vTop   }, {0.0f, 0.0f, -1.0f} };
 	vertexMappedData_[2] = { {-0.5f,  0.5f, 0.0f, 1.0f}, {0.0f, vBottom}, {0.0f, 0.0f, -1.0f} };
-	vertexMappedData_[3] = { {-0.5f,  0.5f, 0.0f, 1.0f}, {0.0f, vBottom}, {0.0f, 0.0f, -1.0f} };
-	vertexMappedData_[4] = { { 0.5f, -0.5f, 0.0f, 1.0f}, {1.0f, vTop   }, {0.0f, 0.0f, -1.0f} };
-	vertexMappedData_[5] = { { 0.5f,  0.5f, 0.0f, 1.0f}, {1.0f, vBottom}, {0.0f, 0.0f, -1.0f} };
+	vertexMappedData_[3] = { { 0.5f,  0.5f, 0.0f, 1.0f}, {1.0f, vBottom}, {0.0f, 0.0f, -1.0f} };
 }
 
 void Sprite::SetFlipV(bool flip) {
@@ -103,11 +123,12 @@ void Sprite::SetFlipV(bool flip) {
 }
 
 void Sprite::CreateWvpResource(ID3D12Device* device) {
-	wvpResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Matrix4x4));
+	wvpResource_ = ResourceFactory::CreateBufferResource(device, sizeof(TransformationMatrix));
 	assert(wvpResource_);
 	HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
 	assert(SUCCEEDED(hr) && wvpMappedData_);
-	*wvpMappedData_ = MatrixMath::Identity();
+	wvpMappedData_->WVP   = MatrixMath::Identity();
+	wvpMappedData_->World = MatrixMath::Identity();
 }
 
 void Sprite::CreateColorResource(ID3D12Device* device) {

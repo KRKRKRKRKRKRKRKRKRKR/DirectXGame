@@ -12,7 +12,7 @@ public:
         ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
         DescriptorHeaps* heaps, uint32_t wvpHeapIndex, uint32_t colorHeapIndex);
 
-    void SetWvpMatrix(const Matrix4x4& wvpMatrix);
+    void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world);
     void SetColor(const Vector4& color);
     void SetUVTransform(const UVTransform& uvTransform);
     void SetFlipV(bool flip);
@@ -30,8 +30,11 @@ private:
     VertexData* vertexMappedData_ = nullptr;
     bool flipV_ = false;
 
+    ComPtr<ID3D12Resource> indexResource_;
+    D3D12_INDEX_BUFFER_VIEW indexBufferView_{};
+
     ComPtr<ID3D12Resource> wvpResource_;
-    Matrix4x4* wvpMappedData_ = nullptr;
+    TransformationMatrix* wvpMappedData_ = nullptr;
     D3D12_GPU_DESCRIPTOR_HANDLE wvpSrvHandle_{};
 
     ComPtr<ID3D12Resource> colorResource_;
@@ -42,9 +45,11 @@ private:
     ID3D12PipelineState* pipelineState_ = nullptr;
     TextureManager* textureManager_ = nullptr;
 
-    static constexpr int kVertexCount = 6;
+    static constexpr int kVertexCount = 4;
+    static constexpr int kIndexCount  = 6;
 
     void CreateVertexResource(ID3D12Device* device);
+    void CreateIndexResource(ID3D12Device* device);
     void WriteVertexData();
     void CreateWvpResource(ID3D12Device* device);
     void CreateColorResource(ID3D12Device* device);

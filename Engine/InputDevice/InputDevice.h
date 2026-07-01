@@ -1,6 +1,7 @@
 #pragma once
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
+#include <wrl/client.h>
 
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
@@ -34,13 +35,13 @@ private:
     ~InputDevice() = default;
 
     //キーボード
-    IDirectInput8* directInput_ = nullptr;
-    IDirectInputDevice8* keyboardDevice_ = nullptr;
+    Microsoft::WRL::ComPtr<IDirectInput8> directInput_;
+    Microsoft::WRL::ComPtr<IDirectInputDevice8> keyboardDevice_;
     BYTE key_[256] = {};
     BYTE prevKey_[256] = {};
 
     //マウス
-    IDirectInputDevice8* mouseDevice_ = nullptr;
+    Microsoft::WRL::ComPtr<IDirectInputDevice8> mouseDevice_;
     DIMOUSESTATE mouseState_ = {};
 };
 

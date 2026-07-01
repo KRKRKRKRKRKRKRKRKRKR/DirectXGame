@@ -32,7 +32,7 @@ void Cube::Initialize(ID3D12Device* device, TextureManager* textureManager,
 	CreateColorResource(device);
 
 	// Triangle が 10,11 を使っているので Cube は 12,13 を使う
-	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   kMaxInstanceCount, sizeof(Matrix4x4), 12);
+	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   kMaxInstanceCount, sizeof(TransformationMatrix), 12);
 	auto colorSrv = heaps->CreateStructuredBufferSRV(device, colorResource_.Get(), kMaxInstanceCount, sizeof(Vector4),   13);
 
 	wvpSrvHandle_   = wvpSrv.gpuHandle;
@@ -110,7 +110,7 @@ void Cube::WriteVertexData() {
 }
 
 void Cube::CreateWvpResource(ID3D12Device* device) {
-	wvpStride_   = sizeof(Matrix4x4);
+	wvpStride_   = sizeof(TransformationMatrix);
 	wvpResource_ = ResourceFactory::CreateBufferResource(device, wvpStride_ * kMaxInstanceCount);
 	assert(wvpResource_);
 
@@ -133,10 +133,12 @@ void Cube::CreateColorResource(ID3D12Device* device) {
 	}
 }
 
-void Cube::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t index) {
+void Cube::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index) {
 	if (!wvpMappedData_) return;
-	char* dst = reinterpret_cast<char*>(wvpMappedData_) + index * wvpStride_;
-	std::memcpy(dst, &wvpMatrix, sizeof(Matrix4x4));
+	TransformationMatrix* dst = reinterpret_cast<TransformationMatrix*>(
+		reinterpret_cast<char*>(wvpMappedData_) + index * wvpStride_);
+	dst->WVP   = wvpMatrix;
+	dst->World = world;
 }
 
 void Cube::SetColor(const Vector4& color, uint32_t index) {

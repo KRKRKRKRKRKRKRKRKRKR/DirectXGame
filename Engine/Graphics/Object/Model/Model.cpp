@@ -47,7 +47,7 @@ void Model::Initialize(ID3D12Device* device, TextureManager* textureManager,
 	CreateWvpResource(device);
 	CreateColorResource(device);
 
-	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   kMaxInstanceCount, sizeof(Matrix4x4), wvpHeapIndex);
+	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   kMaxInstanceCount, sizeof(TransformationMatrix), wvpHeapIndex);
 	auto colorSrv = heaps->CreateStructuredBufferSRV(device, colorResource_.Get(), kMaxInstanceCount, sizeof(Vector4),   colorHeapIndex);
 
 	wvpSrvHandle_   = wvpSrv.gpuHandle;
@@ -179,7 +179,7 @@ void Model::CreateVertexResource(ID3D12Device* device, const ModelData& modelDat
 }
 
 void Model::CreateWvpResource(ID3D12Device* device) {
-	wvpStride_   = sizeof(Matrix4x4);
+	wvpStride_   = sizeof(TransformationMatrix);
 	wvpResource_ = ResourceFactory::CreateBufferResource(device, wvpStride_ * kMaxInstanceCount);
 	assert(wvpResource_);
 
@@ -204,10 +204,12 @@ void Model::CreateColorResource(ID3D12Device* device) {
 
 // ---- 描画 ----
 
-void Model::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t index) {
+void Model::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index) {
 	if (!wvpMappedData_) return;
-	char* dst = reinterpret_cast<char*>(wvpMappedData_) + index * wvpStride_;
-	std::memcpy(dst, &wvpMatrix, sizeof(Matrix4x4));
+	TransformationMatrix* dst = reinterpret_cast<TransformationMatrix*>(
+		reinterpret_cast<char*>(wvpMappedData_) + index * wvpStride_);
+	dst->WVP   = wvpMatrix;
+	dst->World = world;
 }
 
 void Model::SetColor(const Vector4& color, uint32_t index) {

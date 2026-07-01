@@ -25,7 +25,7 @@ public:
 		const std::string& directoryPath, const std::string& filename,
 		uint32_t wvpHeapIndex, uint32_t colorHeapIndex);
 
-	void SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t index = 0);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index = 0);
 	void SetColor(const Vector4& color, uint32_t index = 0);
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 		TextureManager* textureManager, TextureHandle texture);

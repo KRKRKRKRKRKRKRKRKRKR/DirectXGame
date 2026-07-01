@@ -8,7 +8,7 @@ using Microsoft::WRL::ComPtr;
 class DirectionalLight {
 public:
     struct LightData {
-        Vector3  direction        = { 1.0f, -1.0f, 0.0f };
+        Vector3  direction        = { 0.0f, 10.0f, 0.0f };
         float    ambient          = 0.2f;
         Vector3  color            = { 1.0f, 1.0f, 1.0f };
         uint32_t enableLighting   = 1;

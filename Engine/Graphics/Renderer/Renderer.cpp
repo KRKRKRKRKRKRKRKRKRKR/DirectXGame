@@ -89,8 +89,9 @@ Renderer::ModelHandle Renderer::LoadModel(const std::string& directoryPath, cons
 }
 
 void Renderer::DrawModel(ModelHandle handle, const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
-	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
-	modelCommands_.push_back({ handle, wvp, color, texture, useLighting });
+	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
+	Matrix4x4 wvp   = world * view_ * projection_;
+	modelCommands_.push_back({ handle, wvp, world, color, texture, useLighting });
 }
 
 void Renderer::FlushModels() {
@@ -100,7 +101,7 @@ void Renderer::FlushModels() {
 		auto& cmd = modelCommands_[i];
 		Model* model = models_[cmd.handle].get();
 
-		model->SetWvpMatrix(cmd.wvp, i);
+		model->SetWvpMatrix(cmd.wvp, cmd.world, i);
 		model->SetColor(cmd.color, i);
 
 		// 呼び出し側がテクスチャを指定していればそれを使い、なければモデルのMTLテクスチャを使う
@@ -117,32 +118,35 @@ void Renderer::FlushModels() {
 // ---- Transform 版 ----
 
 void Renderer::DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
-	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
-	DrawTriangle(wvp, color, texture, useLighting);
+	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
+	Matrix4x4 wvp   = world * view_ * projection_;
+	triangleCommands_.push_back({ wvp, world, color, texture, useLighting });
 }
 
 void Renderer::DrawSphere(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
-	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
-	DrawSphere(wvp, color, texture, useLighting);
+	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
+	Matrix4x4 wvp   = world * view_ * projection_;
+	sphereCommands_.push_back({ wvp, world, color, texture, useLighting });
 }
 
 void Renderer::DrawCube(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting) {
-	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation) * view_ * projection_;
-	DrawCube(wvp, color, texture, useLighting);
+	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
+	Matrix4x4 wvp   = world * view_ * projection_;
+	cubeCommands_.push_back({ wvp, world, color, texture, useLighting });
 }
 
 // ---- WVP 直接指定版 ----
 
 void Renderer::DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting) {
-	triangleCommands_.push_back({ wvp, color, texture, useLighting });
+	triangleCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting });
 }
 
 void Renderer::DrawCube(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting) {
-	cubeCommands_.push_back({ wvp, color, texture, useLighting });
+	cubeCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting });
 }
 
 void Renderer::DrawSphere(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting) {
-	sphereCommands_.push_back({ wvp, color, texture, useLighting });
+	sphereCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting });
 }
 
 // ---- Flush ----
@@ -157,7 +161,7 @@ void Renderer::FlushTriangles() {
 		});
 
 	for (int i = 0; i < (int)triangleCommands_.size(); i++) {
-		triangle_->SetWvpMatrix(triangleCommands_[i].wvp, i);
+		triangle_->SetWvpMatrix(triangleCommands_[i].wvp, triangleCommands_[i].world, i);
 		triangle_->SetColor(triangleCommands_[i].color, i);
 	}
 
@@ -189,7 +193,7 @@ void Renderer::FlushCubes() {
 		});
 
 	for (int i = 0; i < (int)cubeCommands_.size(); i++) {
-		cube_->SetWvpMatrix(cubeCommands_[i].wvp, i);
+		cube_->SetWvpMatrix(cubeCommands_[i].wvp, cubeCommands_[i].world, i);
 		cube_->SetColor(cubeCommands_[i].color, i);
 	}
 
@@ -221,7 +225,7 @@ void Renderer::FlushSpheres() {
 		});
 
 	for (int i = 0; i < (int)sphereCommands_.size(); i++) {
-		sphere_->SetWvpMatrix(sphereCommands_[i].wvp, i);
+		sphere_->SetWvpMatrix(sphereCommands_[i].wvp, sphereCommands_[i].world, i);
 		sphere_->SetColor(sphereCommands_[i].color, i);
 	}
 
@@ -279,8 +283,9 @@ void Renderer::DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection)
 // ---- Sprite ----
 
 void Renderer::DrawSprite3D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform) {
-	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation) * view_ * projection_;
-	sprite3D_->SetWvpMatrix(wvp);
+	Matrix4x4 world = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
+	Matrix4x4 wvp   = world * view_ * projection_;
+	sprite3D_->SetWvpMatrix(wvp, world);
 	sprite3D_->SetColor(color);
 	sprite3D_->SetUVTransform(uvTransform);
 	sprite3D_->SetPipelineCommands(commandList_, &textureManager_, texture);
@@ -290,17 +295,18 @@ void Renderer::DrawSprite3D(const Transform& transform, const Vector4& color, Te
 }
 
 void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform) {
-	Matrix4x4 ortho = MatrixMath::MakeOrthographicMatrix(
+	Matrix4x4 ortho  = MatrixMath::MakeOrthographicMatrix(
 		static_cast<float>(windowWidth_), static_cast<float>(windowHeight_));
-	Matrix4x4 wvp = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation) * ortho;
-	sprite2DCommands_.push_back({ wvp, color, texture, useLighting, uvTransform });
+	Matrix4x4 world  = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
+	Matrix4x4 wvp    = world * ortho;
+	sprite2DCommands_.push_back({ wvp, world, color, texture, useLighting, uvTransform });
 }
 
 void Renderer::FlushSprites2D() {
 	if (sprite2DCommands_.empty()) return;
 
 	for (auto& cmd : sprite2DCommands_) {
-		sprite2D_->SetWvpMatrix(cmd.wvp);
+		sprite2D_->SetWvpMatrix(cmd.wvp, cmd.world);
 		sprite2D_->SetColor(cmd.color);
 		sprite2D_->SetUVTransform(cmd.uvTransform);
 		sprite2D_->SetPipelineCommands(commandList_, &textureManager_, cmd.texture);

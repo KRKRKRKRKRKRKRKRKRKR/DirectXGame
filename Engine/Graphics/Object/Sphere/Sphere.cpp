@@ -32,7 +32,7 @@ void Sphere::Initialize(ID3D12Device* device, TextureManager* textureManager,
 
     // SRVをDescriptorHeapsに登録（index 14: WVP, index 15: 色）
     auto wvpSrv = heaps->CreateStructuredBufferSRV(
-        device, wvpResource_.Get(), kMaxInstanceCount, sizeof(Matrix4x4), 14);
+        device, wvpResource_.Get(), kMaxInstanceCount, sizeof(TransformationMatrix), 14);
     auto colorSrv = heaps->CreateStructuredBufferSRV(
         device, colorResource_.Get(), kMaxInstanceCount, sizeof(Vector4), 15);
 
@@ -40,10 +40,12 @@ void Sphere::Initialize(ID3D12Device* device, TextureManager* textureManager,
     colorSrvHandle_ = colorSrv.gpuHandle;
 }
 
-void Sphere::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t index) {
+void Sphere::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index) {
     if (!wvpMappedData_) return;
-    uint8_t* dst = wvpMappedData_ + index * wvpStride_;
-    std::memcpy(dst, &wvpMatrix, sizeof(Matrix4x4));
+    TransformationMatrix* dst = reinterpret_cast<TransformationMatrix*>(
+        wvpMappedData_ + index * wvpStride_);
+    dst->WVP   = wvpMatrix;
+    dst->World = world;
 }
 
 void Sphere::SetColor(const Vector4& color, uint32_t index) {
@@ -115,7 +117,7 @@ void Sphere::CreateVertexResource(ID3D12Device* device, uint32_t subdivision, fl
 }
 
 void Sphere::CreateWvpResource(ID3D12Device* device) {
-    wvpStride_ = sizeof(Matrix4x4);
+    wvpStride_ = sizeof(TransformationMatrix);
     wvpResource_ = ResourceFactory::CreateBufferResource(device, wvpStride_ * kMaxInstanceCount);
     assert(wvpResource_);
 

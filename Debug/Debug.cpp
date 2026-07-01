@@ -37,7 +37,7 @@ LONG WINAPI Debug::ExportDump(EXCEPTION_POINTERS* exception) {
 
 void Debug::EnableDebugLayer() {
 #ifdef _DEBUG
-	ID3D12Debug1* debugController = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12Debug1> debugController;
 	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
 
 		// デバッグレイヤーを有効にする
@@ -45,15 +45,13 @@ void Debug::EnableDebugLayer() {
 
 		//GPUチェックを有効にする
 		debugController->SetEnableGPUBasedValidation(TRUE);
-
-		debugController->Release();
 	}
 #endif
 }
 
 void Debug::SetupInfoQueue(ID3D12Device* dx) {
 #ifdef _DEBUG
-	ID3D12InfoQueue* infoQueue = nullptr;
+	Microsoft::WRL::ComPtr<ID3D12InfoQueue> infoQueue;
 	if (SUCCEEDED(dx->QueryInterface(IID_PPV_ARGS(&infoQueue)))) {
 		// D3D12の警告をすべて表示する
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
@@ -72,17 +70,15 @@ void Debug::SetupInfoQueue(ID3D12Device* dx) {
 		filter.DenyList.NumSeverities = _countof(severities);
 		filter.DenyList.pSeverityList = severities;
 		infoQueue->PushStorageFilter(&filter);
-		infoQueue->Release();
 	}
 #endif
 }
 
 void Debug::ReportLiveObjects() {
-	IDXGIDebug1* debug = nullptr;
+	Microsoft::WRL::ComPtr<IDXGIDebug1> debug;
 	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&debug)))) {
-       debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
+		debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_DETAIL);
 		debug->ReportLiveObjects(DXGI_DEBUG_APP, DXGI_DEBUG_RLO_DETAIL);
 		debug->ReportLiveObjects(DXGI_DEBUG_D3D12, DXGI_DEBUG_RLO_DETAIL);
-		debug->Release();
 	}
 }

@@ -21,7 +21,7 @@ public:
 		ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState,
 		DescriptorHeaps* heaps);
 
-	void SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t index);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
 	void SetColor(const Vector4& color, uint32_t index);
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 		TextureManager* textureManager, TextureHandle texture);

@@ -81,6 +81,7 @@ public:
 private:
 	struct TriangleCommand {
 		Matrix4x4     wvp;
+		Matrix4x4     world;
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
@@ -93,18 +94,21 @@ private:
 	};
 	struct SphereCommand {
 		Matrix4x4     wvp;
+		Matrix4x4     world;
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
 	};
 	struct CubeCommand {
 		Matrix4x4     wvp;
+		Matrix4x4     world;
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
 	};
 	struct Sprite2DCommand {
 		Matrix4x4     wvp;
+		Matrix4x4     world;
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;
@@ -113,6 +117,7 @@ private:
 	struct ModelCommand {
 		ModelHandle   handle;
 		Matrix4x4     wvp;
+		Matrix4x4     world;
 		Vector4       color;
 		TextureHandle texture;
 		bool          useLighting;

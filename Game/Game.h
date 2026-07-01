@@ -61,8 +61,9 @@ private:
 	int sphereTexIndex_    = 0;
 	int gridCubeTexIndex_  = 0;
 
-	Vector4 gridCubeColor_   = { 1,1,1,1 };
+	Vector4 gridCubeColor_    = { 1,1,1,1 };
 	bool    gridCubeLighting_ = true;
+	Vector3 gridCubeRotation_ = { 0.0f, 0.0f, 0.0f };
 
 	void DrawGrid();
 	void DrawImGui();

@@ -24,7 +24,7 @@ public:
 	void Initialize(ID3D12Device* device, TextureManager* textureManager, ID3D12RootSignature* rootSignature, ID3D12PipelineState* pipelineState, DescriptorHeaps* heaps);
 
 	// ワールド・ビュー・プロジェクション行列を設定
-	void SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t wvpIndex);
 
 	// ビューポート・シザーレクトを設定
 	void SetViewportAndScissorRect(int32_t width, int32_t height);

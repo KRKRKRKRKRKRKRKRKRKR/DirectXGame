@@ -6,6 +6,7 @@
 #include <d3d12sdklayers.h>
 #include <dxgi1_6.h>
 #include <dxgidebug.h>
+#include <wrl/client.h>
 #pragma comment(lib, "dbghelp.lib")
 
 class Debug {

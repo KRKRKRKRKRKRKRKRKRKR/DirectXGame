@@ -71,7 +71,9 @@ void Game::Render() {
 	renderer_->SetCamera(view, proj);
 
 	for (auto& t : gridCubes_) {
-		renderer_->DrawCube(t, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_);
+		Transform rotated = t;
+		rotated.rotation = gridCubeRotation_;
+		renderer_->DrawTriangle(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_);
 	}
 
 	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting);
@@ -121,6 +123,7 @@ void Game::DrawImGui() {
 	ImGui::Text("Grid Cubes");
 	ImGui::Checkbox("Grid Lighting", &gridCubeLighting_);
 	ImGui::ColorEdit4("Grid Color", &gridCubeColor_.x);
+	ImGui::DragFloat3("Grid Rotation", &gridCubeRotation_.x, 0.01f, -3.14f, 3.14f);
 	textureCombo("Grid Texture", gridCubeTexIndex_);
 
 	ImGui::Separator();

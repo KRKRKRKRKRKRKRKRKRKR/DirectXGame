@@ -22,6 +22,11 @@ struct VertexData {
 	Vector3 normal;
 };
 
+struct TransformationMatrix {
+	Matrix4x4 WVP;
+	Matrix4x4 World;
+};
+
 struct CameraData {
 	Vector3 position = {0.0f, 0.0f, -5.0f};
 	Vector3 rotation = {0.0f,0.0f,0.0f};

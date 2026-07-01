@@ -45,7 +45,7 @@ void Triangle::Initialize(ID3D12Device* device, TextureManager* textureManager,
 
 	// SRVをDescriptorHeapsに登録（index 10: WVP, index 11: 色）
 	auto wvpSrv = heaps->CreateStructuredBufferSRV(
-		device, wvpResource_.Get(), kMaxInstanceCount, sizeof(Matrix4x4), 10);
+		device, wvpResource_.Get(), kMaxInstanceCount, sizeof(TransformationMatrix), 10);
 	auto colorSrv = heaps->CreateStructuredBufferSRV(
 		device, materialResource_.Get(), kMaxInstanceCount, sizeof(Vector4), 11);
 
@@ -85,7 +85,7 @@ void Triangle::CreateMaterialResource(ID3D12Device* device) {
 }
 
 void Triangle::CreateWvpMatrixResource(ID3D12Device* device) {
-	wvpStride_ = sizeof(Matrix4x4);
+	wvpStride_ = sizeof(TransformationMatrix);
 	wvpResource_ = ResourceFactory::CreateBufferResource(device, wvpStride_ * kMaxInstanceCount);
 
 	HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
@@ -181,14 +181,16 @@ void Triangle::WriteVertexData() {
 	Logger::Log("Triangle vertex data written successfully\n");
 }
 
-void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex) {
+void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t wvpIndex) {
 	if (!wvpMappedData_ || !wvpResource_) {
 		Logger::Log("Triangle::SetWvpMatrix : WVP resource is not initialized\n");
 		return;
 	}
 
-	char* destination = reinterpret_cast<char*>(wvpMappedData_) + wvpIndex * wvpStride_;
-	std::memcpy(destination, &wvpMatrix, sizeof(Matrix4x4));
+	TransformationMatrix* dst = reinterpret_cast<TransformationMatrix*>(
+		reinterpret_cast<char*>(wvpMappedData_) + wvpIndex * wvpStride_);
+	dst->WVP   = wvpMatrix;
+	dst->World = world;
 }
 
 void Triangle::SetViewportAndScissorRect(int32_t width, int32_t height) {
