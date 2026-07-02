@@ -134,8 +134,17 @@ private:
 	// Setter経由でしか書き込めないため、ここに現在値をコピー→ImGuizmoで編集→差分をSetterへ書き戻す
 	Transform lightGizmoScratch_;
 
+	// マウスピッキング：3Dビュー上で左クリックした瞬間を検知するための前フレーム状態。
+	// InputDeviceは左クリックの「押されているか」のみでトリガー版を持たないため、ここで保持する
+	bool prevMouseLeftPressed_ = false;
+
 	Transform* GetGizmoTargetTransform();
 	void       UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj);
+
+	// gizmoTargets_内のオブジェクトをTransform.scaleから概算したBounding Sphereとみなし、
+	// 左クリック位置から飛ばしたレイとの交差判定で最も手前のものをギズモ選択状態に反映する。
+	// ImGuizmo操作中/ImGuiパネル操作中は発火しない（既存のコンボボックス選択と共存する追加手段）
+	void UpdatePicking(const Matrix4x4& view, const Matrix4x4& proj);
 
 	void DrawGrid();
 	void DrawImGui();

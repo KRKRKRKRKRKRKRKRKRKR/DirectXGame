@@ -61,6 +61,10 @@ OBB     AABBToOBB(const AABB& aabb);
 bool SphereSphere(const Sphere& s1, const Sphere& s2);
 bool SpherePlane(const Sphere& sphere, const Plane& plane);
 
+// 交差する場合はtrueを返し、out_tにray.originからの交点までの距離（ray.diffのスケール基準）を書き込む。
+// マウスピッキングで複数候補のうち最も手前（tが最小）のものを選ぶ用途を想定
+bool RaySphere(const Ray& ray, const Sphere& sphere, float& out_t);
+
 // view*projection行列（DirectXMath流儀：行ベクトル・右からかける規約）から視錐台の6平面を抽出する
 Frustum MakeFrustumFromViewProjection(const Matrix4x4& viewProjection);
 // フラストラムカリング用。球が6平面すべての内側（またはまたがる）にあればtrue、

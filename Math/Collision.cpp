@@ -39,6 +39,21 @@ bool SpherePlane(const Sphere& sphere, const Plane& plane) {
 	return fabsf(dist) <= sphere.radius;
 }
 
+bool RaySphere(const Ray& ray, const Sphere& sphere, float& out_t) {
+	Vector3 m = ray.origin - sphere.center;
+	float b = VectorMath::Dot(m, ray.diff);
+	float c = VectorMath::Dot(m, m) - sphere.radius * sphere.radius;
+	if (c > 0.0f && b > 0.0f) return false; // 原点が球の外側にあり、レイが球から遠ざかる方向
+	float diffLenSq = VectorMath::Dot(ray.diff, ray.diff);
+	if (diffLenSq < 1e-12f) return false;
+	float discriminant = b * b - diffLenSq * c;
+	if (discriminant < 0.0f) return false;
+	float t = (-b - sqrtf(discriminant)) / diffLenSq;
+	if (t < 0.0f) t = 0.0f; // レイ原点が既に球の内側にある場合
+	out_t = t;
+	return true;
+}
+
 namespace {
 	// (a,b,c,d)から法線(a,b,c)を単位長に正規化し、dも同じ係数でスケールする
 	// （距離判定 dot(normal,point)+d の単位を球のradiusと揃えるために必須）

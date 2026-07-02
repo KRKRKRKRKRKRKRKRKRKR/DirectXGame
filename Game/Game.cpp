@@ -6,6 +6,7 @@
 #include "../Engine/Audio/AudioManager.h"
 #include <cmath>
 #include <algorithm>
+#include <cfloat>
 
 void Game::RebuildGridCubes() {
 	constexpr float kSpacing  = 2.0f;
@@ -106,6 +107,9 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 	modelObject_.name = "Model (OBJ)";
 	modelObject_.transform.translation = { 5.0f, 0.0f, 0.0f };
+	// player.objはメッシュ自体の実寸がCube等の「単位1.0形状」前提と異なるため、
+	// ピッキング用の基準半径を実測値に合わせて個別に設定する（scale=1なのでこの値がそのまま半径になる）
+	modelObject_.pickingRadiusHint = 2.0f;
 	modelTexIndex_ = 1; // デフォルトで t.png を使用
 	ModelRenderComponent* modelRender = modelObject_.AddComponent<ModelRenderComponent>(
 		renderer_->LoadModel("Resources/Model", "player.obj"), /*hasAnimation=*/false);
@@ -117,6 +121,9 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	// MixamoモデルはFBXのUnitScaleFactorメタデータが1.0のまま実寸(cm相当)で出力されており、
 	// 他オブジェクトと同じ単位系に合わせるには実測で0.01倍が丁度良かった
 	fbxModelObject_.transform.scale = { 0.01f, 0.01f, 0.01f };
+	// ピッキング半径 = pickingRadiusHint * scale なので、実寸(cm相当)の人間サイズに対して
+	// scale=0.01を掛けた後に半径1.0m程度になるよう、逆算して100.0を基準値にする
+	fbxModelObject_.pickingRadiusHint = 100.0f;
 	ModelRenderComponent* fbxModelRender = fbxModelObject_.AddComponent<ModelRenderComponent>(
 		renderer_->LoadModel("Resources/Model", "HumanModel_ver2.fbx"), /*hasAnimation=*/true);
 	fbxModelRender->textureHandle = textures_[fbxModelTexIndex_].handle;
@@ -187,6 +194,9 @@ void Game::Render() {
 		gridCubesDrawnCount_++;
 	}
 
+
+	// マウスピッキング：3Dビュー上の左クリックでギズモ選択対象を切り替える（コンボボックス選択と共存）
+	UpdatePicking(view, proj);
 
 	// Blenderライクなギズモ操作："Gizmo"パネルで選んだ1オブジェクトのTransformをドラッグで編集する
 	UpdateGizmo(view, proj);
@@ -297,6 +307,60 @@ static Vector3 DirectionToEulerRadians(const Vector3& direction) {
 		XMConvertToRadians(r[0]),
 		XMConvertToRadians(r[1]),
 		XMConvertToRadians(r[2]) };
+}
+
+void Game::UpdatePicking(const Matrix4x4& view, const Matrix4x4& proj) {
+	bool leftPressed = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+	bool triggered = leftPressed && !prevMouseLeftPressed_;
+	prevMouseLeftPressed_ = leftPressed;
+
+	if (!triggered) return;
+	if (ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return; // ギズモ操作中/ホバー中は発火しない
+	if (ImGui::GetIO().WantCaptureMouse) return;           // ImGuiパネル上のクリックは無視
+
+	// スクリーン座標 → NDC → ワールド空間レイ
+	ImVec2 mousePos = ImGui::GetMousePos();
+	float width  = static_cast<float>(renderer_->GetClientWidth());
+	float height = static_cast<float>(renderer_->GetClientHeight());
+	float ndcX = (mousePos.x / width)  * 2.0f - 1.0f;
+	float ndcY = 1.0f - (mousePos.y / height) * 2.0f;
+
+	Matrix4x4 invViewProj = MatrixMath::Inverse(view * proj);
+	Vector3 nearPoint = TransformMath::Transform({ ndcX, ndcY, 0.0f }, invViewProj);
+	Vector3 farPoint  = TransformMath::Transform({ ndcX, ndcY, 1.0f }, invViewProj);
+
+	Collision::Ray ray;
+	ray.origin = nearPoint;
+	ray.diff   = farPoint - nearPoint;
+
+	// gizmoTargets_内の全オブジェクトをBounding Sphere（pickingRadiusHint * scaleの最大成分を
+	// 半径とする）とみなし、最もt値が小さい（＝最も手前の）ものを選ぶ。
+	// pickingRadiusHintはGameObjectごとの基準半径（scale=1のときの半径）で、Cube/Sphere/
+	// Triangleは1.0のデフォルトのままでよいが、Model系はメッシュ実寸とscaleの対応が個体ごとに
+	// 違うためInitialize()で個別調整している。
+	// Floorはscale={100, 0.01, 100}のような極端に平たい形状で、scale最大成分を半径にすると
+	// 実際の見た目よりはるかに巨大な球になり、どこをクリックしても最優先でヒットしてしまうため、
+	// ピッキング判定からだけ除外する（コンボボックスからの選択は引き続き可能）
+	int   closestIndex = -1;
+	float closestT = FLT_MAX;
+	for (int i = 0; i < static_cast<int>(gizmoTargets_.size()); i++) {
+		if (gizmoTargets_[i] == &floorObject_) continue;
+		const Transform& t = gizmoTargets_[i]->transform;
+		float maxScale = (std::max)({ t.scale.x, t.scale.y, t.scale.z });
+		float radius = gizmoTargets_[i]->pickingRadiusHint * maxScale;
+		Collision::Sphere sphere{ t.translation, radius };
+		float hitT;
+		if (Collision::RaySphere(ray, sphere, hitT) && hitT < closestT) {
+			closestT = hitT;
+			closestIndex = i;
+		}
+	}
+
+	if (closestIndex >= 0) {
+		gizmoTarget_ = GizmoTarget::kNone; // 通常オブジェクト選択中はkNone扱い（コンボ選択と同じ規約）
+		gizmoTargetIndex_ = closestIndex;
+	}
+	// 何にも当たらなかった場合は現在の選択状態を維持する
 }
 
 void Game::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
