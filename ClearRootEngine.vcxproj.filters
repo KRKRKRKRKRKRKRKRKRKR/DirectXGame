@@ -63,6 +63,11 @@
     <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\Pipeline.cpp" />
     <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\CubeRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\SphereRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\TriangleRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\ModelRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\SpriteRenderComponent.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
     <ClCompile Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.cpp" />
@@ -146,6 +151,14 @@
     <ClInclude Include="Engine\Graphics\Pipeline\LinePipeline.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\Pipeline.h" />
     <ClInclude Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.h" />
+    <ClInclude Include="Engine\GameObject\GameObject.h" />
+    <ClInclude Include="Engine\GameObject\IComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\RenderComponentBase.h" />
+    <ClInclude Include="Engine\GameObject\Component\CubeRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\SphereRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\TriangleRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\ModelRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\SpriteRenderComponent.h" />
     <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
     <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />
     <ClInclude Include="Engine\Graphics\Object\Triangle\Triangle.h" />

@@ -54,43 +54,85 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	cubeTexIndex_ = 1;
 	sphereTexIndex_ = 1;
 
-	sphere.translation = { 3.0f, 1.0f,  0.0f };
-	cube.translation = { -3.0f, 1.0f,  0.0f };
-	triangle.translation = { -0.0f, 1.0f, 0.0f };
+	// GameObject/コンポーネントシステムへの移行第1号。CubeRenderComponentが
+	// Renderer::DrawCubeへの実際の描画呼び出しを担う（cubeTexIndex_はtextures_配列への
+	// UI選択インデックスとしてGame側に残し、選んだ結果のhandleだけコンポーネントへ渡す）
+	cubeObject_.name = "Cube";
+	cubeObject_.transform.translation = { -3.0f, 1.0f, 0.0f };
+	CubeRenderComponent* cubeRender = cubeObject_.AddComponent<CubeRenderComponent>();
+	cubeRender->textureHandle = textures_[cubeTexIndex_].handle;
 
-	// 大きなFloor（Cubeを平たく大きく引き伸ばして床として使う）
-	floor_.translation = { 0.0f, -0.5f, 0.0f };
-	floor_.scale        = { 100.0f, 0.01f, 100.0f };
-	floorTexIndex_       = 1;
+	// 大きなFloor（Cubeを平たく大きく引き伸ばして床として使う）。CubeとFloorは
+	// プロパティ構成が完全に同一なため、専用クラスを作らずCubeRenderComponentを再利用する
+	floorTexIndex_ = 1;
+	floorObject_.name = "Floor";
+	floorObject_.transform.translation = { 0.0f, -0.5f, 0.0f };
+	floorObject_.transform.scale       = { 100.0f, 0.01f, 100.0f };
+	CubeRenderComponent* floorRender = floorObject_.AddComponent<CubeRenderComponent>();
+	floorRender->textureHandle = textures_[floorTexIndex_].handle;
+
+	// Sphere。sphereSubdivision_はrenderer_->SetSphereSubdivision()というグローバル設定
+	// （個体ごとのパラメータではない）のため、cubeSmoothness_と同様にコンポーネントには持たせない
+	sphereObject_.name = "Sphere";
+	sphereObject_.transform.translation = { 3.0f, 1.0f, 0.0f };
+	SphereRenderComponent* sphereRender = sphereObject_.AddComponent<SphereRenderComponent>();
+	sphereRender->textureHandle = textures_[sphereTexIndex_].handle;
+
+	// Triangle。triangleSmoothness_はrenderer_->SetTriangleSmoothness()というグローバル設定
+	// のため、cubeSmoothness_/sphereSubdivision_と同様にコンポーネントには持たせない
+	triangleObject_.name = "Triangle";
+	triangleObject_.transform.translation = { 0.0f, 1.0f, 0.0f };
+	TriangleRenderComponent* triangleRender = triangleObject_.AddComponent<TriangleRenderComponent>();
+	triangleRender->textureHandle = textures_[triangleTexIndex_].handle;
 
 	RebuildGridCubes();
 
 	// 3Dスプライト（ワールド空間）
-	sprite3D.translation = { 0.0f, 3.0f, 0.0f };
+	sprite3DObject_.name = "Sprite3D";
+	sprite3DObject_.transform.translation = { 0.0f, 3.0f, 0.0f };
+	SpriteRenderComponent* sprite3DRender = sprite3DObject_.AddComponent<SpriteRenderComponent>(/*is3D=*/true);
+	sprite3DRender->textureHandle = textures_[sprite3DTexIndex_].handle;
 
-	// 2DスプライトUI（ピクセル座標、左上原点）
-	sprite2D.translation = { 100.0f, 100.0f, 0.0f };
-	sprite2D.scale = { 200.0f, 200.0f, 1.0f };
+	// 2DスプライトUI（ピクセル座標、左上原点）。lightingのデフォルトがfalseな点に注意
+	sprite2DObject_.name = "Sprite2D";
+	sprite2DObject_.transform.translation = { 100.0f, 100.0f, 0.0f };
+	sprite2DObject_.transform.scale = { 200.0f, 200.0f, 1.0f };
+	SpriteRenderComponent* sprite2DRender = sprite2DObject_.AddComponent<SpriteRenderComponent>(/*is3D=*/false);
+	sprite2DRender->lighting = false;
+	sprite2DRender->textureHandle = textures_[sprite2DTexIndex_].handle;
 
 	bgm.Load("Resources/Audio/BGM.mp3");
 	AudioManager::GetInstance().RegisterSound("BGM", &bgm, SoundType::BGM, true);
 
-	modelHandle_ = renderer_->LoadModel("Resources/Model", "player.obj");
-	modelTransform_.translation = { 5.0f, 0.0f, 0.0f };
+	modelObject_.name = "Model (OBJ)";
+	modelObject_.transform.translation = { 5.0f, 0.0f, 0.0f };
 	modelTexIndex_ = 1; // デフォルトで t.png を使用
+	ModelRenderComponent* modelRender = modelObject_.AddComponent<ModelRenderComponent>(
+		renderer_->LoadModel("Resources/Model", "player.obj"), /*hasAnimation=*/false);
+	modelRender->textureHandle = textures_[modelTexIndex_].handle;
 
 	// Assimp導入確認用（FBX読み込みテスト。ボーン+アニメーション付きのHumanModel_ver2.fbxで確認）
-	fbxModelHandle_ = renderer_->LoadModel("Resources/Model", "HumanModel_ver2.fbx");
-	fbxModelTransform_.translation = { 0.0f, 0.0f, 0.0f };
+	fbxModelObject_.name = "FBX Model";
+	fbxModelObject_.transform.translation = { 0.0f, 0.0f, 0.0f };
 	// MixamoモデルはFBXのUnitScaleFactorメタデータが1.0のまま実寸(cm相当)で出力されており、
 	// 他オブジェクトと同じ単位系に合わせるには実測で0.01倍が丁度良かった
-	fbxModelTransform_.scale = { 0.01f, 0.01f, 0.01f };
+	fbxModelObject_.transform.scale = { 0.01f, 0.01f, 0.01f };
+	ModelRenderComponent* fbxModelRender = fbxModelObject_.AddComponent<ModelRenderComponent>(
+		renderer_->LoadModel("Resources/Model", "HumanModel_ver2.fbx"), /*hasAnimation=*/true);
+	fbxModelRender->textureHandle = textures_[fbxModelTexIndex_].handle;
+
+	// 全ての通常オブジェクトのGameObjectをギズモ選択対象として登録する。
+	// name(GameObject::name)がそのままImGuiコンボの表示名になる。
+	// sprite2DObject_とgridCubes_は既存通りギズモ対象外のため含めない
+	gizmoTargets_ = {
+		&cubeObject_, &sphereObject_, &triangleObject_, &floorObject_,
+		&sprite3DObject_, &modelObject_, &fbxModelObject_,
+	};
 }
 
 void Game::Update(float deltaTime) {
 	deltaTime_ = deltaTime;
 	camera_->HandleInput(deltaTime);
-	renderer_->UpdateModelAnimation(fbxModelHandle_, deltaTime);
 
 	// 0.5秒ごとに直近フレームの平均FPS/フレーム時間を計算し直す（毎フレーム表示は変動が激しく読みづらいため）
 	fpsSampleTimer_ += deltaTime;
@@ -113,7 +155,7 @@ void Game::Render() {
 		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
 	renderer_->SetCamera(view, proj, camera_->GetCameraData().position);
 
-	renderer_->DrawCube(floor_, floorColor_, textures_[floorTexIndex_].handle, floorLighting_, floorBlendMode_, floorBlendStrength_, floorAlphaTest_, floorAlphaThreshold_);
+	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.transform);
 
 	// グリッドは全個体が同じ回転・スケールのため、WorldInverseTranspose（回転成分のみに依存）は
 	// 個体間で共通。回転が変化した時だけ再計算し、毎フレームの2500回分のInverse+Transpose計算を省く
@@ -145,17 +187,17 @@ void Game::Render() {
 		gridCubesDrawnCount_++;
 	}
 
-	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting, triangleBlendMode_, triangleBlendStrength_, triangleAlphaTest_, triangleAlphaThreshold_);
 
 	// Blenderライクなギズモ操作："Gizmo"パネルで選んだ1オブジェクトのTransformをドラッグで編集する
 	UpdateGizmo(view, proj);
 
-	renderer_->DrawCube(cube, cubeColor, textures_[cubeTexIndex_].handle, cubeLighting, cubeBlendMode_, cubeBlendStrength_, cubeAlphaTest_, cubeAlphaThreshold_);
-	renderer_->DrawSphere(sphere, sphereColor, textures_[sphereTexIndex_].handle, sphereLighting, sphereBlendMode_, sphereBlendStrength_, sphereAlphaTest_, sphereAlphaThreshold_);
-	renderer_->DrawModel(modelHandle_, modelTransform_, modelColor_, textures_[modelTexIndex_].handle, modelLighting_, modelBlendMode_, modelBlendStrength_, modelAlphaTest_, modelAlphaThreshold_);
-	renderer_->DrawModel(fbxModelHandle_, fbxModelTransform_, fbxModelColor_, textures_[fbxModelTexIndex_].handle, fbxModelLighting_, fbxModelBlendMode_, fbxModelBlendStrength_, fbxModelAlphaTest_, fbxModelAlphaThreshold_);
-	renderer_->DrawSprite3D(sprite3D, sprite3DColor, textures_[sprite3DTexIndex_].handle, sprite3DLighting, sprite3DUV, sprite3DBlendMode_, sprite3DBlendStrength_, sprite3DAlphaTest_, sprite3DAlphaThreshold_);
-	renderer_->DrawSprite2D(sprite2D, sprite2DColor, textures_[sprite2DTexIndex_].handle, sprite2DLighting, sprite2DUV, sprite2DBlendMode_, sprite2DBlendStrength_, sprite2DAlphaTest_, sprite2DAlphaThreshold_);
+	triangleObject_.GetComponent<TriangleRenderComponent>()->Draw(renderer_, triangleObject_.transform);
+	cubeObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, cubeObject_.transform);
+	sphereObject_.GetComponent<SphereRenderComponent>()->Draw(renderer_, sphereObject_.transform);
+	modelObject_.GetComponent<ModelRenderComponent>()->Draw(renderer_, modelObject_.transform, deltaTime_);
+	fbxModelObject_.GetComponent<ModelRenderComponent>()->Draw(renderer_, fbxModelObject_.transform, deltaTime_);
+	sprite3DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite3DObject_.transform);
+	sprite2DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite2DObject_.transform);
 
 	// 光源を可視化：direction の逆方向 × 15 の位置に黄色い球、原点へのラインで方向を表示
 	{
@@ -216,18 +258,13 @@ void Game::Render() {
 }
 
 Transform* Game::GetGizmoTargetTransform() {
-	switch (gizmoTarget_) {
-	case GizmoTarget::kCube:       return &cube;
-	case GizmoTarget::kSphere:     return &sphere;
-	case GizmoTarget::kTriangle:   return &triangle;
-	case GizmoTarget::kFloor:      return &floor_;
-	case GizmoTarget::kSprite3D:   return &sprite3D;
-	case GizmoTarget::kModel:      return &modelTransform_;
-	case GizmoTarget::kFbxModel:   return &fbxModelTransform_;
-	case GizmoTarget::kPointLight: return &lightGizmoScratch_;
-	case GizmoTarget::kSpotLight:  return &lightGizmoScratch_;
-	default:                       return nullptr;
+	if (gizmoTarget_ == GizmoTarget::kPointLight || gizmoTarget_ == GizmoTarget::kSpotLight) {
+		return &lightGizmoScratch_;
 	}
+	if (gizmoTargetIndex_ >= 0 && gizmoTargetIndex_ < static_cast<int>(gizmoTargets_.size())) {
+		return &gizmoTargets_[gizmoTargetIndex_]->transform;
+	}
+	return nullptr;
 }
 
 // 方向ベクトル → オイラー角(ラジアン、XMMatrixRotationRollPitchYaw規約)。
@@ -339,13 +376,35 @@ void Game::DrawImGui() {
 	ImGui::End();
 
 	ImGui::Begin("Gizmo");
-	static const char* kGizmoTargetNames[] = {
-		"None", "Cube", "Sphere", "Triangle", "Floor", "Sprite3D", "Model", "FBX Model",
-		"Point Light", "Spot Light"
-	};
-	int gizmoTargetIndex = static_cast<int>(gizmoTarget_);
-	if (ImGui::Combo("Target", &gizmoTargetIndex, kGizmoTargetNames, IM_ARRAYSIZE(kGizmoTargetNames))) {
-		gizmoTarget_ = static_cast<GizmoTarget>(gizmoTargetIndex);
+	// コンボの選択肢：0="None", 1..N=gizmoTargets_[0..N-1]の名前, N+1="Point Light", N+2="Spot Light"
+	int numTargets = static_cast<int>(gizmoTargets_.size());
+	std::vector<const char*> comboNames;
+	comboNames.push_back("None");
+	for (auto* obj : gizmoTargets_) comboNames.push_back(obj->name.c_str());
+	comboNames.push_back("Point Light");
+	comboNames.push_back("Spot Light");
+
+	// 現在の選択状態(gizmoTarget_/gizmoTargetIndex_)をコンボの単一インデックスに変換
+	int currentCombo = 0; // "None"
+	if (gizmoTarget_ == GizmoTarget::kPointLight)     currentCombo = numTargets + 1;
+	else if (gizmoTarget_ == GizmoTarget::kSpotLight) currentCombo = numTargets + 2;
+	else if (gizmoTargetIndex_ >= 0)                  currentCombo = gizmoTargetIndex_ + 1;
+
+	if (ImGui::Combo("Target", &currentCombo, comboNames.data(), static_cast<int>(comboNames.size()))) {
+		if (currentCombo == 0) {
+			gizmoTarget_ = GizmoTarget::kNone;
+			gizmoTargetIndex_ = -1;
+		} else if (currentCombo == numTargets + 1) {
+			gizmoTarget_ = GizmoTarget::kPointLight;
+			gizmoTargetIndex_ = -1;
+		} else if (currentCombo == numTargets + 2) {
+			gizmoTarget_ = GizmoTarget::kSpotLight;
+			gizmoTargetIndex_ = -1;
+		} else {
+			// 通常オブジェクト選択中はkNone扱い（PointLight/SpotLightの特殊分岐に入らないようにする）
+			gizmoTarget_ = GizmoTarget::kNone;
+			gizmoTargetIndex_ = currentCombo - 1;
+		}
 	}
 
 	// PointLight/SpotLightは回転・スケールの概念がない（点光源=Translateのみ、
@@ -411,15 +470,17 @@ void Game::DrawImGui() {
 
 	ImGui::Begin("Objects");
 	ImGui::Text("Floor");
-	ImGui::Checkbox("Floor Lighting", &floorLighting_);
-	ImGui::ColorEdit4("Floor Color", &floorColor_.x);
-	ImGui::DragFloat3("Floor Scale", &floor_.scale.x, 0.1f, 0.1f, 200.0f);
-	ImGui::DragFloat3("Floor Rotation", &floor_.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Floor Translation", &floor_.translation.x, 0.1f, -100.0f, 100.0f);
+	CubeRenderComponent* floorRender = floorObject_.GetComponent<CubeRenderComponent>();
+	ImGui::Checkbox("Floor Lighting", &floorRender->lighting);
+	ImGui::ColorEdit4("Floor Color", &floorRender->color.x);
+	ImGui::DragFloat3("Floor Scale", &floorObject_.transform.scale.x, 0.1f, 0.1f, 200.0f);
+	ImGui::DragFloat3("Floor Rotation", &floorObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Floor Translation", &floorObject_.transform.translation.x, 0.1f, -100.0f, 100.0f);
 	textureCombo("Floor Texture", floorTexIndex_);
-	blendModeCombo("Floor BlendMode", floorBlendMode_);
-	blendStrengthSlider("Floor Blend Strength", floorBlendMode_, floorBlendStrength_);
-	alphaTestControls("Floor Alpha Test", "Floor Alpha Threshold", floorAlphaTest_, floorAlphaThreshold_);
+	floorRender->textureHandle = textures_[floorTexIndex_].handle;
+	blendModeCombo("Floor BlendMode", floorRender->blendMode);
+	blendStrengthSlider("Floor Blend Strength", floorRender->blendMode, floorRender->blendStrength);
+	alphaTestControls("Floor Alpha Test", "Floor Alpha Threshold", floorRender->alphaTest, floorRender->alphaThreshold);
 
 	ImGui::Separator();
 	ImGui::Text("Grid Cubes");
@@ -439,101 +500,115 @@ void Game::DrawImGui() {
 
 	ImGui::Separator();
 	ImGui::Text("Triangle");
-	ImGui::Checkbox("Triangle Lighting", &triangleLighting);
-	ImGui::ColorEdit4("Triangle Color", &triangleColor.x);
+	TriangleRenderComponent* triangleRender = triangleObject_.GetComponent<TriangleRenderComponent>();
+	ImGui::Checkbox("Triangle Lighting", &triangleRender->lighting);
+	ImGui::ColorEdit4("Triangle Color", &triangleRender->color.x);
 	if (ImGui::SliderFloat("Triangle Smoothness", &triangleSmoothness_, 0.0f, 1.0f))
 		renderer_->SetTriangleSmoothness(triangleSmoothness_);
-	ImGui::DragFloat3("Triangle Scale", &triangle.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Triangle Rotation", &triangle.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Triangle Translation", &triangle.translation.x, 0.01f, -10.0f, 10.0f);
+	ImGui::DragFloat3("Triangle Scale", &triangleObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
+	ImGui::DragFloat3("Triangle Rotation", &triangleObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Triangle Translation", &triangleObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Triangle Texture", triangleTexIndex_);
-	blendModeCombo("Triangle BlendMode", triangleBlendMode_);
-	blendStrengthSlider("Triangle Blend Strength", triangleBlendMode_, triangleBlendStrength_);
-	alphaTestControls("Triangle Alpha Test", "Triangle Alpha Threshold", triangleAlphaTest_, triangleAlphaThreshold_);
+	triangleRender->textureHandle = textures_[triangleTexIndex_].handle;
+	blendModeCombo("Triangle BlendMode", triangleRender->blendMode);
+	blendStrengthSlider("Triangle Blend Strength", triangleRender->blendMode, triangleRender->blendStrength);
+	alphaTestControls("Triangle Alpha Test", "Triangle Alpha Threshold", triangleRender->alphaTest, triangleRender->alphaThreshold);
 
 	ImGui::Separator();
 	ImGui::Text("Cube");
-	ImGui::Checkbox("Cube Lighting", &cubeLighting);
-	ImGui::ColorEdit4("Cube Color", &cubeColor.x);
+	CubeRenderComponent* cubeRender = cubeObject_.GetComponent<CubeRenderComponent>();
+	ImGui::Checkbox("Cube Lighting", &cubeRender->lighting);
+	ImGui::ColorEdit4("Cube Color", &cubeRender->color.x);
 	if (ImGui::SliderFloat("Cube Smoothness", &cubeSmoothness_, 0.0f, 1.0f))
 		renderer_->SetCubeSmoothness(cubeSmoothness_);
-	ImGui::DragFloat3("Cube Scale", &cube.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Cube Rotation", &cube.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Cube Translation", &cube.translation.x, 0.01f, -10.0f, 10.0f);
+	ImGui::DragFloat3("Cube Scale", &cubeObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
+	ImGui::DragFloat3("Cube Rotation", &cubeObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Cube Translation", &cubeObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Cube Texture", cubeTexIndex_);
-	blendModeCombo("Cube BlendMode", cubeBlendMode_);
-	blendStrengthSlider("Cube Blend Strength", cubeBlendMode_, cubeBlendStrength_);
-	alphaTestControls("Cube Alpha Test", "Cube Alpha Threshold", cubeAlphaTest_, cubeAlphaThreshold_);
+	cubeRender->textureHandle = textures_[cubeTexIndex_].handle;
+	blendModeCombo("Cube BlendMode", cubeRender->blendMode);
+	blendStrengthSlider("Cube Blend Strength", cubeRender->blendMode, cubeRender->blendStrength);
+	alphaTestControls("Cube Alpha Test", "Cube Alpha Threshold", cubeRender->alphaTest, cubeRender->alphaThreshold);
 
 	ImGui::Separator();
 	ImGui::Text("Sphere");
 	if (ImGui::SliderInt("Sphere Subdivision", &sphereSubdivision_, 1, static_cast<int>(Renderer::kSphereMaxSubdivision)))
 		renderer_->SetSphereSubdivision(static_cast<uint32_t>(sphereSubdivision_));
-	ImGui::Checkbox("Sphere Lighting", &sphereLighting);
-	ImGui::ColorEdit4("Sphere Color", &sphereColor.x);
-	ImGui::DragFloat3("Sphere Scale", &sphere.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Sphere Rotation", &sphere.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Sphere Translation", &sphere.translation.x, 0.01f, -10.0f, 10.0f);
+	SphereRenderComponent* sphereRender = sphereObject_.GetComponent<SphereRenderComponent>();
+	ImGui::Checkbox("Sphere Lighting", &sphereRender->lighting);
+	ImGui::ColorEdit4("Sphere Color", &sphereRender->color.x);
+	ImGui::DragFloat3("Sphere Scale", &sphereObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
+	ImGui::DragFloat3("Sphere Rotation", &sphereObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Sphere Translation", &sphereObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Sphere Texture", sphereTexIndex_);
-	blendModeCombo("Sphere BlendMode", sphereBlendMode_);
-	blendStrengthSlider("Sphere Blend Strength", sphereBlendMode_, sphereBlendStrength_);
-	alphaTestControls("Sphere Alpha Test", "Sphere Alpha Threshold", sphereAlphaTest_, sphereAlphaThreshold_);
+	sphereRender->textureHandle = textures_[sphereTexIndex_].handle;
+	blendModeCombo("Sphere BlendMode", sphereRender->blendMode);
+	blendStrengthSlider("Sphere Blend Strength", sphereRender->blendMode, sphereRender->blendStrength);
+	alphaTestControls("Sphere Alpha Test", "Sphere Alpha Threshold", sphereRender->alphaTest, sphereRender->alphaThreshold);
 
 	ImGui::Separator();
 	ImGui::Text("Model (OBJ)");
-	ImGui::Checkbox("Model Lighting", &modelLighting_);
-	ImGui::ColorEdit4("Model Color", &modelColor_.x);
-	ImGui::DragFloat3("Model Scale", &modelTransform_.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Model Rotation", &modelTransform_.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Model Translation", &modelTransform_.translation.x, 0.01f, -10.0f, 10.0f);
+	ModelRenderComponent* modelRender = modelObject_.GetComponent<ModelRenderComponent>();
+	ImGui::Checkbox("Model Lighting", &modelRender->lighting);
+	ImGui::ColorEdit4("Model Color", &modelRender->color.x);
+	ImGui::DragFloat3("Model Scale", &modelObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
+	ImGui::DragFloat3("Model Rotation", &modelObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Model Translation", &modelObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Model Texture", modelTexIndex_);
-	blendModeCombo("Model BlendMode", modelBlendMode_);
-	blendStrengthSlider("Model Blend Strength", modelBlendMode_, modelBlendStrength_);
-	alphaTestControls("Model Alpha Test", "Model Alpha Threshold", modelAlphaTest_, modelAlphaThreshold_);
+	modelRender->textureHandle = textures_[modelTexIndex_].handle;
+	blendModeCombo("Model BlendMode", modelRender->blendMode);
+	blendStrengthSlider("Model Blend Strength", modelRender->blendMode, modelRender->blendStrength);
+	alphaTestControls("Model Alpha Test", "Model Alpha Threshold", modelRender->alphaTest, modelRender->alphaThreshold);
 
 	ImGui::Separator();
 	ImGui::Text("Model (FBX, Assimp)");
-	ImGui::Checkbox("FBX Model Lighting", &fbxModelLighting_);
-	ImGui::ColorEdit4("FBX Model Color", &fbxModelColor_.x);
-	ImGui::DragFloat3("FBX Model Scale", &fbxModelTransform_.scale.x, 0.001f, 0.001f, 1.0f);
-	ImGui::DragFloat3("FBX Model Rotation", &fbxModelTransform_.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("FBX Model Translation", &fbxModelTransform_.translation.x, 0.1f, -50.0f, 50.0f);
+	ModelRenderComponent* fbxModelRender = fbxModelObject_.GetComponent<ModelRenderComponent>();
+	ImGui::Checkbox("FBX Model Lighting", &fbxModelRender->lighting);
+	ImGui::ColorEdit4("FBX Model Color", &fbxModelRender->color.x);
+	ImGui::DragFloat3("FBX Model Scale", &fbxModelObject_.transform.scale.x, 0.001f, 0.001f, 1.0f);
+	ImGui::DragFloat3("FBX Model Rotation", &fbxModelObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("FBX Model Translation", &fbxModelObject_.transform.translation.x, 0.1f, -50.0f, 50.0f);
 	textureCombo("FBX Model Texture", fbxModelTexIndex_);
-	blendModeCombo("FBX Model BlendMode", fbxModelBlendMode_);
-	blendStrengthSlider("FBX Model Blend Strength", fbxModelBlendMode_, fbxModelBlendStrength_);
-	alphaTestControls("FBX Model Alpha Test", "FBX Model Alpha Threshold", fbxModelAlphaTest_, fbxModelAlphaThreshold_);
+	fbxModelRender->textureHandle = textures_[fbxModelTexIndex_].handle;
+	blendModeCombo("FBX Model BlendMode", fbxModelRender->blendMode);
+	blendStrengthSlider("FBX Model Blend Strength", fbxModelRender->blendMode, fbxModelRender->blendStrength);
+	alphaTestControls("FBX Model Alpha Test", "FBX Model Alpha Threshold", fbxModelRender->alphaTest, fbxModelRender->alphaThreshold);
 
 	ImGui::Separator();
 	ImGui::Text("Sprite3D (world space)");
-	ImGui::Checkbox("Sprite3D Lighting", &sprite3DLighting);
-	ImGui::ColorEdit4("Sprite3D Color", &sprite3DColor.x);
-	ImGui::DragFloat3("Sprite3D Scale", &sprite3D.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Sprite3D Rotation", &sprite3D.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Sprite3D Translation", &sprite3D.translation.x, 0.01f, -10.0f, 10.0f);
+	SpriteRenderComponent* sprite3DRender = sprite3DObject_.GetComponent<SpriteRenderComponent>();
+	ImGui::Checkbox("Sprite3D Lighting", &sprite3DRender->lighting);
+	ImGui::ColorEdit4("Sprite3D Color", &sprite3DRender->color.x);
+	ImGui::DragFloat3("Sprite3D Scale", &sprite3DObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
+	ImGui::DragFloat3("Sprite3D Rotation", &sprite3DObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("Sprite3D Translation", &sprite3DObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
 	textureCombo("Sprite3D Texture", sprite3DTexIndex_);
-	blendModeCombo("Sprite3D BlendMode", sprite3DBlendMode_);
-	blendStrengthSlider("Sprite3D Blend Strength", sprite3DBlendMode_, sprite3DBlendStrength_);
-	alphaTestControls("Sprite3D Alpha Test", "Sprite3D Alpha Threshold", sprite3DAlphaTest_, sprite3DAlphaThreshold_);
+	sprite3DRender->textureHandle = textures_[sprite3DTexIndex_].handle;
+	blendModeCombo("Sprite3D BlendMode", sprite3DRender->blendMode);
+	blendStrengthSlider("Sprite3D Blend Strength", sprite3DRender->blendMode, sprite3DRender->blendStrength);
+	alphaTestControls("Sprite3D Alpha Test", "Sprite3D Alpha Threshold", sprite3DRender->alphaTest, sprite3DRender->alphaThreshold);
 	ImGui::Text("Sprite3D UV Transform");
-	ImGui::DragFloat2("3D UV Offset", &sprite3DUV.offset.x, 0.01f, -10.0f, 10.0f);
-	ImGui::DragFloat("3D UV Rotation", &sprite3DUV.rotation, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat2("3D UV Scale", &sprite3DUV.scale.x, 0.01f, 0.01f, 10.0f);
+	ImGui::DragFloat2("3D UV Offset", &sprite3DRender->uvTransform.offset.x, 0.01f, -10.0f, 10.0f);
+	ImGui::DragFloat("3D UV Rotation", &sprite3DRender->uvTransform.rotation, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat2("3D UV Scale", &sprite3DRender->uvTransform.scale.x, 0.01f, 0.01f, 10.0f);
 
 	ImGui::Separator();
 	ImGui::Text("Sprite2D (pixel coords)");
-	ImGui::Checkbox("Sprite2D Lighting", &sprite2DLighting);
-	ImGui::ColorEdit4("Sprite2D Color", &sprite2DColor.x);
-	ImGui::DragFloat2("Sprite2D Pos (px)", &sprite2D.translation.x, 1.0f, 0.0f, 1920.0f);
-	ImGui::DragFloat2("Sprite2D Size (px)", &sprite2D.scale.x, 1.0f, 1.0f, 1920.0f);
-	ImGui::DragFloat("Sprite2D Rotation", &sprite2D.rotation.z, 0.01f, -3.14f, 3.14f);
+	SpriteRenderComponent* sprite2DRender = sprite2DObject_.GetComponent<SpriteRenderComponent>();
+	ImGui::Checkbox("Sprite2D Lighting", &sprite2DRender->lighting);
+	ImGui::ColorEdit4("Sprite2D Color", &sprite2DRender->color.x);
+	ImGui::DragFloat2("Sprite2D Pos (px)", &sprite2DObject_.transform.translation.x, 1.0f, 0.0f, 1920.0f);
+	ImGui::DragFloat2("Sprite2D Size (px)", &sprite2DObject_.transform.scale.x, 1.0f, 1.0f, 1920.0f);
+	ImGui::DragFloat("Sprite2D Rotation", &sprite2DObject_.transform.rotation.z, 0.01f, -3.14f, 3.14f);
 	textureCombo("Sprite2D Texture", sprite2DTexIndex_);
-	blendModeCombo("Sprite2D BlendMode", sprite2DBlendMode_);
-	blendStrengthSlider("Sprite2D Blend Strength", sprite2DBlendMode_, sprite2DBlendStrength_);
-	alphaTestControls("Sprite2D Alpha Test", "Sprite2D Alpha Threshold", sprite2DAlphaTest_, sprite2DAlphaThreshold_);
+	sprite2DRender->textureHandle = textures_[sprite2DTexIndex_].handle;
+	blendModeCombo("Sprite2D BlendMode", sprite2DRender->blendMode);
+	blendStrengthSlider("Sprite2D Blend Strength", sprite2DRender->blendMode, sprite2DRender->blendStrength);
+	alphaTestControls("Sprite2D Alpha Test", "Sprite2D Alpha Threshold", sprite2DRender->alphaTest, sprite2DRender->alphaThreshold);
 	ImGui::Text("Sprite2D UV Transform");
-	ImGui::DragFloat2("2D UV Offset", &sprite2DUV.offset.x, 0.01f, -10.0f, 10.0f);
-	ImGui::DragFloat("2D UV Rotation", &sprite2DUV.rotation, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat2("2D UV Scale", &sprite2DUV.scale.x, 0.01f, 0.01f, 10.0f);
+	ImGui::DragFloat2("2D UV Offset", &sprite2DRender->uvTransform.offset.x, 0.01f, -10.0f, 10.0f);
+	ImGui::DragFloat("2D UV Rotation", &sprite2DRender->uvTransform.rotation, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat2("2D UV Scale", &sprite2DRender->uvTransform.scale.x, 0.01f, 0.01f, 10.0f);
 
 	ImGui::End();
 

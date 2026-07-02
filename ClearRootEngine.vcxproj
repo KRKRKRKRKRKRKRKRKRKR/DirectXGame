@@ -117,6 +117,11 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\Camera\Camera.cpp" />
     <ClCompile Include="Engine\Graphics\CommandManager\CommandManager.cpp" />
     <ClCompile Include="Engine\Graphics\DirectXDevice\DirectXDevice.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\CubeRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\SphereRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\TriangleRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\ModelRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\SpriteRenderComponent.cpp" />
     <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
@@ -166,6 +171,14 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\Camera\Camera.h" />
     <ClInclude Include="Engine\Graphics\CommandManager\CommandManager.h" />
     <ClInclude Include="Engine\Graphics\DirectXDevice\DirectXDevice.h" />
+    <ClInclude Include="Engine\GameObject\GameObject.h" />
+    <ClInclude Include="Engine\GameObject\IComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\RenderComponentBase.h" />
+    <ClInclude Include="Engine\GameObject\Component\CubeRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\SphereRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\TriangleRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\ModelRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\SpriteRenderComponent.h" />
     <ClInclude Include="Engine\Graphics\Lighting\SceneLight.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />

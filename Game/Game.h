@@ -7,6 +7,12 @@
 #include "../Math/Collision.h"
 #include "../Externals/imgui/imgui.h" // ImGuizmo.hがImDrawList等imgui型を前提にしており、先にインクルードする必要がある
 #include "../Externals/ImGuizmo/src/ImGuizmo.h"
+#include "../Engine/GameObject/GameObject.h"
+#include "../Engine/GameObject/Component/CubeRenderComponent.h"
+#include "../Engine/GameObject/Component/SphereRenderComponent.h"
+#include "../Engine/GameObject/Component/TriangleRenderComponent.h"
+#include "../Engine/GameObject/Component/ModelRenderComponent.h"
+#include "../Engine/GameObject/Component/SpriteRenderComponent.h"
 #include <vector>
 #include <string>
 class Game {
@@ -23,44 +29,25 @@ private:
 	Camera* camera_ = nullptr;
 	float deltaTime_ = 0.0f;
 
-	Transform sphere;
-	Transform cube;
-	Transform triangle;
-	Transform sprite3D;
-	Transform sprite2D;
-	Transform floor_;
-
-	UVTransform sprite2DUV;
-	UVTransform sprite3DUV;
-
-	Vector4 sphereColor   = { 1,1,1,1 };
-	Vector4 cubeColor     = { 1,1,1,1 };
-	Vector4 triangleColor = { 1,1,1,1 };
-	Vector4 sprite3DColor = { 1,1,1,1 };
-	Vector4 sprite2DColor = { 1,1,1,1 };
-	Vector4 floorColor_   = { 1,1,1,1 };
+	// GameObject/コンポーネントシステムへの移行対象。CubeとFloorはプロパティ構成が
+	// 完全に同一（Smoothness等の固有パラメータを持たない）ため、専用クラスを作らず
+	// 同じCubeRenderComponent型を2個のGameObjectインスタンスで使い回している。
+	// Sphere/TriangleはそれぞれSphereRenderComponent/TriangleRenderComponentという専用
+	// クラスを持つ（Subdivision/Smoothnessはグローバル設定のためコンポーネントには持たせず、
+	// cubeSmoothness_と同様にGame側に据え置く）。Model(OBJ)/FBXModelはModelHandleを持つ
+	// ModelRenderComponentを共用（hasAnimationフラグでボーンアニメーション更新の有無を切替）。
+	// Sprite3D/Sprite2DはUVTransformを持つSpriteRenderComponentを共用（is3Dフラグで
+	// DrawSprite3D/DrawSprite2Dのどちらを呼ぶか切替）。これで全9対象オブジェクトの移行が完了する
+	GameObject cubeObject_;
+	GameObject floorObject_;
+	GameObject sphereObject_;
+	GameObject triangleObject_;
+	GameObject modelObject_;
+	GameObject fbxModelObject_;
+	GameObject sprite3DObject_;
+	GameObject sprite2DObject_;
 
 	Sound bgm;
-
-	Renderer::ModelHandle modelHandle_ = 0;
-	Transform             modelTransform_;
-	Vector4               modelColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
-	bool                  modelLighting_ = true;
-	int                   modelTexIndex_ = 0;
-
-	// Assimp導入確認用（FBX読み込みテスト）
-	Renderer::ModelHandle fbxModelHandle_ = 0;
-	Transform             fbxModelTransform_;
-	Vector4               fbxModelColor_ = { 1.0f, 1.0f, 1.0f, 1.0f };
-	bool                  fbxModelLighting_ = true;
-	int                   fbxModelTexIndex_ = 0;
-
-	bool sphereLighting   = true;
-	bool cubeLighting     = true;
-	bool triangleLighting = true;
-	bool sprite3DLighting = true;
-	bool sprite2DLighting = false;
-	bool floorLighting_   = true;
 
 	std::vector<Transform> gridCubes_;
 
@@ -87,6 +74,8 @@ private:
 	int sphereTexIndex_    = 0;
 	int gridCubeTexIndex_  = 0;
 	int floorTexIndex_     = 0;
+	int modelTexIndex_     = 0;
+	int fbxModelTexIndex_  = 0;
 
 	Vector4 gridCubeColor_    = { 1,1,1,1 };
 	bool    gridCubeLighting_ = true;
@@ -102,46 +91,14 @@ private:
 	int   sphereSubdivision_  = static_cast<int>(Renderer::kSphereMaxSubdivision);
 
 	BlendMode gridCubeBlendMode_ = BlendMode::kNone;
-	BlendMode triangleBlendMode_ = BlendMode::kNone;
-	BlendMode cubeBlendMode_     = BlendMode::kNone;
-	BlendMode sphereBlendMode_   = BlendMode::kNone;
-	BlendMode modelBlendMode_    = BlendMode::kNone;
-	BlendMode sprite3DBlendMode_ = BlendMode::kNone;
-	BlendMode sprite2DBlendMode_ = BlendMode::kNone;
-	BlendMode floorBlendMode_    = BlendMode::kNone;
-	BlendMode fbxModelBlendMode_ = BlendMode::kNone;
 
 	// OMSetBlendFactorに渡す0〜1の強さ。kNormal/kAdd/kSubtractのみ効果がある
 	float gridCubeBlendStrength_ = 1.0f;
-	float triangleBlendStrength_ = 1.0f;
-	float cubeBlendStrength_     = 1.0f;
-	float sphereBlendStrength_   = 1.0f;
-	float modelBlendStrength_    = 1.0f;
-	float sprite3DBlendStrength_ = 1.0f;
-	float sprite2DBlendStrength_ = 1.0f;
-	float floorBlendStrength_    = 1.0f;
-	float fbxModelBlendStrength_ = 1.0f;
 
 	// 2値抜き(Binary Alpha/αTest)。αがしきい値未満のピクセルをdiscardする
 	bool  gridCubeAlphaTest_  = false;
-	bool  triangleAlphaTest_  = false;
-	bool  cubeAlphaTest_      = false;
-	bool  sphereAlphaTest_    = false;
-	bool  modelAlphaTest_     = false;
-	bool  sprite3DAlphaTest_  = false;
-	bool  sprite2DAlphaTest_  = false;
-	bool  floorAlphaTest_     = false;
-	bool  fbxModelAlphaTest_  = false;
 
 	float gridCubeAlphaThreshold_  = 0.5f;
-	float triangleAlphaThreshold_  = 0.5f;
-	float cubeAlphaThreshold_      = 0.5f;
-	float sphereAlphaThreshold_    = 0.5f;
-	float modelAlphaThreshold_     = 0.5f;
-	float sprite3DAlphaThreshold_  = 0.5f;
-	float sprite2DAlphaThreshold_  = 0.5f;
-	float floorAlphaThreshold_     = 0.5f;
-	float fbxModelAlphaThreshold_  = 0.5f;
 
 	// FPS表示（負荷テスト用）。0.5秒ごとに直近フレームの平均FPS/フレーム時間を更新する
 	// （毎フレームの値は変動が激しく読みづらいため、一定間隔でサンプリングして表示する）
@@ -153,21 +110,25 @@ private:
 	// Blenderライクなギズモ操作：ImGuiで選んだ1オブジェクトのTransformをドラッグで編集する。
 	// gridCubes_/sprite2Dは対象外（gridCubes_は9万個規模で個別編集不可、sprite2Dはスクリーン空間UI）。
 	// PointLight/SpotLightはSceneLightのSetter経由でしか書き込めずTransformを持たないため、
-	// lightGizmoScratch_という一時Transformを橋渡しに使う（UpdateGizmo()参照）
+	// lightGizmoScratch_という一時Transformを橋渡しに使う（UpdateGizmo()参照）。
+	// 通常オブジェクト（GameObjectを持つもの）はenumのケースを手で並べず、gizmoTargets_という
+	// 動的リストとgizmoTargetIndex_（リスト内インデックス）で選択する
 	enum class GizmoTarget {
 		kNone,
-		kCube,
-		kSphere,
-		kTriangle,
-		kFloor,
-		kSprite3D,
-		kModel,
-		kFbxModel,
 		kPointLight,
 		kSpotLight,
 	};
 	GizmoTarget          gizmoTarget_    = GizmoTarget::kNone;
 	ImGuizmo::OPERATION  gizmoOperation_ = ImGuizmo::TRANSLATE;
+
+	// 通常オブジェクト（Transformを直接持つGameObject）の一覧。Initialize()末尾で
+	// 全GameObjectメンバのアドレスを登録する。PointLight/SpotLightはGameObjectを
+	// 持たない特殊ケースのため、このリストには含めずgizmoTarget_(enum)側で扱う
+	std::vector<GameObject*> gizmoTargets_;
+
+	// gizmoTargets_内で現在選択中のインデックス。-1は「このリストからは何も選んでいない」
+	// （gizmoTarget_がkPointLight/kSpotLightの場合、またはkNoneの場合はこちらが有効になる）
+	int gizmoTargetIndex_ = -1;
 
 	// PointLight/SpotLightのギズモ操作を仲介する一時バッファ。SceneLightはTransform型を持たず
 	// Setter経由でしか書き込めないため、ここに現在値をコピー→ImGuizmoで編集→差分をSetterへ書き戻す

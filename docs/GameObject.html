@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>GameObject / コンポーネントシステムの使い方 - ClearRoot Engine</title>
+<style>
+  :root {
+    --bg: #1e1f22;
+    --panel: #26282c;
+    --border: #3a3d42;
+    --text: #dcdfe4;
+    --muted: #9aa0a8;
+    --accent: #6ab0ff;
+    --accent2: #7ee787;
+    --warn: #f2a65a;
+    --code-bg: #1a1b1e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+    line-height: 1.7;
+    margin: 0;
+    padding: 0 0 80px 0;
+  }
+  header {
+    background: linear-gradient(135deg, #2b3a4a, #1e1f22);
+    padding: 40px 24px 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: 1.8rem;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+  }
+  nav {
+    max-width: 900px;
+    margin: 24px auto 0;
+    padding: 0 24px;
+  }
+  nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  nav a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.92rem;
+  }
+  nav a:hover { text-decoration: underline; }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  section {
+    margin-top: 48px;
+  }
+  h2 {
+    font-size: 1.35rem;
+    border-left: 4px solid var(--accent);
+    padding-left: 12px;
+    margin-bottom: 16px;
+  }
+  h3 {
+    font-size: 1.05rem;
+    color: var(--accent2);
+    margin-top: 28px;
+  }
+  p { margin: 12px 0; }
+  .lead {
+    font-size: 1.02rem;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+  .note {
+    border-left: 4px solid var(--warn);
+    background: #33291c;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    margin: 16px 0;
+  }
+  .note strong { color: var(--warn); }
+  .tip {
+    border-left: 4px solid var(--accent2);
+    background: #1f2e22;
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    margin: 16px 0;
+  }
+  .tip strong { color: var(--accent2); }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-size: 0.88rem;
+  }
+  code {
+    font-family: "Cascadia Code", Consolas, "SF Mono", monospace;
+  }
+  p code, li code, td code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.88em;
+    color: var(--accent2);
+  }
+  .kw { color: #c586c0; }
+  .type { color: #4ec9b0; }
+  .str { color: #ce9178; }
+  .cmt { color: #6a9955; }
+  .fn { color: #dcdcaa; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--panel);
+    color: var(--accent2);
+  }
+  tr:nth-child(even) td {
+    background: #222327;
+  }
+
+  .diagram {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    font-family: Consolas, monospace;
+    font-size: 0.88rem;
+    white-space: pre;
+    overflow-x: auto;
+    color: var(--muted);
+  }
+  .diagram .box { color: var(--accent); }
+  .diagram .comp { color: var(--accent2); }
+
+  .step-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #10141c;
+    font-weight: bold;
+    font-size: 0.78rem;
+    padding: 2px 10px;
+    border-radius: 12px;
+    margin-right: 8px;
+  }
+
+  footer {
+    max-width: 900px;
+    margin: 60px auto 0;
+    padding: 20px 24px 0;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>GameObject / コンポーネントシステムの使い方</h1>
+  <p>ClearRoot Engine — Game/Game.h・Game.cpp から使う開発者向けガイド</p>
+</header>
+
+<nav>
+  <ul>
+    <li><a href="#overview">全体像</a></li>
+    <li><a href="#classes">クラス構成</a></li>
+    <li><a href="#quickstart">最短の使い方</a></li>
+    <li><a href="#components">既存コンポーネント一覧</a></li>
+    <li><a href="#custom">新しいコンポーネントを作る</a></li>
+    <li><a href="#gizmo">ギズモとの連携</a></li>
+    <li><a href="#outofscope">対象外にしているもの</a></li>
+    <li><a href="#faq">よくあるハマりどころ</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<section id="overview">
+  <h2>全体像</h2>
+  <p class="lead">
+    <code>GameObject</code> は「<strong>Transform（位置・回転・スケール）を持つ器</strong>」で、
+    そこに <code>IComponent</code> を継承した「機能」を後付けでアタッチしていく設計です。
+    Unity の <code>GameObject</code> + <code>Component</code> にヒントを得ていますが、
+    このプロジェクトの規模（学校課題のゲームロジック層）に合わせて、かなり軽量に作ってあります。
+  </p>
+
+  <div class="diagram"><span class="box">GameObject</span>
+ ├─ transform (Transform型を直接保持。scale / rotation / translation)
+ ├─ name      (ImGui・ギズモの表示名にそのまま使われる)
+ └─ components_ (std::vector&lt;unique_ptr&lt;IComponent&gt;&gt;)
+       └─ 例: <span class="comp">CubeRenderComponent</span> ← RenderComponentBase ← IComponent
+              <span class="comp">SphereRenderComponent</span>
+              <span class="comp">TriangleRenderComponent</span>
+              <span class="comp">ModelRenderComponent</span>   (Model / FBXModel 共用)
+              <span class="comp">SpriteRenderComponent</span>  (Sprite3D / Sprite2D 共用)</div>
+
+  <p>
+    設計方針は一貫して「<strong>継承は最小限、コンポーネントは軽量なコンポジション</strong>」です。
+    <code>IComponent</code> は仮想関数 <code>Update(float)</code> ひとつだけの薄い抽象クラスで、
+    型を跨いだ動的検索（Unity の <code>GetComponent&lt;T&gt;()</code> のような RTTI 探索）は
+    <code>GameObject::GetComponent&lt;T&gt;()</code> として存在しますが、実装は単純な線形探索です。
+    オブジェクト数・コンポーネント数が少ない今の規模ではこれで十分という判断です。
+  </p>
+</section>
+
+<section id="classes">
+  <h2>クラス構成</h2>
+
+  <h3>GameObject（Engine/GameObject/GameObject.h）</h3>
+  <pre><span class="kw">class</span> <span class="type">GameObject</span> {
+<span class="kw">public</span>:
+    Transform   transform;   <span class="cmt">// 位置・回転・スケール。必須フィールドなのでコンポーネント化しない</span>
+    std::string name;        <span class="cmt">// ImGui / ギズモの表示名</span>
+
+    <span class="kw">template</span>&lt;<span class="kw">typename</span> T, <span class="kw">typename</span>... Args&gt;
+    T* <span class="fn">AddComponent</span>(Args&amp;&amp;... args);   <span class="cmt">// コンポーネントを追加し、生ポインタを返す</span>
+
+    <span class="kw">template</span>&lt;<span class="kw">typename</span> T&gt;
+    T* <span class="fn">GetComponent</span>();               <span class="cmt">// 型で検索して取り出す（線形探索）</span>
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> deltaTime); <span class="cmt">// 全コンポーネントのUpdateを順番に呼ぶ</span>
+};</pre>
+
+  <h3>IComponent（Engine/GameObject/IComponent.h）</h3>
+  <pre><span class="kw">class</span> <span class="type">IComponent</span> {
+<span class="kw">public</span>:
+    <span class="kw">virtual</span> ~IComponent() = <span class="kw">default</span>;
+    <span class="kw">virtual</span> <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> deltaTime) { }
+};</pre>
+  <p>
+    描画コンポーネントは <code>Update()</code> を使わず、独自の <code>Draw(Renderer*, ...)</code> メソッドを
+    直接呼ぶ運用です（下記「クイックスタート」参照）。<code>IComponent::Update</code> は将来
+    「移動する」「アニメーションする」のような、描画以外のふるまいを追加したくなったときの拡張ポイントです。
+  </p>
+
+  <h3>RenderComponentBase（Engine/GameObject/Component/RenderComponentBase.h）</h3>
+  <p>
+    Cube / Sphere / Triangle / Model / Sprite が共通して持つ「色・ライティング・テクスチャ・
+    ブレンドモード・アルファテスト」の7プロパティをまとめた基底クラスです。
+  </p>
+  <pre><span class="kw">class</span> <span class="type">RenderComponentBase</span> : <span class="kw">public</span> IComponent {
+<span class="kw">public</span>:
+    Vector4       color          = { 1, 1, 1, 1 };
+    <span class="kw">bool</span>          lighting       = <span class="kw">true</span>;
+    TextureHandle textureHandle  = kTextureNone;
+    BlendMode     blendMode      = BlendMode::kNone;
+    <span class="kw">float</span>         blendStrength  = 1.0f;
+    <span class="kw">bool</span>          alphaTest      = <span class="kw">false</span>;
+    <span class="kw">float</span>         alphaThreshold = 0.5f;
+};</pre>
+
+  <table>
+    <tr><th>コンポーネント</th><th>継承元</th><th>用途</th><th>固有メンバ</th></tr>
+    <tr><td><code>CubeRenderComponent</code></td><td>RenderComponentBase</td><td>Cube / Floor（同じクラスを使い回す）</td><td>なし</td></tr>
+    <tr><td><code>SphereRenderComponent</code></td><td>RenderComponentBase</td><td>Sphere</td><td>なし</td></tr>
+    <tr><td><code>TriangleRenderComponent</code></td><td>RenderComponentBase</td><td>Triangle</td><td>なし</td></tr>
+    <tr><td><code>ModelRenderComponent</code></td><td>RenderComponentBase</td><td>Model(OBJ) / FBXModel（同じクラスを使い回す）</td><td><code>modelHandle</code>, <code>hasAnimation</code></td></tr>
+    <tr><td><code>SpriteRenderComponent</code></td><td>RenderComponentBase</td><td>Sprite3D / Sprite2D（同じクラスを使い回す）</td><td><code>is3D</code>, <code>uvTransform</code></td></tr>
+  </table>
+
+  <div class="tip">
+    <strong>使い回しのコツ</strong>：プロパティ構成が同じオブジェクト同士（Cube と Floor、
+    Model と FBXModel、Sprite3D と Sprite2D）は、新しいクラスを作らず
+    同じコンポーネント型を2つ目の <code>GameObject</code> インスタンスに付けるだけで済みます。
+    「オブジェクトの種類」ではなく「コンポーネントの構成」で再利用を考えるのがコツです。
+  </div>
+</section>
+
+<section id="quickstart">
+  <h2>最短の使い方</h2>
+  <p>実際に <code>Game.cpp</code> で Cube を1個扱っているコードそのままの例です。3ステップで完結します。</p>
+
+  <h3><span class="step-badge">1</span>Initialize() でオブジェクトを作る</h3>
+  <pre>GameObject cubeObject_;  <span class="cmt">// Game.h側でメンバとして持っておく</span>
+
+<span class="cmt">// Game::Initialize() 内</span>
+cubeObject_.name = <span class="str">"Cube"</span>;
+cubeObject_.transform.translation = { -3.0f, 1.0f, 0.0f };
+
+CubeRenderComponent* cubeRender = cubeObject_.AddComponent&lt;CubeRenderComponent&gt;();
+cubeRender-&gt;textureHandle = textures_[cubeTexIndex_].handle;
+cubeRender-&gt;color         = { 1, 1, 1, 1 };
+cubeRender-&gt;lighting      = <span class="kw">true</span>;</pre>
+
+  <h3><span class="step-badge">2</span>Render() で描画する</h3>
+  <pre><span class="cmt">// Game::Render() 内</span>
+cubeObject_.GetComponent&lt;CubeRenderComponent&gt;()-&gt;Draw(renderer_, cubeObject_.transform);</pre>
+  <p>
+    <code>Draw()</code> の中身は各コンポーネントが持っていて、実際には
+    <code>renderer-&gt;DrawCube(transform, color, textureHandle, lighting, blendMode, blendStrength, alphaTest, alphaThreshold)</code>
+    を呼んでいるだけです。既存の <code>Renderer</code> のAPIは一切変更していません。
+  </p>
+
+  <h3><span class="step-badge">3</span>DrawImGui() でプロパティを触れるようにする</h3>
+  <pre><span class="cmt">// Game::DrawImGui() 内</span>
+CubeRenderComponent* cubeRender = cubeObject_.GetComponent&lt;CubeRenderComponent&gt;();
+ImGui::Checkbox(<span class="str">"Cube Lighting"</span>, &amp;cubeRender-&gt;lighting);
+ImGui::ColorEdit4(<span class="str">"Cube Color"</span>, &amp;cubeRender-&gt;color.x);
+ImGui::DragFloat3(<span class="str">"Cube Translation"</span>, &amp;cubeObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
+<span class="cmt">// テクスチャ選択やBlendMode選択も同様に cubeRender-&gt;xxx を直接触る</span></pre>
+
+  <div class="note">
+    <strong>注意</strong>：<code>GetComponent&lt;T&gt;()</code> は「そのコンポーネントが必ずアタッチ済み」という前提で
+    生ポインタを返します（<code>nullptr</code> チェックはしていません）。
+    <code>Initialize()</code> で <code>AddComponent</code> を呼び忘れると、
+    <code>Render()</code> や <code>DrawImGui()</code> でのアクセス時にクラッシュします。
+  </div>
+</section>
+
+<section id="components">
+  <h2>既存コンポーネント一覧と使い分け</h2>
+
+  <h3>ModelRenderComponent（ModelHandle が必要なもの用）</h3>
+  <p>
+    Model(OBJ) と FBXModel はどちらも <code>Renderer::LoadModel(dir, filename)</code> で得られる
+    <code>ModelHandle</code> を必要とするため、コンストラクタで受け取ります。
+    FBXModel のようにボーンアニメーションを持つ場合は <code>hasAnimation = true</code> にすると、
+    <code>Draw()</code> 内で毎フレーム <code>UpdateModelAnimation</code> を自動的に呼びます。
+  </p>
+  <pre>ModelRenderComponent* modelRender = modelObject_.AddComponent&lt;ModelRenderComponent&gt;(
+    renderer_-&gt;LoadModel(<span class="str">"Resources/Model"</span>, <span class="str">"player.obj"</span>),
+    <span class="cmt">/*hasAnimation=*/</span><span class="kw">false</span>);
+
+ModelRenderComponent* fbxRender = fbxModelObject_.AddComponent&lt;ModelRenderComponent&gt;(
+    renderer_-&gt;LoadModel(<span class="str">"Resources/Model"</span>, <span class="str">"HumanModel_ver2.fbx"</span>),
+    <span class="cmt">/*hasAnimation=*/</span><span class="kw">true</span>);
+
+<span class="cmt">// Render() 側は deltaTime を渡すだけで、アニメ更新の有無はコンポーネントが判断してくれる</span>
+modelObject_.GetComponent&lt;ModelRenderComponent&gt;()-&gt;Draw(renderer_, modelObject_.transform, deltaTime_);</pre>
+
+  <h3>SpriteRenderComponent（UVTransform が必要なもの用）</h3>
+  <p>
+    Sprite3D と Sprite2D はどちらも <code>UVTransform</code>（UVのオフセット・回転・スケール）を持ちます。
+    <code>is3D</code> フラグで、内部的に <code>DrawSprite3D</code> と <code>DrawSprite2D</code> の
+    どちらを呼ぶかが自動的に切り替わります。
+  </p>
+  <pre>SpriteRenderComponent* sprite3DRender = sprite3DObject_.AddComponent&lt;SpriteRenderComponent&gt;(<span class="cmt">/*is3D=*/</span><span class="kw">true</span>);
+SpriteRenderComponent* sprite2DRender = sprite2DObject_.AddComponent&lt;SpriteRenderComponent&gt;(<span class="cmt">/*is3D=*/</span><span class="kw">false</span>);
+sprite2DRender-&gt;lighting = <span class="kw">false</span>; <span class="cmt">// Sprite2Dはデフォルトでライティングなし</span>
+
+<span class="cmt">// UVTransformはコンポーネントのメンバとして直接触れる</span>
+sprite3DRender-&gt;uvTransform.offset = { 0.1f, 0.0f };</pre>
+
+  <div class="note">
+    <strong>グローバル設定は据え置き</strong>：<code>cubeSmoothness_</code>（Cubeの丸み）、
+    <code>sphereSubdivision_</code>（Sphereの分割数）、<code>triangleSmoothness_</code> は
+    <code>Renderer::SetCubeSmoothness()</code> のような「シーン全体に効くグローバル設定」であり、
+    個体ごとのプロパティではないため、意図的にコンポーネントへ持たせず <code>Game.h</code> 側に残しています。
+  </div>
+</section>
+
+<section id="custom">
+  <h2>新しいコンポーネントを作る手順</h2>
+  <p>
+    「Cube のような単純な描画物を1つ増やしたい」場合は、既存の <code>CubeRenderComponent</code> を
+    そのまま再利用できないか、まず検討してください。プロパティ構成（色・ライティング・テクスチャ・
+    BlendMode・AlphaTest の7つだけ）が同じなら、新規クラスは不要です。
+  </p>
+  <p>それでも新しいコンポーネントが必要な場合の型どおりの手順です（例：<code>XxxRenderComponent</code>）。</p>
+  <ol>
+    <li><code>Engine/GameObject/Component/XxxRenderComponent.h</code> を作り、
+      <code>RenderComponentBase</code> を継承。固有のパラメータ（ハンドルやUVなど）があれば
+      コンストラクタ引数かメンバとして追加する。</li>
+    <li><code>.cpp</code> 側で <code>Draw(Renderer*, const Transform&amp;, ...)</code> を実装し、
+      対応する <code>renderer-&gt;DrawXxx(...)</code> を1回呼ぶだけにする。</li>
+    <li><code>.vcxproj</code> と <code>.vcxproj.filters</code> の <code>ClCompile</code> /
+      <code>ClInclude</code> にフラットに1行ずつ追記する（フィルタ指定は不要）。</li>
+    <li><code>Game.h</code> に <code>GameObject xxxObject_;</code> を追加し、
+      <code>Game::Initialize()</code> で <code>AddComponent</code>、
+      <code>Game::Render()</code> で <code>Draw()</code> を呼ぶ。</li>
+    <li>ギズモ操作対象にしたい場合は、<code>Initialize()</code> 末尾の
+      <code>gizmoTargets_ = { ... }</code> に <code>&amp;xxxObject_</code> を追加するだけでよい
+      （下記「ギズモとの連携」参照）。</li>
+  </ol>
+</section>
+
+<section id="gizmo">
+  <h2>ギズモ（ImGuizmo）との連携</h2>
+  <p>
+    Blender 風の移動・回転・拡大縮小ギズモは <code>GameObject::transform</code> への生ポインタを
+    受け取って直接書き換えるだけなので、GameObject化さえ済んでいれば追加コードはほぼ要りません。
+  </p>
+  <pre><span class="cmt">// Game::Initialize() の末尾</span>
+gizmoTargets_ = {
+    &amp;cubeObject_, &amp;sphereObject_, &amp;triangleObject_, &amp;floorObject_,
+    &amp;sprite3DObject_, &amp;modelObject_, &amp;fbxModelObject_,
+};</pre>
+  <p>
+    "Gizmo" パネルのコンボボックスは <code>gizmoTargets_</code> を走査して
+    各 <code>GameObject::name</code> を選択肢として表示します。新しいオブジェクトをこの配列に
+    追加するだけで、コンボにも自動的に出るようになります（enum やスイッチ文を手で増やす必要はありません）。
+  </p>
+  <div class="note">
+    <strong>PointLight / SpotLight は特別扱い</strong>：ライトは <code>SceneLight</code> という
+    別クラスのプロパティで、GameObjectを持ちません。<code>lightGizmoScratch_</code> という
+    一時的な <code>Transform</code> をライトの現在値と行き来させる橋渡し役として使っており、
+    ドラッグ操作後は <code>SceneLight</code> の Setter（<code>SetPointPosition</code> 等）を
+    経由して書き戻します。<code>GetData()</code> の参照を直接書き換えると GPU に反映されないため、
+    ライト関連の値を変えるときは必ず Setter を使ってください。
+  </div>
+</section>
+
+<section id="outofscope">
+  <h2>あえて GameObject 化していないもの</h2>
+  <table>
+    <tr><th>対象</th><th>理由</th></tr>
+    <tr>
+      <td><code>gridCubes_</code>（負荷テスト用の大量Cube、最大 13 万個規模）</td>
+      <td>
+        1個ずつ <code>GameObject</code> にすると、生成コスト・ヒープ確保・vtable経由の
+        呼び出しオーバーヘッドが数万倍に膨らみ破綻する。フラストラムカリングや
+        WorldInverseTranspose のキャッシュのような「大量インスタンス専用の最適化」とも
+        相性が悪いため、今後も <code>std::vector&lt;Transform&gt;</code> + 共通パラメータの
+        ままにする方針。
+      </td>
+    </tr>
+    <tr>
+      <td><code>bgm</code>（BGM再生用の <code>Sound</code>）</td>
+      <td>
+        <code>Transform</code>（位置・回転・スケール）という概念自体を持たない
+        グローバルなオーディオストリームのため、そもそも GameObject の対象にならない。
+      </td>
+    </tr>
+    <tr>
+      <td>PointLight / SpotLight</td>
+      <td>
+        <code>SceneLight</code> は「シーンに1つだけ」という前提の単一グローバルオブジェクトで
+        設計されている。複数光源に対応するにはこの構造自体の作り替えが必要になり、
+        GameObject 化とは別の大きな作業になるため、今回は対象外。
+      </td>
+    </tr>
+  </table>
+</section>
+
+<section id="faq">
+  <h2>よくあるハマりどころ</h2>
+
+  <h3>Q. GetComponent&lt;T&gt;() が nullptr を返す</h3>
+  <p>
+    A. <code>AddComponent&lt;T&gt;()</code> を呼び忘れているか、型を間違えています。
+    <code>GameObject</code> は「コンポーネントを持っているはず」という前提で書かれているコードが
+    多いため、<code>Initialize()</code> で必ず対応するコンポーネントを追加してください。
+  </p>
+
+  <h3>Q. テクスチャを切り替えたのに描画に反映されない</h3>
+  <p>
+    A. コンポーネントは <code>TextureHandle</code>（実際のGPUハンドル）を持ちますが、
+    ImGui のテクスチャ選択コンボは <code>textures_</code> 配列への「インデックス」（<code>int</code>）を
+    扱います。コンボで選んだ <code>index</code> から <code>textures_[index].handle</code> を引いて、
+    明示的に <code>xxxRender-&gt;textureHandle = textures_[index].handle;</code>
+    と代入し直す必要があります（自動では同期しません）。
+  </p>
+
+  <h3>Q. Cube と Floor で同じ CubeRenderComponent を使っているのに、片方だけ色が変わる</h3>
+  <p>
+    A. それが正しい挙動です。<code>cubeObject_</code> と <code>floorObject_</code> は
+    別々の <code>GameObject</code> インスタンスであり、それぞれが自分専用の
+    <code>CubeRenderComponent</code> インスタンスを持っています。クラスが同じでも
+    インスタンスは独立しているため、一方の変更がもう一方に影響することはありません。
+  </p>
+
+  <h3>Q. UpdateGizmo() でドラッグしたのに描画に反映されない</h3>
+  <p>
+    A. <code>Game::Render()</code> 内で <code>UpdateGizmo(view, proj)</code> を呼ぶタイミングと、
+    各オブジェクトの <code>Draw()</code> を呼ぶタイミングの順序に注意してください。
+    ギズモが <code>GameObject::transform</code> を書き換えた「後」に <code>Draw()</code> が
+    呼ばれる順序になっていないと、その回のフレームには反映されません
+    （現状の実装ではこの順序が正しく保たれています）。
+  </p>
+</section>
+
+</main>
+
+<footer>
+  ClearRoot Engine — GameObject/コンポーネントシステム 内部ドキュメント
+</footer>
+
+</body>
+</html>
