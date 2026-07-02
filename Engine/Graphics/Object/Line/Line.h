@@ -26,8 +26,8 @@ public:
 	// ライン始点・終点を設定
 	void SetLine(const Vector3& start, const Vector3& end, uint32_t lineIndex);
 
-	// ライン色を設定（RGBA, 0.0f〜1.0f）
-	void SetColor(const Vector4& color);
+	// ライン色を設定（RGBA, 0.0f〜1.0f）。colorIndexはSetLine/SetWvpMatrixと同じインスタンス番号
+	void SetColor(const Vector4& color, uint32_t colorIndex);
 
 	// パイプラインコマンドを設定
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList);
@@ -50,9 +50,12 @@ private:
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
 	VertexData* vertexMappedData_ = nullptr;
 
-	// マテリアル（色）関連
-	ComPtr<ID3D12Resource> materialResource_     = nullptr; // カスタムライン用
-	Vector4* materialMappedData_ = nullptr; // 永続マップ（毎回のMap/Unmapを避ける）
+	// マテリアル（色）関連。WVPと同じくインスタンス数分の配列＋アライメント済みストライドで持つ
+	// （1フレームに複数の異なる色のLineを描画する際、単一バッファだと最後にSetColorした色に
+	// 全インスタンスが引きずられてしまうため。過去にこの単一バッファ設計で実際にバグが発生した）
+	ComPtr<ID3D12Resource> materialResource_     = nullptr; // カスタムライン用（インスタンス数分の配列）
+	uint8_t* materialMappedData_ = nullptr; // 永続マップ（毎回のMap/Unmapを避ける）
+	uint32_t materialStride_ = 0; // 1インスタンス分のアライメント済みサイズ
 	ComPtr<ID3D12Resource> gridMaterialResource_ = nullptr; // グリッド専用（固定色）
 
 	// WVP 行列関連

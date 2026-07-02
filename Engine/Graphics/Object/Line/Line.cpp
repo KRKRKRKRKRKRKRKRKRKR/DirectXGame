@@ -90,7 +90,11 @@ void Line::CreateVertexResource(ID3D12Device* device) {
 }
 
 void Line::CreateMaterialResource(ID3D12Device* device) {
-	materialResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Vector4));
+	// WVPと同じくインスタンス数分の配列＋アライメント済みストライドで確保する
+	// （単一バッファだと、1フレームに複数の異なる色のLineを描画した際に最後の色へ
+	// 全インスタンスが引きずられてしまうため）
+	materialStride_ = AlignUp(static_cast<uint32_t>(sizeof(Vector4)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+	materialResource_ = ResourceFactory::CreateBufferResource(device, static_cast<size_t>(materialStride_) * kMaxInstanceCount);
 
 	if (!materialResource_) {
 		Logger::Log("Line::CreateMaterialResource : Failed to create material buffer\n");
@@ -105,8 +109,11 @@ void Line::CreateMaterialResource(ID3D12Device* device) {
 		return;
 	}
 
-	// デフォルト: 白色
-	*materialMappedData_ = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+	// 全インスタンスのデフォルト色を白に初期化
+	for (uint32_t i = 0; i < kMaxInstanceCount; i++) {
+		Vector4* dest = reinterpret_cast<Vector4*>(materialMappedData_ + i * materialStride_);
+		*dest = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
 }
 
 void Line::CreateGridMaterialResource(ID3D12Device* device) {
@@ -159,13 +166,19 @@ void Line::SetLine(const Vector3& start, const Vector3& end, uint32_t lineIndex)
 	v[1].position = Vector4(end.x, end.y, end.z, 1.0f);
 }
 
-void Line::SetColor(const Vector4& color) {
+void Line::SetColor(const Vector4& color, uint32_t colorIndex) {
 	if (!materialMappedData_) {
 		Logger::Log("Line::SetColor : Material resource is not initialized\n");
 		return;
 	}
+	if (colorIndex >= kMaxInstanceCount) {
+		Logger::Log("Line::SetColor : colorIndex exceeds kMaxInstanceCount\n");
+		assert(false);
+		return;
+	}
 
-	*materialMappedData_ = color;
+	Vector4* destination = reinterpret_cast<Vector4*>(materialMappedData_ + colorIndex * materialStride_);
+	*destination = color;
 }
 
 void Line::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex) {
@@ -207,8 +220,9 @@ void Line::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, 
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
 
-	// マテリアル（色）をセット（ルートパラメータ0）
-	commandList->SetGraphicsRootConstantBufferView(0, materialResource_->GetGPUVirtualAddress());
+	// マテリアル（色）をセット（ルートパラメータ0）。wvpIndexと同じインデックスの色を使う
+	D3D12_GPU_VIRTUAL_ADDRESS materialAddress = materialResource_->GetGPUVirtualAddress() + (materialStride_ * wvpIndex);
+	commandList->SetGraphicsRootConstantBufferView(0, materialAddress);
 
 	// WVP 行列をセット（ルートパラメータ1）
 	D3D12_GPU_VIRTUAL_ADDRESS wvpAddress = wvpResource_->GetGPUVirtualAddress() + (wvpStride_ * wvpIndex);

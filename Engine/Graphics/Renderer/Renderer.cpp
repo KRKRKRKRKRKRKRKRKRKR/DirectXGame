@@ -202,7 +202,7 @@ void Renderer::FlushLines() {
 	for (int i = 0; i < (int)lineCommands_.size(); i++) {
 		line_->SetLine(lineCommands_[i].start, lineCommands_[i].end, i);
 		line_->SetWvpMatrix(lineCommands_[i].viewProj, i);
-		line_->SetColor(lineCommands_[i].color);
+		line_->SetColor(lineCommands_[i].color, i); // インデックスを渡し、インスタンスごとに独立した色にする
 		line_->Draw(commandList_, 1, i);
 	}
 

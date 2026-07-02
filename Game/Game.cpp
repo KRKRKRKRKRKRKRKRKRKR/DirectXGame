@@ -63,6 +63,13 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	CubeRenderComponent* cubeRender = cubeObject_.AddComponent<CubeRenderComponent>();
 	cubeRender->textureHandle = textures_[cubeTexIndex_].handle;
 
+	// CubeはOBB（回転追従の直方体）を使う。見た目（1辺2.0相当）に近いhalfSizeを初期値にする。
+	// 回転はコライダー自身では持たず、cubeObject_.transform.rotationをそのまま使うため、
+	// Cubeを回転させると当たり判定も一緒に追従する。"Gizmo"パネルの"Edit Collider"で
+	// オフセット・サイズをドラッグ調整できる
+	OBBColliderComponent* cubeCollider = cubeObject_.AddComponent<OBBColliderComponent>();
+	cubeCollider->halfSize = { 1.0f, 1.0f, 1.0f };
+
 	// 大きなFloor（Cubeを平たく大きく引き伸ばして床として使う）。CubeとFloorは
 	// プロパティ構成が完全に同一なため、専用クラスを作らずCubeRenderComponentを再利用する
 	floorTexIndex_ = 1;
@@ -78,6 +85,10 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	sphereObject_.transform.translation = { 3.0f, 1.0f, 0.0f };
 	SphereRenderComponent* sphereRender = sphereObject_.AddComponent<SphereRenderComponent>();
 	sphereRender->textureHandle = textures_[sphereTexIndex_].handle;
+
+	// Cubeとの重なり判定を確認するための検証用Collider（Collider導入検証第2号）
+	SphereColliderComponent* sphereCollider = sphereObject_.AddComponent<SphereColliderComponent>();
+	sphereCollider->radius = 1.0f;
 
 	// Triangle。triangleSmoothness_はrenderer_->SetTriangleSmoothness()というグローバル設定
 	// のため、cubeSmoothness_/sphereSubdivision_と同様にコンポーネントには持たせない
@@ -117,7 +128,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 	// Assimp導入確認用（FBX読み込みテスト。ボーン+アニメーション付きのHumanModel_ver2.fbxで確認）
 	fbxModelObject_.name = "FBX Model";
-	fbxModelObject_.transform.translation = { 0.0f, 0.0f, 0.0f };
+	fbxModelObject_.transform.translation = { 8.0f, 0.0f, 0.0f };
 	// MixamoモデルはFBXのUnitScaleFactorメタデータが1.0のまま実寸(cm相当)で出力されており、
 	// 他オブジェクトと同じ単位系に合わせるには実測で0.01倍が丁度良かった
 	fbxModelObject_.transform.scale = { 0.01f, 0.01f, 0.01f };
@@ -209,6 +220,9 @@ void Game::Render() {
 	sprite3DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite3DObject_.transform);
 	sprite2DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite2DObject_.transform);
 
+	// Collider（当たり判定）の可視化：重なっていれば赤、していなければ緑のワイヤーフレームで表示
+	DrawColliderGizmos(view, proj);
+
 	// 光源を可視化：direction の逆方向 × 15 の位置に黄色い球、原点へのラインで方向を表示
 	{
 		const Vector3& d = renderer_->GetLight().GetData().direction;
@@ -272,9 +286,63 @@ Transform* Game::GetGizmoTargetTransform() {
 		return &lightGizmoScratch_;
 	}
 	if (gizmoTargetIndex_ >= 0 && gizmoTargetIndex_ < static_cast<int>(gizmoTargets_.size())) {
-		return &gizmoTargets_[gizmoTargetIndex_]->transform;
+		GameObject* obj = gizmoTargets_[gizmoTargetIndex_];
+		if (editCollider_) {
+			// Collider編集モード：SphereCollider/OBBColliderのどちらか一方を対象にする
+			// （両方持つ場合はSphereを優先。今回は1オブジェクト1コライダー運用を想定）
+			if (obj->GetComponent<SphereColliderComponent>() || obj->GetComponent<OBBColliderComponent>()) {
+				return &colliderGizmoScratch_;
+			}
+			return nullptr; // Colliderを持たないオブジェクトを選んでいる場合は何も編集しない
+		}
+		return &obj->transform;
 	}
 	return nullptr;
+}
+
+void Game::DrawColliderGizmos(const Matrix4x4& view, const Matrix4x4& proj) {
+	constexpr Vector4 kOverlapColor   = { 1.0f, 0.2f, 0.2f, 1.0f }; // 赤
+	constexpr Vector4 kNoOverlapColor = { 0.2f, 1.0f, 0.2f, 1.0f }; // 緑
+
+	// 全オブジェクトのColliderを先に集めておく（N×Nの重なり判定を1回で済ませるため）
+	struct Entry {
+		GameObject* obj;
+		SphereColliderComponent* sphere;
+		OBBColliderComponent* obb;
+		bool overlapping = false;
+	};
+	std::vector<Entry> entries;
+	for (auto* obj : gizmoTargets_) {
+		auto* sphere = obj->GetComponent<SphereColliderComponent>();
+		auto* obb    = obj->GetComponent<OBBColliderComponent>();
+		if (sphere || obb) entries.push_back({ obj, sphere, obb });
+	}
+
+	// 総当たりで重なりを判定（オブジェクト数が少ないため計算量は無視できる）
+	for (size_t i = 0; i < entries.size(); i++) {
+		for (size_t j = i + 1; j < entries.size(); j++) {
+			bool hit = false;
+			auto& a = entries[i];
+			auto& b = entries[j];
+			if (a.sphere && b.sphere) {
+				hit = Collision::SphereSphere(a.sphere->GetWorldSphere(a.obj->transform), b.sphere->GetWorldSphere(b.obj->transform));
+			} else if (a.obb && b.obb) {
+				hit = Collision::OBBOBB(a.obb->GetWorldOBB(a.obj->transform), b.obb->GetWorldOBB(b.obj->transform));
+			} else if (a.sphere && b.obb) {
+				hit = Collision::OBBSphere(b.obb->GetWorldOBB(b.obj->transform), a.sphere->GetWorldSphere(a.obj->transform));
+			} else if (a.obb && b.sphere) {
+				hit = Collision::OBBSphere(a.obb->GetWorldOBB(a.obj->transform), b.sphere->GetWorldSphere(b.obj->transform));
+			}
+			if (hit) { a.overlapping = true; b.overlapping = true; }
+		}
+	}
+
+	// 描画は各コンポーネント自身のDrawWireframeに委譲する（Gameは判定結果の色だけ渡す）
+	for (auto& e : entries) {
+		Vector4 color = e.overlapping ? kOverlapColor : kNoOverlapColor;
+		if (e.sphere) e.sphere->DrawWireframe(renderer_, e.obj->transform, color, view, proj);
+		if (e.obb)    e.obb->DrawWireframe(renderer_, e.obj->transform, color, view, proj);
+	}
 }
 
 // 方向ベクトル → オイラー角(ラジアン、XMMatrixRotationRollPitchYaw規約)。
@@ -381,6 +449,20 @@ void Game::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
 		}
 	}
 
+	// Collider編集モードの場合、操作開始前に現在のoffset/radius(またはhalfSize)を
+	// colliderGizmoScratch_へ反映する（ドラッグ中は再計算しない、上記ライトと同じ理由）
+	GameObject* gizmoTargetObj = (gizmoTargetIndex_ >= 0 && gizmoTargetIndex_ < static_cast<int>(gizmoTargets_.size()))
+		? gizmoTargets_[gizmoTargetIndex_] : nullptr;
+	if (editCollider_ && gizmoTargetObj && !ImGuizmo::IsUsing()) {
+		if (auto* sphereCol = gizmoTargetObj->GetComponent<SphereColliderComponent>()) {
+			colliderGizmoScratch_.translation = gizmoTargetObj->transform.translation + sphereCol->offset;
+			colliderGizmoScratch_.scale       = { sphereCol->radius, sphereCol->radius, sphereCol->radius };
+		} else if (auto* obbCol = gizmoTargetObj->GetComponent<OBBColliderComponent>()) {
+			colliderGizmoScratch_.translation = gizmoTargetObj->transform.translation + obbCol->offset;
+			colliderGizmoScratch_.scale       = { obbCol->halfSize.x * 2.0f, obbCol->halfSize.y * 2.0f, obbCol->halfSize.z * 2.0f };
+		}
+	}
+
 	ImGuizmo::SetOrthographic(false);
 	ImGuizmo::SetRect(0, 0, (float)renderer_->GetClientWidth(), (float)renderer_->GetClientHeight());
 
@@ -391,6 +473,10 @@ void Game::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
 	if (gizmoTarget_ == GizmoTarget::kPointLight) {
 		operation = ImGuizmo::TRANSLATE;
 	} else if (gizmoTarget_ == GizmoTarget::kSpotLight && gizmoOperation_ == ImGuizmo::SCALE) {
+		operation = ImGuizmo::TRANSLATE;
+	}
+	// Collider編集中はRotate操作を無効化する（Sphere/AABBに回転の意味がないため）
+	if (editCollider_ && operation == ImGuizmo::ROTATE) {
 		operation = ImGuizmo::TRANSLATE;
 	}
 
@@ -411,6 +497,17 @@ void Game::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
 		} else if (gizmoTarget_ == GizmoTarget::kSpotLight) {
 			light.SetSpotPosition(target->translation);
 			light.SetSpotDirection(TransformMath::EulerRadiansToDirection(target->rotation));
+		}
+
+		// Collider編集中の場合、ワールド座標系のtranslation/scaleをoffset/radius(またはhalfSize)へ変換して書き戻す
+		if (editCollider_ && gizmoTargetObj) {
+			if (auto* sphereCol = gizmoTargetObj->GetComponent<SphereColliderComponent>()) {
+				sphereCol->offset = target->translation - gizmoTargetObj->transform.translation;
+				sphereCol->radius = target->scale.x; // Scaleギズモは等方的なドラッグを想定し、xの値を採用
+			} else if (auto* obbCol = gizmoTargetObj->GetComponent<OBBColliderComponent>()) {
+				obbCol->offset   = target->translation - gizmoTargetObj->transform.translation;
+				obbCol->halfSize = { target->scale.x * 0.5f, target->scale.y * 0.5f, target->scale.z * 0.5f };
+			}
 		}
 	}
 }
@@ -471,9 +568,23 @@ void Game::DrawImGui() {
 		}
 	}
 
+	// Collider編集モード：選択中オブジェクトがCollider（Sphere/Box）を持つ場合のみ有効化できる。
+	// オンの間、ギズモの対象はGameObject本体のTransformではなくColliderのオフセット/サイズになる
+	bool hasCollider = false;
+	if (gizmoTargetIndex_ >= 0 && gizmoTargetIndex_ < static_cast<int>(gizmoTargets_.size())) {
+		GameObject* obj = gizmoTargets_[gizmoTargetIndex_];
+		hasCollider = (obj->GetComponent<SphereColliderComponent>() != nullptr) ||
+		              (obj->GetComponent<OBBColliderComponent>() != nullptr);
+	}
+	if (!hasCollider) editCollider_ = false; // Colliderを持たないオブジェクト選択中は強制オフ
+	if (!hasCollider) ImGui::BeginDisabled();
+	ImGui::Checkbox("Edit Collider", &editCollider_);
+	if (!hasCollider) ImGui::EndDisabled();
+
 	// PointLight/SpotLightは回転・スケールの概念がない（点光源=Translateのみ、
-	// スポットライトの向き=Rotateのみ）ため、無効な操作モードはグレーアウトする
-	bool disableRotate = (gizmoTarget_ == GizmoTarget::kPointLight);
+	// スポットライトの向き=Rotateのみ）ため、無効な操作モードはグレーアウトする。
+	// Collider編集中もRotateには意味がないため同様にグレーアウトする
+	bool disableRotate = (gizmoTarget_ == GizmoTarget::kPointLight) || editCollider_;
 	bool disableScale  = (gizmoTarget_ == GizmoTarget::kPointLight || gizmoTarget_ == GizmoTarget::kSpotLight);
 
 	if (ImGui::RadioButton("Translate", gizmoOperation_ == ImGuizmo::TRANSLATE)) gizmoOperation_ = ImGuizmo::TRANSLATE;
@@ -485,6 +596,9 @@ void Game::DrawImGui() {
 	if (disableScale) ImGui::BeginDisabled();
 	if (ImGui::RadioButton("Scale", gizmoOperation_ == ImGuizmo::SCALE)) gizmoOperation_ = ImGuizmo::SCALE;
 	if (disableScale) ImGui::EndDisabled();
+
+	// Collider同士の重なりは3Dビュー上のワイヤーフレーム色（赤=重なり/緑=非重なり）で
+	// 表示されるため、テキストでの重複表示はしない（DrawColliderGizmos()参照）
 	ImGui::End();
 
 	auto textureCombo = [&](const char* label, int& index) {
@@ -549,7 +663,7 @@ void Game::DrawImGui() {
 	ImGui::Separator();
 	ImGui::Text("Grid Cubes");
 	ImGui::Text("Cube Count: %d (Drawn: %d)", static_cast<int>(gridCubes_.size()), gridCubesDrawnCount_);
-	if (ImGui::SliderInt("Grid Size (NxNxN)", &gridSize_, 1, kGridSizeMax))
+	if (ImGui::SliderInt("Grid Size (NxNxN)", &gridSize_, 0, kGridSizeMax))
 		RebuildGridCubes();
 	ImGui::Checkbox("Frustum Culling", &gridFrustumCullingEnabled_);
 	ImGui::Checkbox("Grid Lighting", &gridCubeLighting_);

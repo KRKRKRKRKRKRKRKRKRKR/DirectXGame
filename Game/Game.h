@@ -13,6 +13,8 @@
 #include "../Engine/GameObject/Component/TriangleRenderComponent.h"
 #include "../Engine/GameObject/Component/ModelRenderComponent.h"
 #include "../Engine/GameObject/Component/SpriteRenderComponent.h"
+#include "../Engine/GameObject/Component/SphereColliderComponent.h"
+#include "../Engine/GameObject/Component/OBBColliderComponent.h"
 #include <vector>
 #include <string>
 class Game {
@@ -134,6 +136,14 @@ private:
 	// Setter経由でしか書き込めないため、ここに現在値をコピー→ImGuizmoで編集→差分をSetterへ書き戻す
 	Transform lightGizmoScratch_;
 
+	// "Gizmo"パネルの"Edit Collider"チェックボックス。オンの間、ギズモの対象は選択中
+	// GameObjectのTransformではなく、そのGameObjectが持つCollider（オフセット+サイズ）に切り替わる
+	bool editCollider_ = false;
+
+	// Collider編集を仲介する一時バッファ。translationはワールド座標に変換したコライダー中心、
+	// scaleはSphereなら{radius,radius,radius}、Boxならhalfsize*2を格納する。rotationは使わない
+	Transform colliderGizmoScratch_;
+
 	// マウスピッキング：3Dビュー上で左クリックした瞬間を検知するための前フレーム状態。
 	// InputDeviceは左クリックの「押されているか」のみでトリガー版を持たないため、ここで保持する
 	bool prevMouseLeftPressed_ = false;
@@ -145,6 +155,10 @@ private:
 	// 左クリック位置から飛ばしたレイとの交差判定で最も手前のものをギズモ選択状態に反映する。
 	// ImGuizmo操作中/ImGuiパネル操作中は発火しない（既存のコンボボックス選択と共存する追加手段）
 	void UpdatePicking(const Matrix4x4& view, const Matrix4x4& proj);
+
+	// gizmoTargets_内でCollider（Sphere/Box）を持つ全オブジェクトをワイヤーフレームで可視化する。
+	// 他の少なくとも1つのColliderと重なっていれば赤、していなければ緑で表示する
+	void DrawColliderGizmos(const Matrix4x4& view, const Matrix4x4& proj);
 
 	void DrawGrid();
 	void DrawImGui();
