@@ -29,7 +29,11 @@ Line::~Line() {
 		wvpResource_.Reset();
 	}
 
-	materialResource_.Reset();
+	if (materialResource_) {
+		materialResource_->Unmap(0, nullptr);
+		materialMappedData_ = nullptr;
+		materialResource_.Reset();
+	}
 }
 
 // ============================================================
@@ -94,17 +98,15 @@ void Line::CreateMaterialResource(ID3D12Device* device) {
 		return;
 	}
 
-	Vector4* materialData = nullptr;
-	HRESULT hr = materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
-	if (FAILED(hr) || !materialData) {
+	HRESULT hr = materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialMappedData_));
+	if (FAILED(hr) || !materialMappedData_) {
 		Logger::Log("Line::CreateMaterialResource : Failed to map material buffer\n");
 		assert(false);
 		return;
 	}
 
 	// デフォルト: 白色
-	*materialData = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-	materialResource_->Unmap(0, nullptr);
+	*materialMappedData_ = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 void Line::CreateGridMaterialResource(ID3D12Device* device) {
@@ -158,20 +160,12 @@ void Line::SetLine(const Vector3& start, const Vector3& end, uint32_t lineIndex)
 }
 
 void Line::SetColor(const Vector4& color) {
-	if (!materialResource_) {
+	if (!materialMappedData_) {
 		Logger::Log("Line::SetColor : Material resource is not initialized\n");
 		return;
 	}
 
-	Vector4* materialData = nullptr;
-	HRESULT hr = materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
-	if (FAILED(hr) || !materialData) {
-		Logger::Log("Line::SetColor : Failed to map material buffer\n");
-		return;
-	}
-
-	*materialData = color;
-	materialResource_->Unmap(0, nullptr);
+	*materialMappedData_ = color;
 }
 
 void Line::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex) {
@@ -182,19 +176,6 @@ void Line::SetWvpMatrix(const Matrix4x4& wvpMatrix, uint32_t wvpIndex) {
 
 	char* destination = reinterpret_cast<char*>(wvpMappedData_) + wvpIndex * wvpStride_;
 	std::memcpy(destination, &wvpMatrix, sizeof(Matrix4x4));
-}
-
-void Line::SetViewportAndScissorRect(int32_t width, int32_t height) {
-	viewport_.Width = static_cast<float>(width);
-	viewport_.Height = static_cast<float>(height);
-	viewport_.TopLeftX = 0;
-	viewport_.TopLeftY = 0;
-	viewport_.MinDepth = 0.0f;
-	viewport_.MaxDepth = 1.0f;
-	scissorRect_.left = 0;
-	scissorRect_.right = width;
-	scissorRect_.top = 0;
-	scissorRect_.bottom = height;
 }
 
 // ============================================================

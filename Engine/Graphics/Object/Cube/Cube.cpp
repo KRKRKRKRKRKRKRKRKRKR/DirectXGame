@@ -2,22 +2,12 @@
 #include "../../ResourceFactory/ResourceFactory.h"
 #include "../../../Utils/Logger.h"
 #include "../../Pipeline/Pipeline.h"
-#include "../../../../Math/MatrixMath.h"
+#include "../../Pipeline/PipelineCommandHelper.h"
 #include <cassert>
 #include <cstring>
 #include <cmath>
 
 Cube::~Cube() {
-	if (wvpResource_ && wvpMappedData_) {
-		wvpResource_->Unmap(0, nullptr);
-		wvpMappedData_ = nullptr;
-		wvpResource_.Reset();
-	}
-	if (colorResource_ && colorMappedData_) {
-		colorResource_->Unmap(0, nullptr);
-		colorMappedData_ = nullptr;
-		colorResource_.Reset();
-	}
 	vertexResource_.Reset();
 }
 
@@ -31,15 +21,10 @@ void Cube::Initialize(ID3D12Device* device, TextureManager* textureManager,
 
 	CreateVertexResource(device);
 	WriteVertexData();
-	CreateWvpResource(device);
-	CreateColorResource(device);
 
-	// Triangle が 10,11 を使っているので Cube は 12,13 を使う
-	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   kMaxInstanceCount, sizeof(TransformationMatrix), 12);
-	auto colorSrv = heaps->CreateStructuredBufferSRV(device, colorResource_.Get(), kMaxInstanceCount, sizeof(Vector4),   13);
-
-	wvpSrvHandle_   = wvpSrv.gpuHandle;
-	colorSrvHandle_ = colorSrv.gpuHandle;
+	// SRVをDescriptorHeapsに登録（WVP用・色用の2枠をアロケータから払い出してもらう）
+	uint32_t srvBase = heaps->AllocateSRVIndex(2);
+	wvpColorBuffer_.Initialize(device, heaps, kMaxInstanceCount, srvBase, srvBase + 1);
 
 	Logger::Log("Cube initialized successfully\n");
 }
@@ -123,64 +108,29 @@ void Cube::WriteVertexData() {
 	vertexResource_->Unmap(0, nullptr);
 }
 
-void Cube::CreateWvpResource(ID3D12Device* device) {
-	wvpStride_   = sizeof(TransformationMatrix);
-	wvpResource_ = ResourceFactory::CreateBufferResource(device, wvpStride_ * kMaxInstanceCount);
-	assert(wvpResource_);
-
-	HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
-	assert(SUCCEEDED(hr) && wvpMappedData_);
-}
-
-void Cube::CreateColorResource(ID3D12Device* device) {
-	colorStride_   = sizeof(Vector4);
-	colorResource_ = ResourceFactory::CreateBufferResource(device, colorStride_ * kMaxInstanceCount);
-	assert(colorResource_);
-
-	HRESULT hr = colorResource_->Map(0, nullptr, reinterpret_cast<void**>(&colorMappedData_));
-	assert(SUCCEEDED(hr) && colorMappedData_);
-
-	// デフォルト白
-	for (uint32_t i = 0; i < kMaxInstanceCount; i++) {
-		Vector4* data = reinterpret_cast<Vector4*>(colorMappedData_ + i * colorStride_);
-		*data = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-	}
-}
-
 void Cube::SetSmoothness(float s) {
 	smoothness_ = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s);
 	WriteVertexData();
 }
 
 void Cube::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index) {
-	if (!wvpMappedData_) return;
-	TransformationMatrix* dst = reinterpret_cast<TransformationMatrix*>(
-		reinterpret_cast<char*>(wvpMappedData_) + index * wvpStride_);
-	dst->WVP   = wvpMatrix;
-	dst->World = world;
-	dst->WorldInverseTranspose = MatrixMath::Transpose(MatrixMath::Inverse(world));
+	wvpColorBuffer_.SetWvpMatrix(wvpMatrix, world, index);
+}
+
+void Cube::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, const Matrix4x4& worldInverseTranspose, uint32_t index) {
+	wvpColorBuffer_.SetWvpMatrix(wvpMatrix, world, worldInverseTranspose, index);
 }
 
 void Cube::SetColor(const Vector4& color, uint32_t index) {
-	if (!colorMappedData_) return;
-	Vector4* data = reinterpret_cast<Vector4*>(colorMappedData_ + index * colorStride_);
-	*data = color;
+	wvpColorBuffer_.SetColor(color, index);
 }
 
 void Cube::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength,
 	bool enableAlphaTest, float alphaThreshold) {
-	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
-	const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
-	commandList->OMSetBlendFactor(blendFactor);
-	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
-	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
-	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
-	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(blendMode), 0);              // b2.x: blendMode
-	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&blendStrength), 1); // b2.y: blendStrength
-	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(enableAlphaTest), 2);         // b2.z: enableAlphaTest
-	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&alphaThreshold), 3); // b2.w: alphaThreshold
+	PipelineCommandHelper::ApplyCommon(commandList, rootSignature_, pipeline_->GetPipelineState(blendMode, enableAlphaTest),
+		textureManager->GetSrvGpuHandle(texture), wvpColorBuffer_.GetWvpSrvHandle(), wvpColorBuffer_.GetColorSrvHandle(),
+		blendMode, blendStrength, enableAlphaTest, alphaThreshold);
 }
 
 ID3D12PipelineState* Cube::GetPipelineState() const {

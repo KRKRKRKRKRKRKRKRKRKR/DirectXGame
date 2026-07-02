@@ -29,9 +29,6 @@ public:
 	// ライン色を設定（RGBA, 0.0f〜1.0f）
 	void SetColor(const Vector4& color);
 
-	// ビューポート・シザーレクトを設定
-	void SetViewportAndScissorRect(int32_t width, int32_t height);
-
 	// パイプラインコマンドを設定
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList);
 
@@ -40,10 +37,6 @@ public:
 	ID3D12RootSignature* GetRootSignature() const override { return rootSignature_; }
 	ID3D12PipelineState* GetPipelineState() const override { return pipelineState_; }
 
-	// ゲッター
-	const D3D12_VIEWPORT& GetViewport() const { return viewport_; }
-	const D3D12_RECT& GetScissorRect() const { return scissorRect_; }
-	
 	// 内部描画関数（複数ラインをまとめて描画）
 	void DrawBatch(ID3D12GraphicsCommandList* commandList,uint32_t startVertex,uint32_t lineCount,uint32_t wvpIndex);
 private:
@@ -59,16 +52,13 @@ private:
 
 	// マテリアル（色）関連
 	ComPtr<ID3D12Resource> materialResource_     = nullptr; // カスタムライン用
+	Vector4* materialMappedData_ = nullptr; // 永続マップ（毎回のMap/Unmapを避ける）
 	ComPtr<ID3D12Resource> gridMaterialResource_ = nullptr; // グリッド専用（固定色）
 
 	// WVP 行列関連
 	ComPtr<ID3D12Resource> wvpResource_ = nullptr;
 	uint8_t* wvpMappedData_ = nullptr;
 	uint32_t wvpStride_ = 0;
-
-	// ビューポート・シザーレクト
-	D3D12_VIEWPORT viewport_{};
-	D3D12_RECT scissorRect_{};
 
 	// パイプライン参照
 	ID3D12RootSignature* rootSignature_ = nullptr;

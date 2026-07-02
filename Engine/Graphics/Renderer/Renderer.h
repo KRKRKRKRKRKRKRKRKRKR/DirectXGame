@@ -5,6 +5,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <optional>
 #include "../ShaderCompiler/ShaderCompiler.h"
 #include "../Pipeline/Pipeline.h"
 #include "../Pipeline/LinePipeline.h"
@@ -64,6 +65,11 @@ public:
 	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
 		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 
+	// worldInverseTransposeを呼び出し側で計算済みの場合はこちらを使う（Inverse+Transpose計算を省略できる）。
+	// 大量の静止インスタンス（グリッド等）で回転が変化した時だけ再計算してキャッシュする用途向け
+	void DrawCube    (const Transform& t, const Matrix4x4& worldInverseTranspose, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
+
 	// WVP 直接指定版（既存、後方互換用）
 	void DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
 	void DrawSphere  (const Matrix4x4& wvp, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
@@ -88,6 +94,8 @@ public:
 
 	void SetTriangleSmoothness(float s) { triangle_->SetSmoothness(s); }
 	void SetCubeSmoothness(float s)     { cube_->SetSmoothness(s); }
+	void SetSphereSubdivision(uint32_t subdivision) { sphere_->SetSubdivision(subdivision); }
+	static constexpr uint32_t kSphereMaxSubdivision = Sphere::kMaxSubdivision;
 
 	void InitializeGridLines();
 	void ResetFrameIndex();
@@ -97,7 +105,9 @@ public:
 	int GetClientHeight() const { return windowHeight_; }
 
 private:
-	struct TriangleCommand {
+	// Triangle/Cube/Sphereの3種で共通のコマンド情報。ソートキー・バッチ判定・
+	// SetPipelineCommands呼び出しに使うフィールドをまとめて持つ
+	struct DrawCommandBase {
 		Matrix4x4     wvp;
 		Matrix4x4     world;
 		Vector4       color;
@@ -107,59 +117,39 @@ private:
 		float         blendStrength;
 		bool          enableAlphaTest;
 		float         alphaThreshold;
+		// 未設定ならFlushBatch内でInverse+Transposeを計算する。呼び出し側で計算済みなら
+		// ここに値を入れておくことで毎フレームの逆行列計算を省略できる（グリッド等の大量静止インスタンス向け）
+		std::optional<Matrix4x4> worldInverseTranspose;
 	};
+	struct TriangleCommand : DrawCommandBase {};
+	struct SphereCommand   : DrawCommandBase {};
+	struct CubeCommand     : DrawCommandBase {};
+
 	struct LineCommand {
 		Vector3   start;
 		Vector3   end;
 		Vector4   color;
 		Matrix4x4 viewProj;
 	};
-	struct SphereCommand {
-		Matrix4x4     wvp;
-		Matrix4x4     world;
-		Vector4       color;
-		TextureHandle texture;
-		bool          useLighting;
-		BlendMode     blendMode;
-		float         blendStrength;
-		bool          enableAlphaTest;
-		float         alphaThreshold;
+	struct Sprite2DCommand : DrawCommandBase {
+		UVTransform uvTransform;
 	};
-	struct CubeCommand {
-		Matrix4x4     wvp;
-		Matrix4x4     world;
-		Vector4       color;
-		TextureHandle texture;
-		bool          useLighting;
-		BlendMode     blendMode;
-		float         blendStrength;
-		bool          enableAlphaTest;
-		float         alphaThreshold;
+	struct ModelCommand : DrawCommandBase {
+		ModelHandle handle;
 	};
-	struct Sprite2DCommand {
-		Matrix4x4     wvp;
-		Matrix4x4     world;
-		Vector4       color;
-		TextureHandle texture;
-		bool          useLighting;
-		UVTransform   uvTransform;
-		BlendMode     blendMode;
-		float         blendStrength;
-		bool          enableAlphaTest;
-		float         alphaThreshold;
-	};
-	struct ModelCommand {
-		ModelHandle   handle;
-		Matrix4x4     wvp;
-		Matrix4x4     world;
-		Vector4       color;
-		TextureHandle texture;
-		bool          useLighting;
-		BlendMode     blendMode;
-		float         blendStrength;
-		bool          enableAlphaTest;
-		float         alphaThreshold;
-	};
+
+	// Triangle/Cube/Sphereの3種で共通のFlush処理（ソート→バッチ化→描画）。
+	// objはSetWvpMatrix/SetColor/SetPipelineCommands/Drawという同一シグネチャの
+	// メンバ関数を持つ型（Triangle*/Cube*/Sphere*）を渡す
+	template<typename ObjectT, typename CommandT>
+	void FlushBatch(std::vector<CommandT>& commands, ObjectT* obj);
+
+	// Model/Sprite3D/Sprite2Dで共通の「1件描画」シーケンス
+	// （SetPipelineCommands→ライトCBV→インスタンスオフセット定数→Draw）。
+	// バッチ化はせず、呼び出し側でWVP/色/UVTransform等を個別に設定済みの前提
+	template<typename ObjectT>
+	void IssueDrawCommand(ObjectT* obj, TextureHandle texture, BlendMode blendMode, float blendStrength,
+		bool enableAlphaTest, float alphaThreshold, bool useLighting, uint32_t instanceOffset);
 
 	ID3D12Device* device_ = nullptr;
 	ID3D12GraphicsCommandList* commandList_ = nullptr;
@@ -180,7 +170,6 @@ private:
 	SceneLight light_;
 
 	std::vector<std::unique_ptr<Model>> models_;
-	uint32_t nextModelHeapIndex_ = 20; // 0-19 は他オブジェクトが使用
 
 	std::vector<TriangleCommand>  triangleCommands_;
 	std::vector<CubeCommand>      cubeCommands_;
@@ -197,3 +186,65 @@ private:
 	Matrix4x4 view_{};
 	Matrix4x4 projection_{};
 };
+
+// Triangle/Cube/Sphereで共通のFlush処理。ソートキー・バッチ判定はDrawCommandBaseの
+// フィールド（texture→blendMode→blendStrength→enableAlphaTest→alphaThreshold→useLighting）で行う
+template<typename ObjectT, typename CommandT>
+void Renderer::FlushBatch(std::vector<CommandT>& commands, ObjectT* obj) {
+	if (commands.empty()) return;
+
+	std::stable_sort(commands.begin(), commands.end(),
+		[](const CommandT& a, const CommandT& b) {
+			if (a.texture != b.texture) return a.texture < b.texture;
+			if (a.blendMode != b.blendMode) return a.blendMode < b.blendMode;
+			if (a.blendStrength != b.blendStrength) return a.blendStrength < b.blendStrength;
+			if (a.enableAlphaTest != b.enableAlphaTest) return a.enableAlphaTest < b.enableAlphaTest;
+			if (a.alphaThreshold != b.alphaThreshold) return a.alphaThreshold < b.alphaThreshold;
+			return (int)a.useLighting > (int)b.useLighting;
+		});
+
+	for (int i = 0; i < (int)commands.size(); i++) {
+		if (commands[i].worldInverseTranspose.has_value()) {
+			obj->SetWvpMatrix(commands[i].wvp, commands[i].world, *commands[i].worldInverseTranspose, i);
+		} else {
+			obj->SetWvpMatrix(commands[i].wvp, commands[i].world, i);
+		}
+		obj->SetColor(commands[i].color, i);
+	}
+
+	int start = 0;
+	while (start < (int)commands.size()) {
+		TextureHandle currentTex     = commands[start].texture;
+		bool          batchLighting  = commands[start].useLighting;
+		BlendMode     batchBlend     = commands[start].blendMode;
+		float         batchStrength  = commands[start].blendStrength;
+		bool          batchAlphaTest = commands[start].enableAlphaTest;
+		float         batchThreshold = commands[start].alphaThreshold;
+		int end = start;
+		while (end < (int)commands.size() &&
+			   commands[end].texture        == currentTex &&
+			   commands[end].useLighting    == batchLighting &&
+			   commands[end].blendMode      == batchBlend &&
+			   commands[end].blendStrength  == batchStrength &&
+			   commands[end].enableAlphaTest == batchAlphaTest &&
+			   commands[end].alphaThreshold  == batchThreshold) end++;
+		obj->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength, batchAlphaTest, batchThreshold);
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
+		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
+		obj->Draw(commandList_, end - start, start);
+		start = end;
+	}
+
+	commands.clear();
+}
+
+// Model/Sprite3D/Sprite2Dで共通の「1件描画」シーケンス。WVP/色/UVTransform等は
+// 呼び出し側が事前にobjへ設定済みである前提で、パイプライン切り替え〜Draw呼び出しだけを担う
+template<typename ObjectT>
+void Renderer::IssueDrawCommand(ObjectT* obj, TextureHandle texture, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold, bool useLighting, uint32_t instanceOffset) {
+	obj->SetPipelineCommands(commandList_, &textureManager_, texture, blendMode, blendStrength, enableAlphaTest, alphaThreshold);
+	commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(useLighting));
+	commandList_->SetGraphicsRoot32BitConstant(4, instanceOffset, 0);
+	obj->Draw(commandList_, 1, instanceOffset);
+}

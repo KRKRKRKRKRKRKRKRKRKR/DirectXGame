@@ -13,6 +13,11 @@ using Microsoft::WRL::ComPtr;
 using TextureHandle = uint32_t;
 static constexpr TextureHandle kTextureNone = 0;
 
+// SRVヒープのうちテクスチャ専用に確保する枚数（index 0〜kMaxTextureCount-1）。
+// これを超える分は他オブジェクト（Triangle/Cube/Sphere/Sprite/Model等、index kMaxTextureCount〜）の
+// SRVスロットと衝突するため、この帯を十分に大きく確保している（DescriptorHeaps::Initialize参照）
+static constexpr uint32_t kMaxTextureCount = 500;
+
 struct TextureResource {
 	ComPtr<ID3D12Resource> resource;
 	ComPtr<ID3D12Resource> intermediateResource;

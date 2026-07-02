@@ -14,7 +14,7 @@
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{f81cc916-5cf5-4ad2-8a51-e391f754d5ff}</ProjectGuid>
-    <RootNamespace>DirectXGame</RootNamespace>
+    <RootNamespace>ClearRootEngine</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>ClearRootEngine</ProjectName>
   </PropertyGroup>
@@ -120,14 +120,19 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model_ObjLoader.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model_AssimpLoader.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model_SkeletalAnimation.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sphere\Sphere.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sprite\Sprite.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
+    <ClCompile Include="Engine\Graphics\Pipeline\PipelineBase.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\Pipeline.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\SkinnedPipeline.cpp" />
     <ClCompile Include="Debug\Debug.cpp" />
     <ClCompile Include="Engine\Engine.cpp" />
     <ClCompile Include="Engine\Graphics\ResourceFactory\ResourceFactory.cpp" />
+    <ClCompile Include="Engine\Graphics\ResourceFactory\InstancedWvpColorBuffer.cpp" />
     <ClCompile Include="Externals\imgui\imgui.cpp" />
     <ClCompile Include="Externals\imgui\imguiManager.cpp" />
     <ClCompile Include="Externals\imgui\imgui_demo.cpp" />
@@ -166,11 +171,14 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\Graphics\Object\Sphere\Sphere.h" />
     <ClInclude Include="Engine\Graphics\Object\Sprite\Sprite.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\LinePipeline.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\PipelineBase.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\Pipeline.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\SkinnedPipeline.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\PipelineCommandHelper.h" />
     <ClInclude Include="Debug\Debug.h" />
     <ClInclude Include="Engine\Engine.h" />
     <ClInclude Include="Engine\Graphics\ResourceFactory\ResourceFactory.h" />
+    <ClInclude Include="Engine\Graphics\ResourceFactory\InstancedWvpColorBuffer.h" />
     <ClInclude Include="Externals\imgui\imconfig.h" />
     <ClInclude Include="Externals\imgui\imgui.h" />
     <ClInclude Include="Externals\imgui\imguiManager.h" />
@@ -204,6 +212,9 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resources\Icon\ClearRootEngine.rc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Externals\DirectXTex\DirectXTex_Desktop_2022_Win10.vcxproj">

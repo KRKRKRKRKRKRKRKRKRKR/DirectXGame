@@ -101,14 +101,20 @@ PixelShaderOutput main(VertexShaderOutput input)
     PixelShaderOutput output;
     output.color = input.color * gTexture.Sample(gSampler, input.texcoord);
 
+#ifdef ENABLE_ALPHA_TEST
     // 2値抜き(Binary Alpha/αTest): αがしきい値未満のピクセルは描画せず棄却する
     // 微小なイプシロンを加えるのは、本来1.0のはずのαがテクスチャの量子化/丸め誤差で
     // 0.999...になることがあり、しきい値=1.0のときに完全不透明ピクセルまで
     // 誤ってdiscardされてしまうのを防ぐため
+    //
+    // discardをコンパイル時に完全に排除するため#ifdefで分岐している（gEnableAlphaTestという
+    // 実行時フラグだけの分岐だと、シェーダー内にdiscard命令が静的に存在するだけでGPUドライバの
+    // Early-Z最適化が無効化され、αTestを使わないオブジェクトまでオーバードロー削減の恩恵を失うため）
     if (gEnableAlphaTest != 0 && output.color.a + 1e-5f < gAlphaThreshold)
     {
         discard;
     }
+#endif
 
     if (gEnableLighting != 0)
     {

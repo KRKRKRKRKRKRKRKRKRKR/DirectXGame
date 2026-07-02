@@ -3,15 +3,6 @@
 #include "../../Utils/Logger.h"
 #include <cassert>
 
-void SkinnedPipeline::Initialize(ID3D12Device* device, ShaderCompiler* shaderCompiler, bool enableDepth) {
-	device_ = device;
-	shaderCompiler_ = shaderCompiler;
-	enableDepth_ = enableDepth;
-	CreateDescriptorRange();
-	CreateStaticSamplers();
-	CreatePSO();
-}
-
 void SkinnedPipeline::CreateDescriptorRange() {
 	// [0] t0: テクスチャ（PS）
 	descriptorRange_[0].BaseShaderRegister = 0;
@@ -36,57 +27,6 @@ void SkinnedPipeline::CreateDescriptorRange() {
 	descriptorRange_[3].NumDescriptors = 1;
 	descriptorRange_[3].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descriptorRange_[3].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-}
-
-void SkinnedPipeline::CreateStaticSamplers() {
-	staticSamplers_[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-	staticSamplers_[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers_[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers_[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	staticSamplers_[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
-	staticSamplers_[0].MaxLOD = D3D12_FLOAT32_MAX;
-	staticSamplers_[0].ShaderRegister = 0;
-	staticSamplers_[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-}
-
-void SkinnedPipeline::CreatePSO() {
-	CreateRootSignature();
-	InputLayout();
-	RasterizerState();
-	VertexShader();
-	PixelShader();
-
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC graphicsPipelineStateDesc{};
-	graphicsPipelineStateDesc.pRootSignature = rootSignature_.Get();
-	graphicsPipelineStateDesc.InputLayout = inputLayoutDesc_;
-	graphicsPipelineStateDesc.VS = { vertexShaderBlob_->GetBufferPointer(), vertexShaderBlob_->GetBufferSize() };
-	graphicsPipelineStateDesc.PS = { pixelShaderBlob_->GetBufferPointer(), pixelShaderBlob_->GetBufferSize() };
-	graphicsPipelineStateDesc.RasterizerState = rasterizerDesc_;
-
-	graphicsPipelineStateDesc.NumRenderTargets = 1;
-	graphicsPipelineStateDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-
-	graphicsPipelineStateDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-
-	graphicsPipelineStateDesc.SampleDesc.Count = 1;
-	graphicsPipelineStateDesc.SampleMask = D3D12_DEFAULT_SAMPLE_MASK;
-
-	graphicsPipelineStateDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
-
-	for (size_t i = 0; i < static_cast<size_t>(BlendMode::kCount); ++i) {
-		BlendMode blendMode = static_cast<BlendMode>(i);
-		BlendState(blendMode);
-		graphicsPipelineStateDesc.BlendState = blendDesc_;
-
-		DepthStencilState(blendMode);
-		graphicsPipelineStateDesc.DepthStencilState = depthStencilDesc_;
-
-		HRESULT hr = device_->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineStates_[i]));
-		if (FAILED(hr)) {
-			Logger::Log("Failed CreateGraphicsPipelineState (SkinnedPipeline BlendMode)\n");
-		}
-		assert(SUCCEEDED(hr));
-	}
 }
 
 void SkinnedPipeline::CreateRootSignature() {
@@ -192,81 +132,7 @@ void SkinnedPipeline::InputLayout() {
 	inputLayoutDesc_.NumElements = _countof(inputElementDescs_);
 }
 
-// BlendState/RasterizerState/DepthStencilStateはPipelineクラスと同一ロジック
-void SkinnedPipeline::BlendState(BlendMode blendMode) {
-	blendDesc_ = {};
-	D3D12_RENDER_TARGET_BLEND_DESC& rt = blendDesc_.RenderTarget[0];
-	rt.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-
-	rt.SrcBlendAlpha = D3D12_BLEND_ONE;
-	rt.DestBlendAlpha = D3D12_BLEND_ZERO;
-	rt.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-
-	switch (blendMode) {
-	case BlendMode::kNone:
-	default:
-		rt.BlendEnable = FALSE;
-		break;
-
-	case BlendMode::kNormal:
-		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
-		rt.DestBlend = D3D12_BLEND_INV_BLEND_FACTOR;
-		rt.BlendOp = D3D12_BLEND_OP_ADD;
-		break;
-
-	case BlendMode::kAdd:
-		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
-		rt.DestBlend = D3D12_BLEND_ONE;
-		rt.BlendOp = D3D12_BLEND_OP_ADD;
-		break;
-
-	case BlendMode::kSubtract:
-		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
-		rt.DestBlend = D3D12_BLEND_ONE;
-		rt.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
-		break;
-
-	case BlendMode::kMultiply:
-		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_ZERO;
-		rt.DestBlend = D3D12_BLEND_SRC_COLOR;
-		rt.BlendOp = D3D12_BLEND_OP_ADD;
-		break;
-
-	case BlendMode::kScreen:
-		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_ONE;
-		rt.DestBlend = D3D12_BLEND_INV_SRC_COLOR;
-		rt.BlendOp = D3D12_BLEND_OP_ADD;
-		break;
-	}
-}
-
-void SkinnedPipeline::RasterizerState() {
-	rasterizerDesc_ = {};
-	rasterizerDesc_.CullMode = D3D12_CULL_MODE_NONE;
-	rasterizerDesc_.FillMode = D3D12_FILL_MODE_SOLID;
-	rasterizerDesc_.DepthClipEnable = TRUE;
-}
-
 void SkinnedPipeline::VertexShader() {
 	vertexShaderBlob_.Attach(shaderCompiler_->CompileShader(L"HLSL/SkinnedObject3d.VS.hlsl", L"vs_6_0"));
 	assert(vertexShaderBlob_ != nullptr);
-}
-
-void SkinnedPipeline::PixelShader() {
-	// PSはObject3d.PS.hlslをそのまま流用（出力構造体が共通のため）
-	pixelShaderBlob_.Attach(shaderCompiler_->CompileShader(L"HLSL/Object3D.PS.hlsl", L"ps_6_0"));
-	assert(pixelShaderBlob_ != nullptr);
-}
-
-void SkinnedPipeline::DepthStencilState(BlendMode blendMode) {
-	depthStencilDesc_ = {};
-	depthStencilDesc_.DepthEnable = enableDepth_ ? TRUE : FALSE;
-	bool writeDepth = enableDepth_ && (blendMode == BlendMode::kNone);
-	depthStencilDesc_.DepthWriteMask = writeDepth ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-	depthStencilDesc_.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
 }

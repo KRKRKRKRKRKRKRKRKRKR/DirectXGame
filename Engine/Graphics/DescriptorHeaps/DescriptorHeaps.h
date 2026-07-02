@@ -10,6 +10,10 @@ public:
 	DescriptorHeaps() = default;
 	~DescriptorHeaps() = default;
 
+	// SRVヒープ全体の容量。index 0〜(TextureManager::kMaxTextureCount-1)がテクスチャ専用帯、
+	// 残りがAllocateSRVIndexの払い出し対象
+	static constexpr uint32_t kSrvHeapCapacity = 1024;
+
 	void Initialize(ID3D12Device* device);
 	void Finalize();
 
@@ -41,6 +45,14 @@ public:
 
 	SrvHandle CreateTextureSRV_new(ID3D12Device* device, ID3D12Resource* textureResource, DXGI_FORMAT format, UINT mipLevels, uint32_t heapIndex);
 	SrvHandle CreateStructuredBufferSRV(ID3D12Device* device, ID3D12Resource* resource, uint32_t numElements, uint32_t stride, uint32_t heapIndex);
+
+	// SRVヒープインデックスの一元管理用アロケータ。Triangle/Cube/Sphere/Sprite/Model等の
+	// WVP・色・ボーン行列パレット用SRVは、各クラスがマジックナンバーを持つ代わりにここから
+	// 未使用の連続indexをcount個受け取る。テクスチャ用index（TextureManagerが独自に
+	// handleをそのままheapIndexとして使う自己完結の帯）とは別に、この払い出しは
+	// nextSrvAllocIndex_ から開始することで衝突を避ける（Initialize内で開始位置を設定）
+	uint32_t AllocateSRVIndex(uint32_t count = 1);
+
 private:
 	ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_TYPE heapType, UINT numDescriptors, bool shaderVisible);
 	void SetDescriptorSizes(ID3D12Device* device);
@@ -54,4 +66,8 @@ private:
 	uint32_t descriptorSizeSRV_ = 0;
 	uint32_t descriptorSizeRTV_ = 0;
 	uint32_t descriptorSizeDSV_ = 0;
+
+	// AllocateSRVIndexが次に払い出すindex。テクスチャ用の帯（TextureManager::kMaxTextureCount未満）
+	// と衝突しないよう、Initialize内でkMaxTextureCountから開始する
+	uint32_t nextSrvAllocIndex_ = 0;
 };

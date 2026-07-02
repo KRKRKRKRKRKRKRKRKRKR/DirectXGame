@@ -10,6 +10,7 @@
 #include "../../../../Math/MathTypes.h"
 #include "../../Texture/TextureManager.h"
 #include "../../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../ResourceFactory/InstancedWvpColorBuffer.h"
 #include "../../Pipeline/BlendMode.h"
 
 using Microsoft::WRL::ComPtr;
@@ -33,6 +34,7 @@ public:
 		uint32_t wvpHeapIndex, uint32_t colorHeapIndex, uint32_t boneMatrixHeapIndex);
 
 	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index = 0);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, const Matrix4x4& worldInverseTranspose, uint32_t index = 0);
 	void SetColor(const Vector4& color, uint32_t index = 0);
 	void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 		TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
@@ -80,6 +82,9 @@ private:
 	struct SkeletonData {
 		bool                                       hasSkeleton = false;
 		std::vector<NodeData>                      nodeTree;
+		// ノード名→nodeTree内indexの逆引き。ロード後は不変なので初回構築時（WriteBindPoseBoneMatrices）
+		// に一度だけ作り、毎フレーム呼ばれるUpdateAnimationではこれを使い回して再構築を避ける
+		std::unordered_map<std::string, size_t>   nodeNameToIndex;
 		std::unordered_map<std::string, uint32_t>  boneNameToIndex;
 		std::vector<Matrix4x4>                     boneOffsetMatrices;
 
@@ -96,15 +101,7 @@ private:
 	ComPtr<ID3D12Resource> vertexResource_;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
 
-	ComPtr<ID3D12Resource> wvpResource_;
-	uint8_t*  wvpMappedData_ = nullptr;
-	uint32_t  wvpStride_     = 0;
-	D3D12_GPU_DESCRIPTOR_HANDLE wvpSrvHandle_{};
-
-	ComPtr<ID3D12Resource> colorResource_;
-	uint8_t*  colorMappedData_ = nullptr;
-	uint32_t  colorStride_     = 0;
-	D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
+	InstancedWvpColorBuffer wvpColorBuffer_;
 
 	ID3D12RootSignature* rootSignature_  = nullptr;
 	Pipeline*            pipeline_       = nullptr;
@@ -135,8 +132,6 @@ private:
 	void LoadSkeletonAndAnimation(const struct aiScene* scene);
 
 	void CreateVertexResource (ID3D12Device* device, const ModelData& modelData);
-	void CreateWvpResource    (ID3D12Device* device);
-	void CreateColorResource  (ID3D12Device* device);
 	void CreateBoneMatrixResource(ID3D12Device* device, DescriptorHeaps* heaps, uint32_t boneMatrixHeapIndex);
 
 	// Step2疎通確認: 全ボーン行列を単位行列で埋める

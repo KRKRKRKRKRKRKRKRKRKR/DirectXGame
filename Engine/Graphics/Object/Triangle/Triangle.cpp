@@ -3,7 +3,7 @@
 #include "../../../Utils/Logger.h"
 #include "../../../Graphics/ResourceFactory/ResourceFactory.h"
 #include "../../Pipeline/Pipeline.h"
-#include "../../../../Math/MatrixMath.h"
+#include "../../Pipeline/PipelineCommandHelper.h"
 
 #include <cassert>
 #include <cstring>
@@ -16,18 +16,6 @@ namespace {
 }
 
 Triangle::~Triangle() {
-	if (wvpResource_ && wvpMappedData_) {  // wvpMappedData_ チェック追加
-		wvpResource_->Unmap(0, nullptr);
-		wvpMappedData_ = nullptr;
-		wvpResource_.Reset();
-	}
-
-	if (materialResource_ && materialMappedData_) {  // materialMappedData_ チェック追加
-		materialResource_->Unmap(0, nullptr);
-		materialMappedData_ = nullptr;
-		materialResource_.Reset();
-	}
-
 	vertexResource_.Reset();
 }
 
@@ -41,18 +29,11 @@ void Triangle::Initialize(ID3D12Device* device, TextureManager* textureManager,
 	pipeline_ = pipeline;
 
 	CreateVertexResource(device);
-	CreateMaterialResource(device);
-	CreateWvpMatrixResource(device);
 	WriteVertexData();
 
-	// SRVをDescriptorHeapsに登録（index 10: WVP, index 11: 色）
-	auto wvpSrv = heaps->CreateStructuredBufferSRV(
-		device, wvpResource_.Get(), kMaxInstanceCount, sizeof(TransformationMatrix), 10);
-	auto colorSrv = heaps->CreateStructuredBufferSRV(
-		device, materialResource_.Get(), kMaxInstanceCount, sizeof(Vector4), 11);
-
-	wvpSrvHandle_ = wvpSrv.gpuHandle;
-	colorSrvHandle_ = colorSrv.gpuHandle;
+	// SRVをDescriptorHeapsに登録（WVP用・色用の2枠をアロケータから払い出してもらう）
+	uint32_t srvBase = heaps->AllocateSRVIndex(2);
+	wvpColorBuffer_.Initialize(device, heaps, kMaxInstanceCount, srvBase, srvBase + 1);
 
 	Logger::Log("Triangle initialized successfully\n");
 }
@@ -71,57 +52,6 @@ void Triangle::CreateVertexResource(ID3D12Device* device) {
 	vertexBufferView_.BufferLocation = vertexResource_->GetGPUVirtualAddress();
 	vertexBufferView_.SizeInBytes = sizeof(VertexData) * kVertexCount;
 	vertexBufferView_.StrideInBytes = sizeof(VertexData);
-}
-
-void Triangle::CreateMaterialResource(ID3D12Device* device) {
-	materialStride_ = sizeof(Vector4);
-	materialResource_ = ResourceFactory::CreateBufferResource(device, materialStride_ * kMaxInstanceCount);
-
-	HRESULT hr = materialResource_->Map(0, nullptr, reinterpret_cast<void**>(&materialMappedData_));
-	assert(SUCCEEDED(hr) && materialMappedData_);
-
-	for (uint32_t i = 0; i < kMaxInstanceCount; i++) {
-		Vector4* data = reinterpret_cast<Vector4*>(materialMappedData_ + i * materialStride_);
-		*data = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
-	}
-}
-
-void Triangle::CreateWvpMatrixResource(ID3D12Device* device) {
-	wvpStride_ = sizeof(TransformationMatrix);
-	wvpResource_ = ResourceFactory::CreateBufferResource(device, wvpStride_ * kMaxInstanceCount);
-
-	HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
-	assert(SUCCEEDED(hr) && wvpMappedData_);
-
-}
-
-void Triangle::CreateSRVHeap(ID3D12Device* device) {
-	// WVP と 色 の 2つ分のSRVヒープを作る
-	D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
-	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	heapDesc.NumDescriptors = 2;
-	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&srvHeap_));
-
-	UINT descriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = srvHeap_->GetCPUDescriptorHandleForHeapStart();
-
-	// WVP の SRV (t1)
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Buffer.NumElements = kMaxInstanceCount;
-	srvDesc.Buffer.StructureByteStride = sizeof(Matrix4x4);
-	srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-	device->CreateShaderResourceView(wvpResource_.Get(), &srvDesc, cpuHandle);
-	wvpSrvHandle_ = srvHeap_->GetGPUDescriptorHandleForHeapStart();
-
-	// 色 の SRV (t2)
-	cpuHandle.ptr += descriptorSize;
-	srvDesc.Buffer.StructureByteStride = sizeof(Vector4);
-	device->CreateShaderResourceView(materialResource_.Get(), &srvDesc, cpuHandle);
-	colorSrvHandle_.ptr = srvHeap_->GetGPUDescriptorHandleForHeapStart().ptr + descriptorSize;
 }
 
 //正四面体を作る
@@ -213,45 +143,18 @@ void Triangle::SetSmoothness(float s) {
 }
 
 void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t wvpIndex) {
-	if (!wvpMappedData_ || !wvpResource_) {
-		Logger::Log("Triangle::SetWvpMatrix : WVP resource is not initialized\n");
-		return;
-	}
-
-	TransformationMatrix* dst = reinterpret_cast<TransformationMatrix*>(
-		reinterpret_cast<char*>(wvpMappedData_) + wvpIndex * wvpStride_);
-	dst->WVP   = wvpMatrix;
-	dst->World = world;
-	dst->WorldInverseTranspose = MatrixMath::Transpose(MatrixMath::Inverse(world));
+	wvpColorBuffer_.SetWvpMatrix(wvpMatrix, world, wvpIndex);
 }
 
-void Triangle::SetViewportAndScissorRect(int32_t width, int32_t height) {
-	viewport_.Width = static_cast<float>(width);
-	viewport_.Height = static_cast<float>(height);
-	viewport_.TopLeftX = 0;
-	viewport_.TopLeftY = 0;
-	viewport_.MinDepth = 0.0f;
-	viewport_.MaxDepth = 1.0f;
-	scissorRect_.left = 0;
-	scissorRect_.right = width;
-	scissorRect_.top = 0;
-	scissorRect_.bottom = height;
+void Triangle::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, const Matrix4x4& worldInverseTranspose, uint32_t wvpIndex) {
+	wvpColorBuffer_.SetWvpMatrix(wvpMatrix, world, worldInverseTranspose, wvpIndex);
 }
 
 void Triangle::SetPipelineCommands(ID3D12GraphicsCommandList* commandList, TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength,
 	bool enableAlphaTest, float alphaThreshold) {
-	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
-	const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
-	commandList->OMSetBlendFactor(blendFactor);
-
-	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
-	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
-	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
-	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(blendMode), 0);              // b2.x: blendMode
-	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&blendStrength), 1); // b2.y: blendStrength
-	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(enableAlphaTest), 2);         // b2.z: enableAlphaTest
-	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&alphaThreshold), 3); // b2.w: alphaThreshold
+	PipelineCommandHelper::ApplyCommon(commandList, rootSignature_, pipeline_->GetPipelineState(blendMode, enableAlphaTest),
+		textureManager->GetSrvGpuHandle(texture), wvpColorBuffer_.GetWvpSrvHandle(), wvpColorBuffer_.GetColorSrvHandle(),
+		blendMode, blendStrength, enableAlphaTest, alphaThreshold);
 }
 
 ID3D12PipelineState* Triangle::GetPipelineState() const {
@@ -264,8 +167,6 @@ void Triangle::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCou
 	commandList->DrawInstanced(kVertexCount, instanceCount, 0, startInstance);
 }
 void Triangle::SetColor(const Vector4& color, uint32_t materialIndex) {
-	if (!materialMappedData_) return;
-	Vector4* data = reinterpret_cast<Vector4*>(materialMappedData_ + materialIndex * materialStride_);
-	*data = color;
+	wvpColorBuffer_.SetColor(color, materialIndex);
 }
 

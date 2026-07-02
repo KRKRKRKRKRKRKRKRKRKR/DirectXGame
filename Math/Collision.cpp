@@ -1,13 +1,15 @@
 #include "Collision.h"
 
-Vector3 Collision::Project(const Vector3& v1, const Vector3& v2) {
+namespace Collision {
+
+Vector3 Project(const Vector3& v1, const Vector3& v2) {
 	float dot = VectorMath::Dot(v1, v2);
 	float lengthSq = VectorMath::Dot(v2, v2);
 	if (lengthSq == 0.0f) return { 0.0f, 0.0f, 0.0f };
 	return v2 * (dot / lengthSq);
 }
 
-Vector3 Collision::ClosestPoint(const Vector3& point, const Segment& segment) {
+Vector3 ClosestPoint(const Vector3& point, const Segment& segment) {
 	Vector3 a = point - segment.origin;
 	float dot = VectorMath::Dot(a, segment.diff);
 	float lengthSq = VectorMath::Dot(segment.diff, segment.diff);
@@ -16,7 +18,7 @@ Vector3 Collision::ClosestPoint(const Vector3& point, const Segment& segment) {
 	return segment.origin + segment.diff * t;
 }
 
-OBB Collision::AABBToOBB(const AABB& aabb) {
+OBB AABBToOBB(const AABB& aabb) {
 	OBB obb;
 	obb.center = (aabb.min + aabb.max) * 0.5f;  // center は min/max から計算
 	obb.Orientation[0] = { 1.0f, 0.0f, 0.0f };
@@ -26,18 +28,51 @@ OBB Collision::AABBToOBB(const AABB& aabb) {
 	return obb;
 }
 
-bool Collision::SphereSphere(const Sphere& s1, const Sphere& s2) {
+bool SphereSphere(const Sphere& s1, const Sphere& s2) {
 	Vector3 d = s1.center - s2.center;
 	float r = s1.radius + s2.radius;
 	return VectorMath::Dot(d, d) <= r * r;
 }
 
-bool Collision::SpherePlane(const Sphere& sphere, const Plane& plane) {
+bool SpherePlane(const Sphere& sphere, const Plane& plane) {
 	float dist = VectorMath::Dot(plane.normal, sphere.center) - plane.distance;
 	return fabsf(dist) <= sphere.radius;
 }
 
-bool Collision::LinePlane(const Line& line, const Plane& plane, float& out_t, Vector3& out_intersection) {
+namespace {
+	// (a,b,c,d)から法線(a,b,c)を単位長に正規化し、dも同じ係数でスケールする
+	// （距離判定 dot(normal,point)+d の単位を球のradiusと揃えるために必須）
+	Plane NormalizePlane(float a, float b, float c, float d) {
+		float len = sqrtf(a * a + b * b + c * c);
+		if (len < 1e-8f) len = 1e-8f;
+		return Plane{ Vector3{ a / len, b / len, c / len }, d / len };
+	}
+}
+
+Frustum MakeFrustumFromViewProjection(const Matrix4x4& viewProjection) {
+	const Matrix4x4& m = viewProjection;
+	Frustum f;
+	// 行ベクトル規約(v'=v*M)のGribb-Hartmann法。距離側の符号は
+	// Plane.distance を「dot(normal,point) - distance」で使う既存SpherePlaneの規約に合わせるため反転させている
+	f.planes[0] = NormalizePlane(m.m[0][3] + m.m[0][0], m.m[1][3] + m.m[1][0], m.m[2][3] + m.m[2][0], -(m.m[3][3] + m.m[3][0])); // left
+	f.planes[1] = NormalizePlane(m.m[0][3] - m.m[0][0], m.m[1][3] - m.m[1][0], m.m[2][3] - m.m[2][0], -(m.m[3][3] - m.m[3][0])); // right
+	f.planes[2] = NormalizePlane(m.m[0][3] + m.m[0][1], m.m[1][3] + m.m[1][1], m.m[2][3] + m.m[2][1], -(m.m[3][3] + m.m[3][1])); // bottom
+	f.planes[3] = NormalizePlane(m.m[0][3] - m.m[0][1], m.m[1][3] - m.m[1][1], m.m[2][3] - m.m[2][1], -(m.m[3][3] - m.m[3][1])); // top
+	f.planes[4] = NormalizePlane(m.m[0][2],              m.m[1][2],              m.m[2][2],              -(m.m[3][2]));              // near (LH, 0〜1深度)
+	f.planes[5] = NormalizePlane(m.m[0][3] - m.m[0][2], m.m[1][3] - m.m[1][2], m.m[2][3] - m.m[2][2], -(m.m[3][3] - m.m[3][2])); // far
+	return f;
+}
+
+bool SphereFrustum(const Sphere& sphere, const Frustum& frustum) {
+	for (const Plane& plane : frustum.planes) {
+		float dist = VectorMath::Dot(plane.normal, sphere.center) - plane.distance;
+		// distが負に大きい（-radiusより小さい）＝球全体がこの平面の外側 → 完全にカリングできる
+		if (dist < -sphere.radius) return false;
+	}
+	return true;
+}
+
+bool LinePlane(const Line& line, const Plane& plane, float& out_t, Vector3& out_intersection) {
 	float dot = VectorMath::Dot(plane.normal, line.diff);
 	if (fabsf(dot) < 1e-6f) return false;
 	out_t = (plane.distance - VectorMath::Dot(plane.normal, line.origin)) / dot;
@@ -45,7 +80,7 @@ bool Collision::LinePlane(const Line& line, const Plane& plane, float& out_t, Ve
 	return true;
 }
 
-bool Collision::SegmentPlane(const Segment& segment, const Plane& plane, float& out_t, Vector3& out_intersection) {
+bool SegmentPlane(const Segment& segment, const Plane& plane, float& out_t, Vector3& out_intersection) {
 	float dot = VectorMath::Dot(plane.normal, segment.diff);
 	if (fabsf(dot) < 1e-6f) return false;
 	out_t = (plane.distance - VectorMath::Dot(plane.normal, segment.origin)) / dot;
@@ -54,7 +89,7 @@ bool Collision::SegmentPlane(const Segment& segment, const Plane& plane, float& 
 	return true;
 }
 
-bool Collision::RayPlane(const Ray& ray, const Plane& plane, float& out_t, Vector3& out_intersection) {
+bool RayPlane(const Ray& ray, const Plane& plane, float& out_t, Vector3& out_intersection) {
 	float dot = VectorMath::Dot(plane.normal, ray.diff);
 	if (fabsf(dot) < 1e-6f) return false;
 	out_t = (plane.distance - VectorMath::Dot(plane.normal, ray.origin)) / dot;
@@ -63,7 +98,7 @@ bool Collision::RayPlane(const Ray& ray, const Plane& plane, float& out_t, Vecto
 	return true;
 }
 
-bool Collision::TriangleLineBase(const CollisionTriangle& triangle, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_t) {
+bool TriangleLineBase(const CollisionTriangle& triangle, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_t) {
 	Vector3 edge1 = triangle.vertices[1] - triangle.vertices[0];
 	Vector3 edge2 = triangle.vertices[2] - triangle.vertices[0];
 	Vector3 normal = VectorMath::Cross(edge1, edge2);
@@ -82,25 +117,25 @@ bool Collision::TriangleLineBase(const CollisionTriangle& triangle, const Vector
 	return false;
 }
 
-bool Collision::TriangleSegment(const CollisionTriangle& triangle, const Segment& segment, float& out_t) {
+bool TriangleSegment(const CollisionTriangle& triangle, const Segment& segment, float& out_t) {
 	return TriangleLineBase(triangle, segment.origin, segment.diff, 0.0f, 1.0f, out_t);
 }
 
-bool Collision::TriangleLine(const CollisionTriangle& triangle, const Line& line, float& out_t) {
+bool TriangleLine(const CollisionTriangle& triangle, const Line& line, float& out_t) {
 	return TriangleLineBase(triangle, line.origin, line.diff, -FLT_MAX, FLT_MAX, out_t);
 }
 
-bool Collision::TriangleRay(const CollisionTriangle& triangle, const Ray& ray, float& out_t) {
+bool TriangleRay(const CollisionTriangle& triangle, const Ray& ray, float& out_t) {
 	return TriangleLineBase(triangle, ray.origin, ray.diff, 0.0f, FLT_MAX, out_t);
 }
 
-bool Collision::AABBAABB(const AABB& aabb1, const AABB& aabb2) {
+bool AABBAABB(const AABB& aabb1, const AABB& aabb2) {
 	return (aabb1.min.x <= aabb2.max.x && aabb1.max.x >= aabb2.min.x) &&
 	       (aabb1.min.y <= aabb2.max.y && aabb1.max.y >= aabb2.min.y) &&
 	       (aabb1.min.z <= aabb2.max.z && aabb1.max.z >= aabb2.min.z);
 }
 
-bool Collision::AABBSphere(const AABB& aabb, const Sphere& sphere) {
+bool AABBSphere(const AABB& aabb, const Sphere& sphere) {
 	Vector3 closest = {
 		std::clamp(sphere.center.x, aabb.min.x, aabb.max.x),
 		std::clamp(sphere.center.y, aabb.min.y, aabb.max.y),
@@ -110,7 +145,7 @@ bool Collision::AABBSphere(const AABB& aabb, const Sphere& sphere) {
 	return VectorMath::Dot(d, d) <= sphere.radius * sphere.radius;
 }
 
-bool Collision::AABBLineBase(const AABB& aabb, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_tMin, float& out_tMax) {
+bool AABBLineBase(const AABB& aabb, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_tMin, float& out_tMax) {
 	float tMin_ = tMin;
 	float tMax_ = tMax;
 
@@ -137,22 +172,22 @@ bool Collision::AABBLineBase(const AABB& aabb, const Vector3& origin, const Vect
 	return true;
 }
 
-bool Collision::AABBSegment(const AABB& aabb, const Segment& segment) {
+bool AABBSegment(const AABB& aabb, const Segment& segment) {
 	float tMin, tMax;
 	return AABBLineBase(aabb, segment.origin, segment.diff, 0.0f, 1.0f, tMin, tMax);
 }
 
-bool Collision::AABBLine(const AABB& aabb, const Line& line) {
+bool AABBLine(const AABB& aabb, const Line& line) {
 	float tMin, tMax;
 	return AABBLineBase(aabb, line.origin, line.diff, -FLT_MAX, FLT_MAX, tMin, tMax);
 }
 
-bool Collision::AABBRay(const AABB& aabb, const Ray& ray) {
+bool AABBRay(const AABB& aabb, const Ray& ray) {
 	float tMin, tMax;
 	return AABBLineBase(aabb, ray.origin, ray.diff, 0.0f, FLT_MAX, tMin, tMax);
 }
 
-bool Collision::OBBSphere(const OBB& obb, const Sphere& sphere) {
+bool OBBSphere(const OBB& obb, const Sphere& sphere) {
 	Vector3 diff = sphere.center - obb.center;
 	Vector3 local = {
 		VectorMath::Dot(diff, obb.Orientation[0]),
@@ -168,7 +203,7 @@ bool Collision::OBBSphere(const OBB& obb, const Sphere& sphere) {
 	return VectorMath::Dot(d, d) <= sphere.radius * sphere.radius;
 }
 
-bool Collision::OBBLineBase(const OBB& obb, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_tMin, float& out_tMax) {
+bool OBBLineBase(const OBB& obb, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_tMin, float& out_tMax) {
 	Vector3 d = origin - obb.center;
 	Vector3 localOrigin = {
 		VectorMath::Dot(d, obb.Orientation[0]),
@@ -186,22 +221,22 @@ bool Collision::OBBLineBase(const OBB& obb, const Vector3& origin, const Vector3
 	return AABBLineBase(localAABB, localOrigin, localDiff, tMin, tMax, out_tMin, out_tMax);
 }
 
-bool Collision::OBBSegment(const OBB& obb, const Segment& segment) {
+bool OBBSegment(const OBB& obb, const Segment& segment) {
 	float tMin, tMax;
 	return OBBLineBase(obb, segment.origin, segment.diff, 0.0f, 1.0f, tMin, tMax);
 }
 
-bool Collision::OBBLine(const OBB& obb, const Line& line) {
+bool OBBLine(const OBB& obb, const Line& line) {
 	float tMin, tMax;
 	return OBBLineBase(obb, line.origin, line.diff, -FLT_MAX, FLT_MAX, tMin, tMax);
 }
 
-bool Collision::OBBRay(const OBB& obb, const Ray& ray) {
+bool OBBRay(const OBB& obb, const Ray& ray) {
 	float tMin, tMax;
 	return OBBLineBase(obb, ray.origin, ray.diff, 0.0f, FLT_MAX, tMin, tMax);
 }
 
-bool Collision::OBBOBB(const OBB& obb1, const OBB& obb2) {
+bool OBBOBB(const OBB& obb1, const OBB& obb2) {
 	Vector3 d = obb2.center - obb1.center;
 
 	Vector3 axes[15];
@@ -236,3 +271,5 @@ bool Collision::OBBOBB(const OBB& obb1, const OBB& obb2) {
 
 	return true;
 }
+
+} // namespace Collision

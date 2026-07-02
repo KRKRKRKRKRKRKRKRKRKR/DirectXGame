@@ -72,6 +72,7 @@
     <ClCompile Include="Engine\Graphics\Object\Sprite\Sprite.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Sphere\Sphere.cpp" />
     <ClCompile Include="Engine\Graphics\ResourceFactory\ResourceFactory.cpp" />
+    <ClCompile Include="Engine\Graphics\ResourceFactory\InstancedWvpColorBuffer.cpp" />
     <ClCompile Include="Engine\Graphics\DirectXDevice\DirectXDevice.cpp" />
     <ClCompile Include="Engine\Graphics\CommandManager\CommandManager.cpp" />
     <ClCompile Include="Engine\Graphics\Renderer\DirectXManager.cpp" />
@@ -83,7 +84,11 @@
     <ClCompile Include="Engine\Audio\AudioManager.cpp" />
     <ClCompile Include="Engine\Audio\Sound.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model_ObjLoader.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model_AssimpLoader.cpp" />
+    <ClCompile Include="Engine\Graphics\Object\Model\Model_SkeletalAnimation.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\SkinnedPipeline.cpp" />
+    <ClCompile Include="Engine\Graphics\Pipeline\PipelineBase.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\MathTypes.h">
@@ -148,6 +153,7 @@
     <ClInclude Include="Engine\Graphics\Object\Sprite\Sprite.h" />
     <ClInclude Include="Engine\Graphics\Object\Sphere\Sphere.h" />
     <ClInclude Include="Engine\Graphics\ResourceFactory\ResourceFactory.h" />
+    <ClInclude Include="Engine\Graphics\ResourceFactory\InstancedWvpColorBuffer.h" />
     <ClInclude Include="Engine\Graphics\DirectXDevice\DirectXDevice.h" />
     <ClInclude Include="Engine\Graphics\CommandManager\CommandManager.h" />
     <ClInclude Include="Engine\Graphics\Renderer\DirectXManager.h" />
@@ -160,11 +166,18 @@
     <ClInclude Include="Engine\Audio\Sound.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\SkinnedPipeline.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\PipelineCommandHelper.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\PipelineBase.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">
       <Filter>imgui</Filter>
     </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Resources\Icon\ClearRootEngine.rc">
+      <Filter>リソース ファイル</Filter>
+    </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="HLSL\Object3d.PS.hlsl">

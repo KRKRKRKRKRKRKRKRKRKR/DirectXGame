@@ -28,11 +28,11 @@ void ShaderCompiler::InitializeDXC() {
 
 #pragma region シェーダーのコンパイル
 //シェーダーをコンパイル
-IDxcBlob* ShaderCompiler::CompileShader(const std::wstring& filePath, const wchar_t* profile) {
+IDxcBlob* ShaderCompiler::CompileShader(const std::wstring& filePath, const wchar_t* profile, const std::vector<std::wstring>& defines) {
 	IDxcBlobEncoding* shaderSource = nullptr;
 	IDxcResult* shaderResult = nullptr;
 	LoadHLSLFile(filePath, profile, shaderSource);
-	ExecuteCompile(filePath, profile, shaderSource, shaderResult);
+	ExecuteCompile(filePath, profile, defines, shaderSource, shaderResult);
 	LogCompileErrors(shaderResult);
 	IDxcBlob* blob = GetShaderBlob(filePath, profile, shaderResult);
 	if (shaderResult) { shaderResult->Release(); }
@@ -58,20 +58,23 @@ void ShaderCompiler::LoadHLSLFile(const std::wstring& filePath, const wchar_t* p
 }
 
 //シェーダーのコンパイル実行
-void ShaderCompiler::ExecuteCompile(const std::wstring& filePath, const wchar_t* profile, IDxcBlobEncoding*& shaderSource, IDxcResult*& shaderResult) {
-	LPCWSTR arguments[] = {
+void ShaderCompiler::ExecuteCompile(const std::wstring& filePath, const wchar_t* profile, const std::vector<std::wstring>& defines, IDxcBlobEncoding*& shaderSource, IDxcResult*& shaderResult) {
+	std::vector<LPCWSTR> arguments = {
 		filePath.c_str(),
 		L"-E", L"main",
 		L"-T", profile,
 		L"-Zi",L"-Qembed_debug",
-		L"-Od",
 		L"-Zpr",
 	};
+	for (const std::wstring& define : defines) {
+		arguments.push_back(L"-D");
+		arguments.push_back(define.c_str());
+	}
 
 	HRESULT hr = dxcCompiler_->Compile(
 		&shaderSourceBuffer_,
-		arguments,
-		_countof(arguments),
+		arguments.data(),
+		static_cast<UINT32>(arguments.size()),
 		includeHandler_.Get(),
 		IID_PPV_ARGS(&shaderResult)
 	);

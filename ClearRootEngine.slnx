@@ -2,6 +2,6 @@
   <Configurations>
     <Platform Name="x64" />
   </Configurations>
-  <Project Path="DirectXGame.vcxproj" Id="f81cc916-5cf5-4ad2-8a51-e391f754d5ff" />
+  <Project Path="ClearRootEngine.vcxproj" Id="f81cc916-5cf5-4ad2-8a51-e391f754d5ff" />
   <Project Path="Externals/DirectXTex/DirectXTex_Desktop_2022_Win10.vcxproj" Id="371b9fa9-4c90-4ac6-a123-aced756d6c77" />
 </Solution>

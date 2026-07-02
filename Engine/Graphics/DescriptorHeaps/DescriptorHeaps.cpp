@@ -1,11 +1,23 @@
 #include "DescriptorHeaps.h"
+#include "../Texture/TextureManager.h" // kMaxTextureCount参照用
 #include "../../Utils/Logger.h" // DescriptorHeaps が Graphics/DescriptorHeaps/ にあるので ../../Utils/
 #include <cassert>
 void DescriptorHeaps::Initialize(ID3D12Device* device) {
 	rtvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
-	srvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 128, true);
+	// index 0〜(kMaxTextureCount-1): テクスチャ専用帯（TextureManager::RegisterTexture、
+	// handleをそのままheapIndexとして使う自己完結の仕組み）
+	// index kMaxTextureCount〜: AllocateSRVIndexで払い出すTriangle/Cube/Sphere/Sprite/Model等の帯
+	srvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kSrvHeapCapacity, true);
 	dsvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
 	SetDescriptorSizes(device);
+	nextSrvAllocIndex_ = kMaxTextureCount;
+}
+
+uint32_t DescriptorHeaps::AllocateSRVIndex(uint32_t count) {
+	uint32_t allocated = nextSrvAllocIndex_;
+	nextSrvAllocIndex_ += count;
+	assert(nextSrvAllocIndex_ <= kSrvHeapCapacity && "DescriptorHeaps: SRV heap index exhausted");
+	return allocated;
 }
 
 void DescriptorHeaps::Finalize() {

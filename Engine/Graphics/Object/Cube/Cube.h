@@ -7,6 +7,7 @@
 #include "../../../../Math/MathTypes.h"
 #include "../../Texture/TextureManager.h"
 #include "../../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../ResourceFactory/InstancedWvpColorBuffer.h"
 #include "../../Pipeline/BlendMode.h"
 
 using Microsoft::WRL::ComPtr;
@@ -18,13 +19,15 @@ public:
 	Cube() = default;
 	virtual ~Cube();
 
-	static constexpr uint32_t kMaxInstanceCount = 4096;
+	// 負荷テスト用に大きめの上限を確保（131072=2^17、グリッド最大約362×362相当）
+	static constexpr uint32_t kMaxInstanceCount = 131072;
 
 	void Initialize(ID3D12Device* device, TextureManager* textureManager,
 		ID3D12RootSignature* rootSignature, Pipeline* pipeline,
 		DescriptorHeaps* heaps);
 
 	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
+	void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, const Matrix4x4& worldInverseTranspose, uint32_t index);
 	void SetColor(const Vector4& color, uint32_t index);
 
 	// 0=フラット, 1=スムース のブレンド率。変更時に頂点バッファを書き直す
@@ -52,15 +55,7 @@ private:
 	ComPtr<ID3D12Resource> vertexResource_;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
 
-	ComPtr<ID3D12Resource> wvpResource_;
-	uint8_t* wvpMappedData_ = nullptr;
-	uint32_t wvpStride_ = 0;
-	D3D12_GPU_DESCRIPTOR_HANDLE wvpSrvHandle_{};
-
-	ComPtr<ID3D12Resource> colorResource_;
-	uint8_t* colorMappedData_ = nullptr;
-	uint32_t colorStride_ = 0;
-	D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
+	InstancedWvpColorBuffer wvpColorBuffer_;
 
 	ID3D12RootSignature* rootSignature_ = nullptr;
 	Pipeline* pipeline_ = nullptr;
@@ -70,6 +65,4 @@ private:
 
 	void CreateVertexResource(ID3D12Device* device);
 	void WriteVertexData();
-	void CreateWvpResource(ID3D12Device* device);
-	void CreateColorResource(ID3D12Device* device);
 };

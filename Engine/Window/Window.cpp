@@ -2,6 +2,7 @@
 #include "../../Externals/imgui/imgui.h"
 #include "../../Externals/imgui/imgui_impl_dx12.h"
 #include "../../Externals/imgui/imgui_impl_win32.h"
+#include "../../Resources/Icon/resource.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -24,6 +25,7 @@ void Window::Create(const std::wstring& title,int32_t width, int32_t height) {
     wc_.lpszClassName = L"ClearRootEngine";
     wc_.hInstance = GetModuleHandle(nullptr);
     wc_.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc_.hIcon = LoadIcon(wc_.hInstance, MAKEINTRESOURCE(IDI_ICON1));
     RegisterClass(&wc_);
 
     RECT wrc = { 0, 0, clientWidth_, clientHeight_ };

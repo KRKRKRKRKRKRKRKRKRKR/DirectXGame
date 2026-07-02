@@ -39,8 +39,13 @@ TextureHandle TextureManager::RegisterTexture(
 {
 	TextureHandle handle = nextHandle_++;
 
-	// descriptorHeapIndex はハンドル+1（0番はDepthStencil等が使うので1始まり）
-	uint32_t heapIndex = handle + 1;
+	// descriptorHeapIndex はハンドルそのもの（0番はkTextureNone=白テクスチャが使う）。
+	// kMaxTextureCountを超えると他オブジェクト用のSRVスロットと衝突するため上限チェックする
+	uint32_t heapIndex = handle;
+	if (heapIndex >= kMaxTextureCount) {
+		Logger::Log(std::format("TextureManager: texture count exceeds kMaxTextureCount({})\n", kMaxTextureCount));
+		assert(false);
+	}
 
 	auto handles = heaps->CreateTextureSRV_new(
 		device_,

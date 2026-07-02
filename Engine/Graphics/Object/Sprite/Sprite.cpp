@@ -2,6 +2,7 @@
 #include "../../../../Math/MatrixMath.h"
 #include "../../ResourceFactory/ResourceFactory.h"
 #include "../../Pipeline/Pipeline.h"
+#include "../../Pipeline/PipelineCommandHelper.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -69,18 +70,9 @@ void Sprite::SetUVTransform(const UVTransform& uvTransform) {
 void Sprite::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength,
 	bool enableAlphaTest, float alphaThreshold) {
-	commandList->SetGraphicsRootSignature(rootSignature_);
-	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
-	// D3D12_BLEND_(INV_)BLEND_FACTOR が参照する定数。kNormal/kAdd/kSubtractのみ効果がある
-	const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
-	commandList->OMSetBlendFactor(blendFactor);
-	commandList->SetGraphicsRootDescriptorTable(0, textureManager->GetSrvGpuHandle(texture)); // t0: テクスチャ
-	commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle_);                              // t1: WVP
-	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
-	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(blendMode), 0);              // b2.x: blendMode
-	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&blendStrength), 1); // b2.y: blendStrength
-	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(enableAlphaTest), 2);        // b2.z: enableAlphaTest
-	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&alphaThreshold), 3); // b2.w: alphaThreshold
+	PipelineCommandHelper::ApplyCommon(commandList, rootSignature_, pipeline_->GetPipelineState(blendMode, enableAlphaTest),
+		textureManager->GetSrvGpuHandle(texture), wvpSrvHandle_, colorSrvHandle_,
+		blendMode, blendStrength, enableAlphaTest, alphaThreshold);
 }
 
 ID3D12PipelineState* Sprite::GetPipelineState() const {

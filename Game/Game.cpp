@@ -4,7 +4,30 @@
 #include "../Math/TransformMath.h"
 #include "../Engine/Audio/AudioManager.h"
 #include <cmath>
-//test
+
+void Game::RebuildGridCubes() {
+	constexpr float kSpacing  = 2.0f;
+	constexpr float kBaseY    = 0.5f; // 床(floor_のY≈-0.5)にめり込まないよう最下段を底上げする
+	const float     kOffsetXZ = (gridSize_ - 1) * kSpacing / 2.0f;
+
+	gridCubes_.clear();
+	gridCubes_.reserve(static_cast<size_t>(gridSize_) * gridSize_ * gridSize_);
+	for (int y = 0; y < gridSize_; y++) {
+		for (int z = 0; z < gridSize_; z++) {
+			for (int x = 0; x < gridSize_; x++) {
+				Transform t;
+				t.translation = {
+					x * kSpacing - kOffsetXZ,
+					y * kSpacing + kBaseY,
+					z * kSpacing - kOffsetXZ
+				};
+				t.scale = { 1.0f, 1.0f, 1.0f };
+				gridCubes_.push_back(t);
+			}
+		}
+	}
+}
+
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
 	camera_ = camera;
@@ -38,22 +61,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	floor_.scale        = { 100.0f, 0.01f, 100.0f };
 	floorTexIndex_       = 1;
 
-	constexpr int   kGridSize = 50;
-	constexpr float kSpacing = 2.0f;
-	constexpr float kOffset = (kGridSize - 1) * kSpacing / 2.0f;
-	gridCubes_.reserve(kGridSize * kGridSize);
-	for (int z = 0; z < kGridSize; z++) {
-		for (int x = 0; x < kGridSize; x++) {
-			Transform t;
-			t.translation = {
-				x * kSpacing - kOffset,
-				0.0f,
-				z * kSpacing - kOffset
-			};
-			t.scale = { 1.0f, 1.0f, 1.0f };
-			gridCubes_.push_back(t);
-		}
-	}
+	RebuildGridCubes();
 
 	// 3Dスプライト（ワールド空間）
 	sprite3D.translation = { 0.0f, 3.0f, 0.0f };
@@ -81,6 +89,17 @@ void Game::Update(float deltaTime) {
 	deltaTime_ = deltaTime;
 	camera_->HandleInput(deltaTime);
 	renderer_->UpdateModelAnimation(fbxModelHandle_, deltaTime);
+
+	// 0.5秒ごとに直近フレームの平均FPS/フレーム時間を計算し直す（毎フレーム表示は変動が激しく読みづらいため）
+	fpsSampleTimer_ += deltaTime;
+	fpsSampleFrames_++;
+	constexpr float kFpsSampleInterval = 0.5f;
+	if (fpsSampleTimer_ >= kFpsSampleInterval) {
+		fpsDisplayValue_    = static_cast<float>(fpsSampleFrames_) / fpsSampleTimer_;
+		frameTimeDisplayMs_ = (fpsSampleTimer_ / static_cast<float>(fpsSampleFrames_)) * 1000.0f;
+		fpsSampleTimer_  = 0.0f;
+		fpsSampleFrames_ = 0;
+	}
 }
 
 void Game::Render() {
@@ -91,10 +110,34 @@ void Game::Render() {
 
 	renderer_->DrawCube(floor_, floorColor_, textures_[floorTexIndex_].handle, floorLighting_, floorBlendMode_, floorBlendStrength_, floorAlphaTest_, floorAlphaThreshold_);
 
+	// グリッドは全個体が同じ回転・スケールのため、WorldInverseTranspose（回転成分のみに依存）は
+	// 個体間で共通。回転が変化した時だけ再計算し、毎フレームの2500回分のInverse+Transpose計算を省く
+	if (gridCubeCachedRotation_.x != gridCubeRotation_.x ||
+		gridCubeCachedRotation_.y != gridCubeRotation_.y ||
+		gridCubeCachedRotation_.z != gridCubeRotation_.z) {
+		Matrix4x4 rotationOnlyWorld = TransformMath::MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, gridCubeRotation_, { 0.0f, 0.0f, 0.0f });
+		gridCubeWorldInverseTranspose_ = MatrixMath::Transpose(MatrixMath::Inverse(rotationOnlyWorld));
+		gridCubeCachedRotation_ = gridCubeRotation_;
+	}
+
+	// フラストラムカリング：視錐台の外にあるCubeはDrawCube自体を呼ばずスキップする。
+	// グリッドCubeは1辺1.0の立方体（scale=1,1,1固定）なので、包含球半径は対角線の半分 sqrt(3)/2 で近似できる
+	constexpr float kGridCubeBoundingRadius = 0.8660254f; // sqrt(3)/2
+	Collision::Frustum frustum{};
+	if (gridFrustumCullingEnabled_) {
+		frustum = Collision::MakeFrustumFromViewProjection(view * proj);
+	}
+
+	gridCubesDrawnCount_ = 0;
 	for (auto& t : gridCubes_) {
+		if (gridFrustumCullingEnabled_) {
+			Collision::Sphere bounds{ t.translation, kGridCubeBoundingRadius };
+			if (!Collision::SphereFrustum(bounds, frustum)) continue;
+		}
 		Transform rotated = t;
 		rotated.rotation = gridCubeRotation_;
-		renderer_->DrawCube(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_, gridCubeBlendMode_, gridCubeBlendStrength_, gridCubeAlphaTest_, gridCubeAlphaThreshold_);
+		renderer_->DrawCube(rotated, gridCubeWorldInverseTranspose_, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_, gridCubeBlendMode_, gridCubeBlendStrength_, gridCubeAlphaTest_, gridCubeAlphaThreshold_);
+		gridCubesDrawnCount_++;
 	}
 
 	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting, triangleBlendMode_, triangleBlendStrength_, triangleAlphaTest_, triangleAlphaThreshold_);
@@ -173,8 +216,9 @@ void Game::DrawGrid() {
 void Game::DrawImGui() {
 
 	ImGui::Begin("FPS");
-	ImGui::Text("FPS: %.1f", 1.0f / deltaTime_);
-	ImGui::Text("frameTime: %.3f ms", deltaTime_ * 1000.0f);
+	ImGui::Text("FPS: %.1f (0.5s avg)", fpsDisplayValue_);
+	ImGui::Text("frameTime: %.3f ms (0.5s avg)", frameTimeDisplayMs_);
+	ImGui::Text("Instantaneous FPS: %.1f", 1.0f / deltaTime_);
 	ImGui::End();
 
 	ImGui::Begin("Camera");
@@ -245,6 +289,10 @@ void Game::DrawImGui() {
 
 	ImGui::Separator();
 	ImGui::Text("Grid Cubes");
+	ImGui::Text("Cube Count: %d (Drawn: %d)", static_cast<int>(gridCubes_.size()), gridCubesDrawnCount_);
+	if (ImGui::SliderInt("Grid Size (NxNxN)", &gridSize_, 1, kGridSizeMax))
+		RebuildGridCubes();
+	ImGui::Checkbox("Frustum Culling", &gridFrustumCullingEnabled_);
 	ImGui::Checkbox("Grid Lighting", &gridCubeLighting_);
 	ImGui::ColorEdit4("Grid Color", &gridCubeColor_.x);
 	ImGui::DragFloat3("Grid Rotation", &gridCubeRotation_.x, 0.01f, -3.14f, 3.14f);
@@ -285,6 +333,8 @@ void Game::DrawImGui() {
 
 	ImGui::Separator();
 	ImGui::Text("Sphere");
+	if (ImGui::SliderInt("Sphere Subdivision", &sphereSubdivision_, 1, static_cast<int>(Renderer::kSphereMaxSubdivision)))
+		renderer_->SetSphereSubdivision(static_cast<uint32_t>(sphereSubdivision_));
 	ImGui::Checkbox("Sphere Lighting", &sphereLighting);
 	ImGui::ColorEdit4("Sphere Color", &sphereColor.x);
 	ImGui::DragFloat3("Sphere Scale", &sphere.scale.x, 0.01f, 0.1f, 10.0f);

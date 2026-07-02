@@ -4,6 +4,7 @@
 #include "../Engine/Camera/Camera.h"
 #include "../Engine/Audio/Sound.h"
 #include "../Math/MathTypes.h"
+#include "../Math/Collision.h"
 #include <vector>
 #include <string>
 class Game {
@@ -61,6 +62,17 @@ private:
 
 	std::vector<Transform> gridCubes_;
 
+	// 負荷テスト用：立方体状グリッドの1辺の個数（個数はgridSize_の3乗）。
+	// ImGuiで変更すると次フレームにgridCubes_を作り直す（Cube::kMaxInstanceCountの上限まで試せる）
+	int gridSize_ = 30;
+	static constexpr int kGridSizeMax = 48; // 48^3=110592。Cube::kMaxInstanceCount(131072)以内
+	void RebuildGridCubes();
+
+	// フラストラムカリング：視錐台の外にあるグリッドCubeのDrawCube呼び出し自体をスキップする。
+	// CPU側の毎フレームコスト（行列計算・SetWvpMatrix・Root Constant設定）を削減するのが目的
+	bool  gridFrustumCullingEnabled_ = true;
+	int   gridCubesDrawnCount_       = 0; // 直近フレームで実際にDrawCubeした個数（ImGui表示用）
+
 	struct TextureEntry {
 		TextureHandle handle;
 		std::string   name;
@@ -78,8 +90,14 @@ private:
 	bool    gridCubeLighting_ = true;
 	Vector3 gridCubeRotation_ = { 0.0f, 0.0f, 0.0f };
 
+	// グリッドは全個体が同じ回転（位置のみ個体ごとに違う）。WorldInverseTransposeは
+	// 回転成分だけで決まるため、回転が変化した時だけ再計算してキャッシュする
+	Vector3   gridCubeCachedRotation_{ 0.0f, 1.0f, 0.0f }; // 初期値をgridCubeRotation_と異なる値にして初回必ず計算させる
+	Matrix4x4 gridCubeWorldInverseTranspose_{};
+
 	float triangleSmoothness_ = 1.0f;
 	float cubeSmoothness_     = 1.0f;
+	int   sphereSubdivision_  = static_cast<int>(Renderer::kSphereMaxSubdivision);
 
 	BlendMode gridCubeBlendMode_ = BlendMode::kNone;
 	BlendMode triangleBlendMode_ = BlendMode::kNone;
@@ -122,6 +140,13 @@ private:
 	float sprite2DAlphaThreshold_  = 0.5f;
 	float floorAlphaThreshold_     = 0.5f;
 	float fbxModelAlphaThreshold_  = 0.5f;
+
+	// FPS表示（負荷テスト用）。0.5秒ごとに直近フレームの平均FPS/フレーム時間を更新する
+	// （毎フレームの値は変動が激しく読みづらいため、一定間隔でサンプリングして表示する）
+	float fpsSampleTimer_    = 0.0f;
+	int   fpsSampleFrames_   = 0;
+	float fpsDisplayValue_   = 0.0f;
+	float frameTimeDisplayMs_ = 0.0f;
 
 	void DrawGrid();
 	void DrawImGui();
