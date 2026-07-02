@@ -42,9 +42,9 @@ void InputDevice::Initialize(HINSTANCE hInstance, HWND hwnd) {
 }
 
 void InputDevice::Update() {
+	memcpy(prevKey_, key_, sizeof(key_)); // 新しい状態を取得する前に、直前フレームの状態を退避する
 	keyboardDevice_->Acquire();
 	keyboardDevice_->GetDeviceState(sizeof(key_), key_);
-	memcpy(prevKey_, key_, sizeof(key_));
 
 	mouseDevice_->Acquire();
 	mouseDevice_->GetDeviceState(sizeof(mouseState_), &mouseState_);
