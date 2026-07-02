@@ -30,6 +30,7 @@ void Sprite::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world) {
 	if (wvpMappedData_) {
 		wvpMappedData_->WVP   = wvpMatrix;
 		wvpMappedData_->World = world;
+		wvpMappedData_->WorldInverseTranspose = MatrixMath::Transpose(MatrixMath::Inverse(world));
 	}
 }
 
@@ -66,7 +67,8 @@ void Sprite::SetUVTransform(const UVTransform& uvTransform) {
 }
 
 void Sprite::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength) {
+	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold) {
 	commandList->SetGraphicsRootSignature(rootSignature_);
 	commandList->SetPipelineState(pipeline_->GetPipelineState(blendMode));
 	// D3D12_BLEND_(INV_)BLEND_FACTOR が参照する定数。kNormal/kAdd/kSubtractのみ効果がある
@@ -77,6 +79,8 @@ void Sprite::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 	commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle_);                            // t2: 色
 	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(blendMode), 0);              // b2.x: blendMode
 	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&blendStrength), 1); // b2.y: blendStrength
+	commandList->SetGraphicsRoot32BitConstant(5, static_cast<UINT>(enableAlphaTest), 2);        // b2.z: enableAlphaTest
+	commandList->SetGraphicsRoot32BitConstant(5, *reinterpret_cast<const UINT*>(&alphaThreshold), 3); // b2.w: alphaThreshold
 }
 
 ID3D12PipelineState* Sprite::GetPipelineState() const {

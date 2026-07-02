@@ -17,6 +17,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 		"Resources/s.png",
 		"Resources/monsterBall.png.png",
 		"Resources/White.png",
+		"Resources/transparent .png", // αTest確認用（板の隙間が透過になっている柵）
 		}) {
 		TextureHandle h = renderer_->LoadTexture(path);
 		textures_.push_back({ h, path.substr(path.find_last_of('/') + 1) });
@@ -34,7 +35,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 	// 大きなFloor（Cubeを平たく大きく引き伸ばして床として使う）
 	floor_.translation = { 0.0f, -0.5f, 0.0f };
-	floor_.scale        = { 100.0f, 1.0f, 100.0f };
+	floor_.scale        = { 100.0f, 0.01f, 100.0f };
 	floorTexIndex_       = 1;
 
 	constexpr int   kGridSize = 50;
@@ -67,11 +68,19 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	modelHandle_ = renderer_->LoadModel("Resources/Model", "player.obj");
 	modelTransform_.translation = { 5.0f, 0.0f, 0.0f };
 	modelTexIndex_ = 1; // デフォルトで t.png を使用
+
+	// Assimp導入確認用（FBX読み込みテスト。ボーン+アニメーション付きのHumanModel_ver2.fbxで確認）
+	fbxModelHandle_ = renderer_->LoadModel("Resources/Model", "HumanModel_ver2.fbx");
+	fbxModelTransform_.translation = { 0.0f, 0.0f, 0.0f };
+	// MixamoモデルはFBXのUnitScaleFactorメタデータが1.0のまま実寸(cm相当)で出力されており、
+	// 他オブジェクトと同じ単位系に合わせるには実測で0.01倍が丁度良かった
+	fbxModelTransform_.scale = { 0.01f, 0.01f, 0.01f };
 }
 
 void Game::Update(float deltaTime) {
 	deltaTime_ = deltaTime;
 	camera_->HandleInput(deltaTime);
+	renderer_->UpdateModelAnimation(fbxModelHandle_, deltaTime);
 }
 
 void Game::Render() {
@@ -80,20 +89,21 @@ void Game::Render() {
 		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
 	renderer_->SetCamera(view, proj, camera_->GetCameraData().position);
 
-	renderer_->DrawCube(floor_, floorColor_, textures_[floorTexIndex_].handle, floorLighting_, floorBlendMode_, floorBlendStrength_);
+	renderer_->DrawCube(floor_, floorColor_, textures_[floorTexIndex_].handle, floorLighting_, floorBlendMode_, floorBlendStrength_, floorAlphaTest_, floorAlphaThreshold_);
 
 	for (auto& t : gridCubes_) {
 		Transform rotated = t;
 		rotated.rotation = gridCubeRotation_;
-		renderer_->DrawCube(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_, gridCubeBlendMode_, gridCubeBlendStrength_);
+		renderer_->DrawCube(rotated, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_, gridCubeBlendMode_, gridCubeBlendStrength_, gridCubeAlphaTest_, gridCubeAlphaThreshold_);
 	}
 
-	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting, triangleBlendMode_, triangleBlendStrength_);
-	renderer_->DrawCube(cube, cubeColor, textures_[cubeTexIndex_].handle, cubeLighting, cubeBlendMode_, cubeBlendStrength_);
-	renderer_->DrawSphere(sphere, sphereColor, textures_[sphereTexIndex_].handle, sphereLighting, sphereBlendMode_, sphereBlendStrength_);
-	renderer_->DrawModel(modelHandle_, modelTransform_, modelColor_, textures_[modelTexIndex_].handle, modelLighting_, modelBlendMode_, modelBlendStrength_);
-	renderer_->DrawSprite3D(sprite3D, sprite3DColor, textures_[sprite3DTexIndex_].handle, sprite3DLighting, sprite3DUV, sprite3DBlendMode_, sprite3DBlendStrength_);
-	renderer_->DrawSprite2D(sprite2D, sprite2DColor, textures_[sprite2DTexIndex_].handle, sprite2DLighting, sprite2DUV, sprite2DBlendMode_, sprite2DBlendStrength_);
+	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting, triangleBlendMode_, triangleBlendStrength_, triangleAlphaTest_, triangleAlphaThreshold_);
+	renderer_->DrawCube(cube, cubeColor, textures_[cubeTexIndex_].handle, cubeLighting, cubeBlendMode_, cubeBlendStrength_, cubeAlphaTest_, cubeAlphaThreshold_);
+	renderer_->DrawSphere(sphere, sphereColor, textures_[sphereTexIndex_].handle, sphereLighting, sphereBlendMode_, sphereBlendStrength_, sphereAlphaTest_, sphereAlphaThreshold_);
+	renderer_->DrawModel(modelHandle_, modelTransform_, modelColor_, textures_[modelTexIndex_].handle, modelLighting_, modelBlendMode_, modelBlendStrength_, modelAlphaTest_, modelAlphaThreshold_);
+	renderer_->DrawModel(fbxModelHandle_, fbxModelTransform_, fbxModelColor_, textures_[fbxModelTexIndex_].handle, fbxModelLighting_, fbxModelBlendMode_, fbxModelBlendStrength_, fbxModelAlphaTest_, fbxModelAlphaThreshold_);
+	renderer_->DrawSprite3D(sprite3D, sprite3DColor, textures_[sprite3DTexIndex_].handle, sprite3DLighting, sprite3DUV, sprite3DBlendMode_, sprite3DBlendStrength_, sprite3DAlphaTest_, sprite3DAlphaThreshold_);
+	renderer_->DrawSprite2D(sprite2D, sprite2DColor, textures_[sprite2DTexIndex_].handle, sprite2DLighting, sprite2DUV, sprite2DBlendMode_, sprite2DBlendStrength_, sprite2DAlphaTest_, sprite2DAlphaThreshold_);
 
 	// 光源を可視化：direction の逆方向 × 15 の位置に黄色い球、原点へのラインで方向を表示
 	{
@@ -213,6 +223,14 @@ void Game::DrawImGui() {
 		if (!effective) ImGui::EndDisabled();
 		};
 
+	// 2値抜き(Binary Alpha/αTest): αがしきい値未満のピクセルを描画しない
+	auto alphaTestControls = [&](const char* checkboxLabel, const char* sliderLabel, bool& enable, float& threshold) {
+		ImGui::Checkbox(checkboxLabel, &enable);
+		if (!enable) ImGui::BeginDisabled();
+		ImGui::SliderFloat(sliderLabel, &threshold, 0.0f, 1.0f);
+		if (!enable) ImGui::EndDisabled();
+		};
+
 	ImGui::Begin("Objects");
 	ImGui::Text("Floor");
 	ImGui::Checkbox("Floor Lighting", &floorLighting_);
@@ -223,6 +241,7 @@ void Game::DrawImGui() {
 	textureCombo("Floor Texture", floorTexIndex_);
 	blendModeCombo("Floor BlendMode", floorBlendMode_);
 	blendStrengthSlider("Floor Blend Strength", floorBlendMode_, floorBlendStrength_);
+	alphaTestControls("Floor Alpha Test", "Floor Alpha Threshold", floorAlphaTest_, floorAlphaThreshold_);
 
 	ImGui::Separator();
 	ImGui::Text("Grid Cubes");
@@ -234,6 +253,7 @@ void Game::DrawImGui() {
 	textureCombo("Grid Texture", gridCubeTexIndex_);
 	blendModeCombo("Grid BlendMode", gridCubeBlendMode_);
 	blendStrengthSlider("Grid Blend Strength", gridCubeBlendMode_, gridCubeBlendStrength_);
+	alphaTestControls("Grid Alpha Test", "Grid Alpha Threshold", gridCubeAlphaTest_, gridCubeAlphaThreshold_);
 
 	ImGui::Separator();
 	ImGui::Text("Triangle");
@@ -247,6 +267,7 @@ void Game::DrawImGui() {
 	textureCombo("Triangle Texture", triangleTexIndex_);
 	blendModeCombo("Triangle BlendMode", triangleBlendMode_);
 	blendStrengthSlider("Triangle Blend Strength", triangleBlendMode_, triangleBlendStrength_);
+	alphaTestControls("Triangle Alpha Test", "Triangle Alpha Threshold", triangleAlphaTest_, triangleAlphaThreshold_);
 
 	ImGui::Separator();
 	ImGui::Text("Cube");
@@ -260,6 +281,7 @@ void Game::DrawImGui() {
 	textureCombo("Cube Texture", cubeTexIndex_);
 	blendModeCombo("Cube BlendMode", cubeBlendMode_);
 	blendStrengthSlider("Cube Blend Strength", cubeBlendMode_, cubeBlendStrength_);
+	alphaTestControls("Cube Alpha Test", "Cube Alpha Threshold", cubeAlphaTest_, cubeAlphaThreshold_);
 
 	ImGui::Separator();
 	ImGui::Text("Sphere");
@@ -271,6 +293,7 @@ void Game::DrawImGui() {
 	textureCombo("Sphere Texture", sphereTexIndex_);
 	blendModeCombo("Sphere BlendMode", sphereBlendMode_);
 	blendStrengthSlider("Sphere Blend Strength", sphereBlendMode_, sphereBlendStrength_);
+	alphaTestControls("Sphere Alpha Test", "Sphere Alpha Threshold", sphereAlphaTest_, sphereAlphaThreshold_);
 
 	ImGui::Separator();
 	ImGui::Text("Model (OBJ)");
@@ -282,6 +305,19 @@ void Game::DrawImGui() {
 	textureCombo("Model Texture", modelTexIndex_);
 	blendModeCombo("Model BlendMode", modelBlendMode_);
 	blendStrengthSlider("Model Blend Strength", modelBlendMode_, modelBlendStrength_);
+	alphaTestControls("Model Alpha Test", "Model Alpha Threshold", modelAlphaTest_, modelAlphaThreshold_);
+
+	ImGui::Separator();
+	ImGui::Text("Model (FBX, Assimp)");
+	ImGui::Checkbox("FBX Model Lighting", &fbxModelLighting_);
+	ImGui::ColorEdit4("FBX Model Color", &fbxModelColor_.x);
+	ImGui::DragFloat3("FBX Model Scale", &fbxModelTransform_.scale.x, 0.001f, 0.001f, 1.0f);
+	ImGui::DragFloat3("FBX Model Rotation", &fbxModelTransform_.rotation.x, 0.01f, -3.14f, 3.14f);
+	ImGui::DragFloat3("FBX Model Translation", &fbxModelTransform_.translation.x, 0.1f, -50.0f, 50.0f);
+	textureCombo("FBX Model Texture", fbxModelTexIndex_);
+	blendModeCombo("FBX Model BlendMode", fbxModelBlendMode_);
+	blendStrengthSlider("FBX Model Blend Strength", fbxModelBlendMode_, fbxModelBlendStrength_);
+	alphaTestControls("FBX Model Alpha Test", "FBX Model Alpha Threshold", fbxModelAlphaTest_, fbxModelAlphaThreshold_);
 
 	ImGui::Separator();
 	ImGui::Text("Sprite3D (world space)");
@@ -293,6 +329,7 @@ void Game::DrawImGui() {
 	textureCombo("Sprite3D Texture", sprite3DTexIndex_);
 	blendModeCombo("Sprite3D BlendMode", sprite3DBlendMode_);
 	blendStrengthSlider("Sprite3D Blend Strength", sprite3DBlendMode_, sprite3DBlendStrength_);
+	alphaTestControls("Sprite3D Alpha Test", "Sprite3D Alpha Threshold", sprite3DAlphaTest_, sprite3DAlphaThreshold_);
 	ImGui::Text("Sprite3D UV Transform");
 	ImGui::DragFloat2("3D UV Offset", &sprite3DUV.offset.x, 0.01f, -10.0f, 10.0f);
 	ImGui::DragFloat("3D UV Rotation", &sprite3DUV.rotation, 0.01f, -3.14f, 3.14f);
@@ -308,6 +345,7 @@ void Game::DrawImGui() {
 	textureCombo("Sprite2D Texture", sprite2DTexIndex_);
 	blendModeCombo("Sprite2D BlendMode", sprite2DBlendMode_);
 	blendStrengthSlider("Sprite2D Blend Strength", sprite2DBlendMode_, sprite2DBlendStrength_);
+	alphaTestControls("Sprite2D Alpha Test", "Sprite2D Alpha Threshold", sprite2DAlphaTest_, sprite2DAlphaThreshold_);
 	ImGui::Text("Sprite2D UV Transform");
 	ImGui::DragFloat2("2D UV Offset", &sprite2DUV.offset.x, 0.01f, -10.0f, 10.0f);
 	ImGui::DragFloat("2D UV Rotation", &sprite2DUV.rotation, 0.01f, -3.14f, 3.14f);

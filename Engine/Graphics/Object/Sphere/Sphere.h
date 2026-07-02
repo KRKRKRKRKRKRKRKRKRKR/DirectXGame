@@ -27,7 +27,8 @@ public:
     void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
     void SetColor(const Vector4& color, uint32_t index);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-        TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+        TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+        bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 
     // IDrawable 実装
     void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0) override;

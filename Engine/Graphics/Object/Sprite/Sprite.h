@@ -20,7 +20,8 @@ public:
     void SetUVTransform(const UVTransform& uvTransform);
     void SetFlipV(bool flip);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
-        TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+        TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+        bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 
     // IDrawable 実装
     void Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance = 0) override;

@@ -4,6 +4,8 @@ struct TransformationMatrix
 {
     float4x4 WVP;
     float4x4 World;
+    // Worldの逆転置行列。不均等スケールでも法線を正しく変換するために使う
+    float4x4 WorldInverseTranspose;
 };
 StructuredBuffer<TransformationMatrix> gTransformationMatrices : register(t1);
 StructuredBuffer<float4>               gColors                 : register(t2);
@@ -28,7 +30,7 @@ VertexShaderOutput main(VertexShaderInput input, uint instanceId : SV_InstanceID
     output.position      = mul(input.position, gTransformationMatrices[idx].WVP);
     output.texcoord      = input.texcoord;
     output.color         = gColors[idx];
-    output.normal        = mul(input.normal, (float3x3)gTransformationMatrices[idx].World);
+    output.normal        = normalize(mul(input.normal, (float3x3)gTransformationMatrices[idx].WorldInverseTranspose));
     output.worldPosition = mul(input.position, gTransformationMatrices[idx].World).xyz;
     return output;
 }

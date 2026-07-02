@@ -12,6 +12,8 @@ cbuffer BlendData : register(b2)
 {
     uint  gBlendMode;
     float gBlendStrength;
+    uint  gEnableAlphaTest; // 2値抜き(Binary Alpha/αTest)。trueならgAlphaThreshold未満のαをdiscardする
+    float gAlphaThreshold;
 };
 
 cbuffer LightData : register(b0)
@@ -98,6 +100,15 @@ PixelShaderOutput main(VertexShaderOutput input)
 {
     PixelShaderOutput output;
     output.color = input.color * gTexture.Sample(gSampler, input.texcoord);
+
+    // 2値抜き(Binary Alpha/αTest): αがしきい値未満のピクセルは描画せず棄却する
+    // 微小なイプシロンを加えるのは、本来1.0のはずのαがテクスチャの量子化/丸め誤差で
+    // 0.999...になることがあり、しきい値=1.0のときに完全不透明ピクセルまで
+    // 誤ってdiscardされてしまうのを防ぐため
+    if (gEnableAlphaTest != 0 && output.color.a + 1e-5f < gAlphaThreshold)
+    {
+        discard;
+    }
 
     if (gEnableLighting != 0)
     {

@@ -8,6 +8,7 @@
 #include "../ShaderCompiler/ShaderCompiler.h"
 #include "../Pipeline/Pipeline.h"
 #include "../Pipeline/LinePipeline.h"
+#include "../Pipeline/SkinnedPipeline.h"
 #include "../Texture/TextureManager.h"
 #include "../Object/Triangle/Triangle.h"
 #include "../Object/Cube/Cube.h"
@@ -41,8 +42,12 @@ public:
 	using ModelHandle = uint32_t;
 	ModelHandle LoadModel(const std::string& directoryPath, const std::string& filename);
 
-	void DrawModel(ModelHandle handle, const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawModel(ModelHandle handle, const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 	void FlushModels();
+
+	// ボーン付きModelのアニメーションを進める。毎フレームGame::Update等から呼ぶ
+	void UpdateModelAnimation(ModelHandle handle, float deltaTime);
 
 	// フレーム先頭で一度だけ呼ぶ。以降の Draw(Transform,...) はこの行列を使う
 	// cameraPosition はスペキュラ/リムライト計算用に毎フレームライトへ転送する
@@ -52,9 +57,12 @@ public:
 	}
 
 	// Transform 版（内部で world * view * proj を計算）
-	void DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
-	void DrawSphere  (const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
-	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
+	void DrawSphere  (const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
+	void DrawCube    (const Transform& t, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 
 	// WVP 直接指定版（既存、後方互換用）
 	void DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
@@ -69,9 +77,11 @@ public:
 	void FlushLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
 	// 3Dスプライト（カメラ付き WVP）
-	void DrawSprite3D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawSprite3D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 	// 2DスプライトUI（ピクセル座標、奥行きなし）。FlushSprites2D() で最後に描画される
-	void DrawSprite2D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = false, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f);
+	void DrawSprite2D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = false, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 	void FlushSprites2D();
 
 	SceneLight& GetLight() { return light_; }
@@ -95,6 +105,8 @@ private:
 		bool          useLighting;
 		BlendMode     blendMode;
 		float         blendStrength;
+		bool          enableAlphaTest;
+		float         alphaThreshold;
 	};
 	struct LineCommand {
 		Vector3   start;
@@ -110,6 +122,8 @@ private:
 		bool          useLighting;
 		BlendMode     blendMode;
 		float         blendStrength;
+		bool          enableAlphaTest;
+		float         alphaThreshold;
 	};
 	struct CubeCommand {
 		Matrix4x4     wvp;
@@ -119,6 +133,8 @@ private:
 		bool          useLighting;
 		BlendMode     blendMode;
 		float         blendStrength;
+		bool          enableAlphaTest;
+		float         alphaThreshold;
 	};
 	struct Sprite2DCommand {
 		Matrix4x4     wvp;
@@ -129,6 +145,8 @@ private:
 		UVTransform   uvTransform;
 		BlendMode     blendMode;
 		float         blendStrength;
+		bool          enableAlphaTest;
+		float         alphaThreshold;
 	};
 	struct ModelCommand {
 		ModelHandle   handle;
@@ -139,6 +157,8 @@ private:
 		bool          useLighting;
 		BlendMode     blendMode;
 		float         blendStrength;
+		bool          enableAlphaTest;
+		float         alphaThreshold;
 	};
 
 	ID3D12Device* device_ = nullptr;
@@ -148,6 +168,7 @@ private:
 	Pipeline pipeline_;
 	Pipeline spritePipeline2D_;
 	LinePipeline linePipeline_;
+	SkinnedPipeline skinnedPipeline_; // ボーン付きModel専用
 	TextureManager textureManager_;
 
 	std::unique_ptr<Triangle> triangle_;

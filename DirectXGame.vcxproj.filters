@@ -83,6 +83,7 @@
     <ClCompile Include="Engine\Audio\AudioManager.cpp" />
     <ClCompile Include="Engine\Audio\Sound.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
+    <ClCompile Include="Engine\Graphics\Pipeline\SkinnedPipeline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\MathTypes.h">
@@ -158,6 +159,7 @@
     <ClInclude Include="Engine\Audio\AudioManager.h" />
     <ClInclude Include="Engine\Audio\Sound.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />
+    <ClInclude Include="Engine\Graphics\Pipeline\SkinnedPipeline.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Externals\imgui\LICENSE.txt">
@@ -177,5 +179,6 @@
     <FxCompile Include="HLSL\Line.VS.hlsl">
       <Filter>HLSL</Filter>
     </FxCompile>
+    <FxCompile Include="HLSL\SkinnedObject3d.VS.hlsl" />
   </ItemGroup>
 </Project>

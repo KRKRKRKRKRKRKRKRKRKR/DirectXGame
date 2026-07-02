@@ -20,6 +20,7 @@ void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comma
 	pipeline_.Initialize(device_, &shaderCompiler_);
 	spritePipeline2D_.Initialize(device_, &shaderCompiler_, false); // depth無効（UI用）
 	linePipeline_.Initialize(device_, &shaderCompiler_);
+	skinnedPipeline_.Initialize(device_, &shaderCompiler_);
 
 	heaps_ = heaps;
 	textureManager_.SetDevice(device_);
@@ -85,20 +86,27 @@ TextureHandle Renderer::LoadTexture(const std::string& filePath) {
 Renderer::ModelHandle Renderer::LoadModel(const std::string& directoryPath, const std::string& filename) {
 	auto model = std::make_unique<Model>();
 	model->Initialize(device_, &textureManager_,
-		pipeline_.GetRootSignature(), &pipeline_, heaps_,
+		pipeline_.GetRootSignature(), &pipeline_,
+		&skinnedPipeline_, skinnedPipeline_.GetRootSignature(),
+		heaps_,
 		directoryPath, filename,
-		nextModelHeapIndex_, nextModelHeapIndex_ + 1);
-	nextModelHeapIndex_ += 2;
+		nextModelHeapIndex_, nextModelHeapIndex_ + 1, nextModelHeapIndex_ + 2);
+	nextModelHeapIndex_ += 3; // wvp, color, ボーン行列パレット用に3枠使う
 
 	ModelHandle handle = static_cast<ModelHandle>(models_.size());
 	models_.push_back(std::move(model));
 	return handle;
 }
 
-void Renderer::DrawModel(ModelHandle handle, const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength) {
+void Renderer::UpdateModelAnimation(ModelHandle handle, float deltaTime) {
+	models_[handle]->UpdateAnimation(deltaTime);
+}
+
+void Renderer::DrawModel(ModelHandle handle, const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
 	Matrix4x4 wvp   = world * view_ * projection_;
-	modelCommands_.push_back({ handle, wvp, world, color, texture, useLighting, blendMode, blendStrength });
+	modelCommands_.push_back({ handle, wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold });
 }
 
 void Renderer::FlushModels() {
@@ -113,7 +121,7 @@ void Renderer::FlushModels() {
 
 		// 呼び出し側がテクスチャを指定していればそれを使い、なければモデルのMTLテクスチャを使う
 		TextureHandle tex = (cmd.texture != kTextureNone) ? cmd.texture : model->GetTextureHandle();
-		model->SetPipelineCommands(commandList_, &textureManager_, tex, cmd.blendMode, cmd.blendStrength);
+		model->SetPipelineCommands(commandList_, &textureManager_, tex, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold);
 		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(cmd.useLighting));
 		commandList_->SetGraphicsRoot32BitConstant(4, static_cast<UINT>(i), 0);
 		model->Draw(commandList_, 1, i);
@@ -124,36 +132,39 @@ void Renderer::FlushModels() {
 
 // ---- Transform 版 ----
 
-void Renderer::DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength) {
+void Renderer::DrawTriangle(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
 	Matrix4x4 wvp   = world * view_ * projection_;
-	triangleCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength });
+	triangleCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold });
 }
 
-void Renderer::DrawSphere(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength) {
+void Renderer::DrawSphere(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
 	Matrix4x4 wvp   = world * view_ * projection_;
-	sphereCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength });
+	sphereCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold });
 }
 
-void Renderer::DrawCube(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength) {
+void Renderer::DrawCube(const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
 	Matrix4x4 wvp   = world * view_ * projection_;
-	cubeCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength });
+	cubeCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold });
 }
 
 // ---- WVP 直接指定版 ----
 
 void Renderer::DrawTriangle(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength) {
-	triangleCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting, blendMode, blendStrength });
+	triangleCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting, blendMode, blendStrength, false, 0.5f });
 }
 
 void Renderer::DrawCube(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength) {
-	cubeCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting, blendMode, blendStrength });
+	cubeCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting, blendMode, blendStrength, false, 0.5f });
 }
 
 void Renderer::DrawSphere(const Matrix4x4& wvp, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength) {
-	sphereCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting, blendMode, blendStrength });
+	sphereCommands_.push_back({ wvp, MatrixMath::Identity(), color, texture, useLighting, blendMode, blendStrength, false, 0.5f });
 }
 
 // ---- Flush ----
@@ -166,6 +177,8 @@ void Renderer::FlushTriangles() {
 			if (a.texture != b.texture) return a.texture < b.texture;
 			if (a.blendMode != b.blendMode) return a.blendMode < b.blendMode;
 			if (a.blendStrength != b.blendStrength) return a.blendStrength < b.blendStrength;
+			if (a.enableAlphaTest != b.enableAlphaTest) return a.enableAlphaTest < b.enableAlphaTest;
+			if (a.alphaThreshold != b.alphaThreshold) return a.alphaThreshold < b.alphaThreshold;
 			return (int)a.useLighting > (int)b.useLighting;
 		});
 
@@ -180,13 +193,17 @@ void Renderer::FlushTriangles() {
 		bool          batchLighting = triangleCommands_[start].useLighting;
 		BlendMode     batchBlend    = triangleCommands_[start].blendMode;
 		float         batchStrength = triangleCommands_[start].blendStrength;
+		bool          batchAlphaTest = triangleCommands_[start].enableAlphaTest;
+		float         batchThreshold = triangleCommands_[start].alphaThreshold;
 		int end = start;
 		while (end < (int)triangleCommands_.size() &&
 			   triangleCommands_[end].texture       == currentTex &&
 			   triangleCommands_[end].useLighting   == batchLighting &&
 			   triangleCommands_[end].blendMode     == batchBlend &&
-			   triangleCommands_[end].blendStrength == batchStrength) end++;
-		triangle_->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength);
+			   triangleCommands_[end].blendStrength == batchStrength &&
+			   triangleCommands_[end].enableAlphaTest == batchAlphaTest &&
+			   triangleCommands_[end].alphaThreshold  == batchThreshold) end++;
+		triangle_->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength, batchAlphaTest, batchThreshold);
 		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
 		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
 		triangle_->Draw(commandList_, end - start, start);
@@ -204,6 +221,8 @@ void Renderer::FlushCubes() {
 			if (a.texture != b.texture) return a.texture < b.texture;
 			if (a.blendMode != b.blendMode) return a.blendMode < b.blendMode;
 			if (a.blendStrength != b.blendStrength) return a.blendStrength < b.blendStrength;
+			if (a.enableAlphaTest != b.enableAlphaTest) return a.enableAlphaTest < b.enableAlphaTest;
+			if (a.alphaThreshold != b.alphaThreshold) return a.alphaThreshold < b.alphaThreshold;
 			return (int)a.useLighting > (int)b.useLighting;
 		});
 
@@ -218,13 +237,17 @@ void Renderer::FlushCubes() {
 		bool          batchLighting = cubeCommands_[start].useLighting;
 		BlendMode     batchBlend    = cubeCommands_[start].blendMode;
 		float         batchStrength = cubeCommands_[start].blendStrength;
+		bool          batchAlphaTest = cubeCommands_[start].enableAlphaTest;
+		float         batchThreshold = cubeCommands_[start].alphaThreshold;
 		int end = start;
 		while (end < (int)cubeCommands_.size() &&
 			   cubeCommands_[end].texture       == currentTex &&
 			   cubeCommands_[end].useLighting   == batchLighting &&
 			   cubeCommands_[end].blendMode     == batchBlend &&
-			   cubeCommands_[end].blendStrength == batchStrength) end++;
-		cube_->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength);
+			   cubeCommands_[end].blendStrength == batchStrength &&
+			   cubeCommands_[end].enableAlphaTest == batchAlphaTest &&
+			   cubeCommands_[end].alphaThreshold  == batchThreshold) end++;
+		cube_->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength, batchAlphaTest, batchThreshold);
 		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
 		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
 		cube_->Draw(commandList_, end - start, start);
@@ -242,6 +265,8 @@ void Renderer::FlushSpheres() {
 			if (a.texture != b.texture) return a.texture < b.texture;
 			if (a.blendMode != b.blendMode) return a.blendMode < b.blendMode;
 			if (a.blendStrength != b.blendStrength) return a.blendStrength < b.blendStrength;
+			if (a.enableAlphaTest != b.enableAlphaTest) return a.enableAlphaTest < b.enableAlphaTest;
+			if (a.alphaThreshold != b.alphaThreshold) return a.alphaThreshold < b.alphaThreshold;
 			return (int)a.useLighting > (int)b.useLighting;
 		});
 
@@ -256,13 +281,17 @@ void Renderer::FlushSpheres() {
 		bool          batchLighting = sphereCommands_[start].useLighting;
 		BlendMode     batchBlend    = sphereCommands_[start].blendMode;
 		float         batchStrength = sphereCommands_[start].blendStrength;
+		bool          batchAlphaTest = sphereCommands_[start].enableAlphaTest;
+		float         batchThreshold = sphereCommands_[start].alphaThreshold;
 		int end = start;
 		while (end < (int)sphereCommands_.size() &&
 			   sphereCommands_[end].texture       == currentTex &&
 			   sphereCommands_[end].useLighting   == batchLighting &&
 			   sphereCommands_[end].blendMode     == batchBlend &&
-			   sphereCommands_[end].blendStrength == batchStrength) end++;
-		sphere_->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength);
+			   sphereCommands_[end].blendStrength == batchStrength &&
+			   sphereCommands_[end].enableAlphaTest == batchAlphaTest &&
+			   sphereCommands_[end].alphaThreshold  == batchThreshold) end++;
+		sphere_->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength, batchAlphaTest, batchThreshold);
 		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
 		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
 		sphere_->Draw(commandList_, end - start, start);
@@ -307,24 +336,26 @@ void Renderer::DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection)
 
 // ---- Sprite ----
 
-void Renderer::DrawSprite3D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform, BlendMode blendMode, float blendStrength) {
+void Renderer::DrawSprite3D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
 	Matrix4x4 wvp   = world * view_ * projection_;
 	sprite3D_->SetWvpMatrix(wvp, world);
 	sprite3D_->SetColor(color);
 	sprite3D_->SetUVTransform(uvTransform);
-	sprite3D_->SetPipelineCommands(commandList_, &textureManager_, texture, blendMode, blendStrength);
+	sprite3D_->SetPipelineCommands(commandList_, &textureManager_, texture, blendMode, blendStrength, enableAlphaTest, alphaThreshold);
 	commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(useLighting));
 	commandList_->SetGraphicsRoot32BitConstant(4, 0u, 0);
 	sprite3D_->Draw(commandList_, 0);
 }
 
-void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform, BlendMode blendMode, float blendStrength) {
+void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform, BlendMode blendMode, float blendStrength,
+	bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 ortho  = MatrixMath::MakeOrthographicMatrix(
 		static_cast<float>(windowWidth_), static_cast<float>(windowHeight_));
 	Matrix4x4 world  = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
 	Matrix4x4 wvp    = world * ortho;
-	sprite2DCommands_.push_back({ wvp, world, color, texture, useLighting, uvTransform, blendMode, blendStrength });
+	sprite2DCommands_.push_back({ wvp, world, color, texture, useLighting, uvTransform, blendMode, blendStrength, enableAlphaTest, alphaThreshold });
 }
 
 void Renderer::FlushSprites2D() {
@@ -334,7 +365,7 @@ void Renderer::FlushSprites2D() {
 		sprite2D_->SetWvpMatrix(cmd.wvp, cmd.world);
 		sprite2D_->SetColor(cmd.color);
 		sprite2D_->SetUVTransform(cmd.uvTransform);
-		sprite2D_->SetPipelineCommands(commandList_, &textureManager_, cmd.texture, cmd.blendMode, cmd.blendStrength);
+		sprite2D_->SetPipelineCommands(commandList_, &textureManager_, cmd.texture, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold);
 		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(cmd.useLighting));
 		commandList_->SetGraphicsRoot32BitConstant(4, 0u, 0);
 		sprite2D_->Draw(commandList_, 0);

@@ -21,7 +21,7 @@ void Window::Create(const std::wstring& title,int32_t width, int32_t height) {
     clientHeight_ = height;
 
     wc_.lpfnWndProc = WindowProc;
-    wc_.lpszClassName = L"DirectXGame";
+    wc_.lpszClassName = L"ClearRootEngine";
     wc_.hInstance = GetModuleHandle(nullptr);
     wc_.hCursor = LoadCursor(nullptr, IDC_ARROW);
     RegisterClass(&wc_);

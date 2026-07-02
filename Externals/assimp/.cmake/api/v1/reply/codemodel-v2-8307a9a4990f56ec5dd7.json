@@ -1,0 +1,181 @@
+{
+	"configurations" : 
+	[
+		{
+			"abstractTargets" : [],
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Release-4c8cf4a78356507e31ae.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						2
+					]
+				},
+				{
+					"build" : "contrib/zlib",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-contrib.zlib-Release-0bd5d4541c77adb45846.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10.0"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "contrib/zlib",
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"build" : "code",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-code-Release-2fa425fe56c96347e310.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.22"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "code",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "test",
+					"childIndexes" : 
+					[
+						4
+					],
+					"jsonFile" : "directory-test-Release-7e074d58d13f620cc8b5.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "test",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "test/headercheck",
+					"jsonFile" : "directory-test.headercheck-Release-2b7205cc2a0eaf15bb7f.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 3,
+					"projectIndex" : 0,
+					"source" : "test/headercheck"
+				}
+			],
+			"name" : "Release",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1
+					],
+					"directoryIndexes" : 
+					[
+						0,
+						2,
+						3,
+						4
+					],
+					"name" : "Assimp",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						1
+					],
+					"name" : "zlib",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						4
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "UpdateAssimpLibsDebugSymbolsAndDLLs::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-UpdateAssimpLibsDebugSymbolsAndDLLs-Release-4a63b283dfb4c807fefc.json",
+					"name" : "UpdateAssimpLibsDebugSymbolsAndDLLs",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "assimp::@1c76e98fcac0e60aa45c",
+					"jsonFile" : "target-assimp-Release-2073d8527b640907ab41.json",
+					"name" : "assimp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-Release-3c779892d8a1a49fa34d.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "unit::@36f028580bb02cc8272a",
+					"jsonFile" : "target-unit-Release-839a2af669cc686f753f.json",
+					"name" : "unit",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "zlibstatic::@de27f3809863e2bb7c79",
+					"jsonFile" : "target-zlibstatic-Release-d8bb980fc70645b0c0ba.json",
+					"name" : "zlibstatic",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/SchoolProgram/2ndYear/CG2/DirectXGame/Externals/assimp",
+		"source" : "C:/SchoolProgram/2ndYear/CG2/DirectXGame/Externals/assimp"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 10
+	}
+}

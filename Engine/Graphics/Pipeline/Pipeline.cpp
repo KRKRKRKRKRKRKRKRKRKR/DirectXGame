@@ -133,13 +133,13 @@ void Pipeline::CreateRootSignature() {
 	rootParameters[4].Constants.RegisterSpace = 0;
 	rootParameters[4].Constants.Num32BitValues = 1;
 
-	// [5] b2: ブレンド情報（PS）- kMultiply/kScreenはBlendFactor定数では強さ調整できないため、
-	// PS側でSrcColorを補間する。x=blendMode(int), y=blendStrength
+	// [5] b2: ブレンド/αTest情報（PS）- kMultiply/kScreenはBlendFactor定数では強さ調整できないため、
+	// PS側でSrcColorを補間する。x=blendMode(int), y=blendStrength, z=enableAlphaTest(bool), w=alphaThreshold
 	rootParameters[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
 	rootParameters[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 	rootParameters[5].Constants.ShaderRegister = 2;
 	rootParameters[5].Constants.RegisterSpace = 0;
-	rootParameters[5].Constants.Num32BitValues = 2;
+	rootParameters[5].Constants.Num32BitValues = 4;
 
 	descriptionRootSignature.pParameters = rootParameters;
 	descriptionRootSignature.NumParameters = _countof(rootParameters);
