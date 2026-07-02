@@ -47,6 +47,11 @@ void Engine::Flush() {
 }
 
 void Engine::Finalize() {
+	// GPUが直前フレームのコマンド（Present等）を実行完了する前に、
+	// ImGuiやRendererがGPUリソース（フォントテクスチャ等）を解放してしまわないよう、
+	// 他の終了処理より先にGPU完了を待つ（STATE_CREATION WARNING対策）
+	directX_.WaitForGPUCompletion();
+
 	AudioManager::GetInstance().Finalize();
 	imgui_.Finalize();
 	renderer_.Finalize();

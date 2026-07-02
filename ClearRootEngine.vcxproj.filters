@@ -11,6 +11,9 @@
     <Filter Include="imgui">
       <UniqueIdentifier>{ab060979-25c6-4be0-abb0-ed35e516c385}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ImGuizmo">
+      <UniqueIdentifier>{7f3f5b3f-2e5a-4c1a-9a3e-3b1d6f9b2c6a}</UniqueIdentifier>
+    </Filter>
     <Filter Include="HLSL">
       <UniqueIdentifier>{1468e40e-d21c-4e52-a632-942cfb664c74}</UniqueIdentifier>
     </Filter>
@@ -49,6 +52,9 @@
     </ClCompile>
     <ClCompile Include="Externals\imgui\imguiManager.cpp">
       <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Externals\ImGuizmo\src\ImGuizmo.cpp">
+      <Filter>ImGuizmo</Filter>
     </ClCompile>
     <ClCompile Include="Particle\TrailParticle3D.cpp">
       <Filter>Particle</Filter>
@@ -129,6 +135,9 @@
     </ClInclude>
     <ClInclude Include="Externals\imgui\imguiManager.h">
       <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Externals\ImGuizmo\src\ImGuizmo.h">
+      <Filter>ImGuizmo</Filter>
     </ClInclude>
     <ClInclude Include="Particle\TrailParticle3D.h">
       <Filter>Particle</Filter>

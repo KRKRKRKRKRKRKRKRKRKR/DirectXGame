@@ -53,4 +53,16 @@ namespace TransformMath {
 		DirectX::XMStoreFloat3(&out, result);
 		return out;
 	}
+
+	// オイラー角(ラジアン、XMMatrixRotationRollPitchYaw規約) → 正規化済み方向ベクトル。
+	// 基準方向{0,0,1}(ワールドZ+)をその回転で変換するだけの単純な変換。
+	// SpotLightの方向をギズモの回転結果から書き戻す際などに使う
+	inline Vector3 EulerRadiansToDirection(const Vector3& eulerRadians) {
+		DirectX::XMMATRIX rot = DirectX::XMMatrixRotationRollPitchYaw(eulerRadians.x, eulerRadians.y, eulerRadians.z);
+		DirectX::XMVECTOR baseDir = DirectX::XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+		DirectX::XMVECTOR dir = DirectX::XMVector3Normalize(DirectX::XMVector3TransformNormal(baseDir, rot));
+		Vector3 result;
+		DirectX::XMStoreFloat3(&result, dir);
+		return result;
+	}
 }

@@ -1,9 +1,11 @@
 #include "Game.h"
 #include "../Externals/imgui/imgui.h"
+#include "../Externals/ImGuizmo/src/ImGuizmo.h"
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
 #include "../Engine/Audio/AudioManager.h"
 #include <cmath>
+#include <algorithm>
 
 void Game::RebuildGridCubes() {
 	constexpr float kSpacing  = 2.0f;
@@ -103,6 +105,9 @@ void Game::Update(float deltaTime) {
 }
 
 void Game::Render() {
+	// ImGuizmo導入確認用（Step0）。ImGui::NewFrame()の後、ImGui::Render()の前に呼ぶ必要がある
+	ImGuizmo::BeginFrame();
+
 	Matrix4x4 view = camera_->GetViewMatrix();
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
 		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
@@ -141,6 +146,10 @@ void Game::Render() {
 	}
 
 	renderer_->DrawTriangle(triangle, triangleColor, textures_[triangleTexIndex_].handle, triangleLighting, triangleBlendMode_, triangleBlendStrength_, triangleAlphaTest_, triangleAlphaThreshold_);
+
+	// Blenderライクなギズモ操作："Gizmo"パネルで選んだ1オブジェクトのTransformをドラッグで編集する
+	UpdateGizmo(view, proj);
+
 	renderer_->DrawCube(cube, cubeColor, textures_[cubeTexIndex_].handle, cubeLighting, cubeBlendMode_, cubeBlendStrength_, cubeAlphaTest_, cubeAlphaThreshold_);
 	renderer_->DrawSphere(sphere, sphereColor, textures_[sphereTexIndex_].handle, sphereLighting, sphereBlendMode_, sphereBlendStrength_, sphereAlphaTest_, sphereAlphaThreshold_);
 	renderer_->DrawModel(modelHandle_, modelTransform_, modelColor_, textures_[modelTexIndex_].handle, modelLighting_, modelBlendMode_, modelBlendStrength_, modelAlphaTest_, modelAlphaThreshold_);
@@ -206,6 +215,105 @@ void Game::Render() {
 	DrawImGui();
 }
 
+Transform* Game::GetGizmoTargetTransform() {
+	switch (gizmoTarget_) {
+	case GizmoTarget::kCube:       return &cube;
+	case GizmoTarget::kSphere:     return &sphere;
+	case GizmoTarget::kTriangle:   return &triangle;
+	case GizmoTarget::kFloor:      return &floor_;
+	case GizmoTarget::kSprite3D:   return &sprite3D;
+	case GizmoTarget::kModel:      return &modelTransform_;
+	case GizmoTarget::kFbxModel:   return &fbxModelTransform_;
+	case GizmoTarget::kPointLight: return &lightGizmoScratch_;
+	case GizmoTarget::kSpotLight:  return &lightGizmoScratch_;
+	default:                       return nullptr;
+	}
+}
+
+// 方向ベクトル → オイラー角(ラジアン、XMMatrixRotationRollPitchYaw規約)。
+// 基準方向{0,0,1}から目標方向への回転をクォータニオンで求め、既存のMakeAffineMatrix/Decomposeと
+// 整合する経路（回転行列→ImGuizmo::DecomposeMatrixToComponentsでのオイラー角抽出）で変換する。
+// ジンバルロック付近では不安定になりうるため、ドラッグ操作中(ImGuizmo::IsUsing()==true)の
+// 毎フレーム呼び出しは避けること（呼び出し側で抑制する）
+static Vector3 DirectionToEulerRadians(const Vector3& direction) {
+	using namespace DirectX;
+	XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&direction));
+	XMVECTOR baseDir = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	float dot = XMVectorGetX(XMVector3Dot(baseDir, dir));
+	dot = std::clamp(dot, -1.0f, 1.0f);
+	XMVECTOR axis = XMVector3Cross(baseDir, dir);
+	XMVECTOR quat;
+	if (XMVectorGetX(XMVector3LengthSq(axis)) < 1e-8f) {
+		// 平行または反対向き：外積が定義できないので特別扱い
+		quat = (dot > 0.0f) ? XMQuaternionIdentity()
+		                     : XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), XM_PI);
+	} else {
+		quat = XMQuaternionRotationAxis(XMVector3Normalize(axis), acosf(dot));
+	}
+	Matrix4x4 rotMat;
+	XMStoreFloat4x4(&rotMat, XMMatrixRotationQuaternion(quat));
+
+	// 自前の三角関数展開を書かず、既に実績のある「行列→DecomposeMatrixToComponents」の経路を再利用する
+	float t[3], r[3], s[3];
+	ImGuizmo::DecomposeMatrixToComponents(&rotMat._11, t, r, s);
+	return {
+		XMConvertToRadians(r[0]),
+		XMConvertToRadians(r[1]),
+		XMConvertToRadians(r[2]) };
+}
+
+void Game::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
+	Transform* target = GetGizmoTargetTransform();
+	if (!target) return;
+
+	// PointLight/SpotLightの場合、操作開始前に現在値をlightGizmoScratch_へ反映する。
+	// ドラッグ中（ImGuizmo::IsUsing()）は往路変換のやり直しをスキップし、直前の値を維持する
+	// （方向→回転の逆算はジンバルロック付近で不安定なため、ドラッグ中に再計算すると暴れる）
+	auto& light = renderer_->GetLight();
+	auto& lightData = light.GetData();
+	if (!ImGuizmo::IsUsing()) {
+		if (gizmoTarget_ == GizmoTarget::kPointLight) {
+			lightGizmoScratch_.translation = lightData.pointPosition;
+		} else if (gizmoTarget_ == GizmoTarget::kSpotLight) {
+			lightGizmoScratch_.translation = lightData.spotPosition;
+			lightGizmoScratch_.rotation    = DirectionToEulerRadians(lightData.spotDirection);
+		}
+	}
+
+	ImGuizmo::SetOrthographic(false);
+	ImGuizmo::SetRect(0, 0, (float)renderer_->GetClientWidth(), (float)renderer_->GetClientHeight());
+
+	Matrix4x4 world = TransformMath::MakeAffineMatrix(target->scale, target->rotation, target->translation);
+
+	// PointLightは回転・スケールの概念がないためTranslateのみ、SpotLightはTranslate/Rotateのみに強制する
+	ImGuizmo::OPERATION operation = gizmoOperation_;
+	if (gizmoTarget_ == GizmoTarget::kPointLight) {
+		operation = ImGuizmo::TRANSLATE;
+	} else if (gizmoTarget_ == GizmoTarget::kSpotLight && gizmoOperation_ == ImGuizmo::SCALE) {
+		operation = ImGuizmo::TRANSLATE;
+	}
+
+	if (ImGuizmo::Manipulate(&view._11, &proj._11, operation, ImGuizmo::WORLD, &world._11)) {
+		float t[3], r[3], s[3];
+		ImGuizmo::DecomposeMatrixToComponents(&world._11, t, r, s);
+		target->translation = { t[0], t[1], t[2] };
+		target->rotation    = {
+			DirectX::XMConvertToRadians(r[0]),
+			DirectX::XMConvertToRadians(r[1]),
+			DirectX::XMConvertToRadians(r[2]) }; // ImGuizmoは度数法、Transform.rotationはラジアン
+		target->scale        = { s[0], s[1], s[2] };
+
+		// ライトの場合はSetter経由で書き戻す（Upload()を確実に通す。GetData()の非const参照を
+		// 直接書き換えるとUpload()が呼ばれずGPUに反映されない罠があるため必ずSetter経由にする）
+		if (gizmoTarget_ == GizmoTarget::kPointLight) {
+			light.SetPointPosition(target->translation);
+		} else if (gizmoTarget_ == GizmoTarget::kSpotLight) {
+			light.SetSpotPosition(target->translation);
+			light.SetSpotDirection(TransformMath::EulerRadiansToDirection(target->rotation));
+		}
+	}
+}
+
 void Game::DrawGrid() {
 	Matrix4x4 viewMatrix = camera_->GetViewMatrix();
 	Matrix4x4 projMatrix = camera_->GetProjectionMatrix(
@@ -228,6 +336,32 @@ void Game::DrawImGui() {
 	ImGui::Text("pos.x = %.1f", camera_->GetCameraData().position.x);
 	ImGui::Text("pos.y = %.1f", camera_->GetCameraData().position.y);
 	ImGui::Text("pos.z= %.1f", camera_->GetCameraData().position.z);
+	ImGui::End();
+
+	ImGui::Begin("Gizmo");
+	static const char* kGizmoTargetNames[] = {
+		"None", "Cube", "Sphere", "Triangle", "Floor", "Sprite3D", "Model", "FBX Model",
+		"Point Light", "Spot Light"
+	};
+	int gizmoTargetIndex = static_cast<int>(gizmoTarget_);
+	if (ImGui::Combo("Target", &gizmoTargetIndex, kGizmoTargetNames, IM_ARRAYSIZE(kGizmoTargetNames))) {
+		gizmoTarget_ = static_cast<GizmoTarget>(gizmoTargetIndex);
+	}
+
+	// PointLight/SpotLightは回転・スケールの概念がない（点光源=Translateのみ、
+	// スポットライトの向き=Rotateのみ）ため、無効な操作モードはグレーアウトする
+	bool disableRotate = (gizmoTarget_ == GizmoTarget::kPointLight);
+	bool disableScale  = (gizmoTarget_ == GizmoTarget::kPointLight || gizmoTarget_ == GizmoTarget::kSpotLight);
+
+	if (ImGui::RadioButton("Translate", gizmoOperation_ == ImGuizmo::TRANSLATE)) gizmoOperation_ = ImGuizmo::TRANSLATE;
+	ImGui::SameLine();
+	if (disableRotate) ImGui::BeginDisabled();
+	if (ImGui::RadioButton("Rotate", gizmoOperation_ == ImGuizmo::ROTATE)) gizmoOperation_ = ImGuizmo::ROTATE;
+	if (disableRotate) ImGui::EndDisabled();
+	ImGui::SameLine();
+	if (disableScale) ImGui::BeginDisabled();
+	if (ImGui::RadioButton("Scale", gizmoOperation_ == ImGuizmo::SCALE)) gizmoOperation_ = ImGuizmo::SCALE;
+	if (disableScale) ImGui::EndDisabled();
 	ImGui::End();
 
 	auto textureCombo = [&](const char* label, int& index) {

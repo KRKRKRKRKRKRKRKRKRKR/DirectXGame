@@ -57,7 +57,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>Externals\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Externals\assimp\include;Externals\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -90,7 +90,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>Externals\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>Externals\assimp\include;Externals\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -141,6 +141,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Externals\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="Externals\imgui\imgui_tables.cpp" />
     <ClCompile Include="Externals\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Externals\ImGuizmo\src\ImGuizmo.cpp" />
     <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
@@ -188,6 +189,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Externals\imgui\imstb_rectpack.h" />
     <ClInclude Include="Externals\imgui\imstb_textedit.h" />
     <ClInclude Include="Externals\imgui\imstb_truetype.h" />
+    <ClInclude Include="Externals\ImGuizmo\src\ImGuizmo.h" />
     <ClInclude Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.h" />
     <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
     <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />

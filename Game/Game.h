@@ -5,6 +5,8 @@
 #include "../Engine/Audio/Sound.h"
 #include "../Math/MathTypes.h"
 #include "../Math/Collision.h"
+#include "../Externals/imgui/imgui.h" // ImGuizmo.hがImDrawList等imgui型を前提にしており、先にインクルードする必要がある
+#include "../Externals/ImGuizmo/src/ImGuizmo.h"
 #include <vector>
 #include <string>
 class Game {
@@ -147,6 +149,32 @@ private:
 	int   fpsSampleFrames_   = 0;
 	float fpsDisplayValue_   = 0.0f;
 	float frameTimeDisplayMs_ = 0.0f;
+
+	// Blenderライクなギズモ操作：ImGuiで選んだ1オブジェクトのTransformをドラッグで編集する。
+	// gridCubes_/sprite2Dは対象外（gridCubes_は9万個規模で個別編集不可、sprite2Dはスクリーン空間UI）。
+	// PointLight/SpotLightはSceneLightのSetter経由でしか書き込めずTransformを持たないため、
+	// lightGizmoScratch_という一時Transformを橋渡しに使う（UpdateGizmo()参照）
+	enum class GizmoTarget {
+		kNone,
+		kCube,
+		kSphere,
+		kTriangle,
+		kFloor,
+		kSprite3D,
+		kModel,
+		kFbxModel,
+		kPointLight,
+		kSpotLight,
+	};
+	GizmoTarget          gizmoTarget_    = GizmoTarget::kNone;
+	ImGuizmo::OPERATION  gizmoOperation_ = ImGuizmo::TRANSLATE;
+
+	// PointLight/SpotLightのギズモ操作を仲介する一時バッファ。SceneLightはTransform型を持たず
+	// Setter経由でしか書き込めないため、ここに現在値をコピー→ImGuizmoで編集→差分をSetterへ書き戻す
+	Transform lightGizmoScratch_;
+
+	Transform* GetGizmoTargetTransform();
+	void       UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj);
 
 	void DrawGrid();
 	void DrawImGui();

@@ -60,9 +60,18 @@ void Debug::SetupInfoQueue(ID3D12Device* dx) {
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
 
 		D3D12_MESSAGE_ID denyIds[] = {
-			D3D12_MESSAGE_ID_RESOURCE_BARRIER_MISMATCHING_COMMAND_LIST_TYPE
+			D3D12_MESSAGE_ID_RESOURCE_BARRIER_MISMATCHING_COMMAND_LIST_TYPE,
+			// プロセス終了時にランタイムが残存オブジェクトを報告するSTATE_CREATIONカテゴリの警告。
+			// アプリのバグではなく多くのD3D12アプリで見られる終了時特有の情報だが、
+			// SetBreakOnSeverity(WARNING, true)によりDebugBreak()を誘発し、デバッガ未アタッチ時に
+			// 未処理例外として扱われてしまうため、このIDだけ除外する
+			D3D12_MESSAGE_ID_LIVE_OBJECT_SUMMARY,
+			D3D12_MESSAGE_ID_LIVE_DEVICE,
 		};
 
+		// NumSeverities/pSeverityListとNumIDs/pIDListはOR条件（いずれかにマッチすれば破棄）。
+		// severitiesにWARNINGを加えるとID関係なく全WARNINGが握りつぶされてしまうため、
+		// ここはINFOのみのままにし、上のdenyIdsで個別のID指定だけを効かせる
 		D3D12_MESSAGE_SEVERITY severities[] = { D3D12_MESSAGE_SEVERITY_INFO };
 		D3D12_INFO_QUEUE_FILTER filter = {};
 		filter.DenyList.NumIDs = _countof(denyIds);
