@@ -1,5 +1,6 @@
 #pragma once
-#include "MathTypes.h" 
+#include "MathTypes.h"
+#include "Collision.h"
 #include <cmath>
 
 namespace MatrixMath {
@@ -61,6 +62,16 @@ namespace MatrixMath {
         Matrix4x4 result;
         DirectX::XMStoreFloat4x4(&result,
             DirectX::XMMatrixOrthographicOffCenterLH(0.0f, width, height, 0.0f, 0.0f, 1.0f));
+        return result;
+    }
+
+    // 平面に対する反射行列（鏡の平面反射用）。Collision::Planeは dot(normal,p) - distance = 0
+    // 規約だが、XMMatrixReflectは Ax+By+Cz+D=0 規約(Aは法線、Dは-distance)を取るため変換する
+    inline Matrix4x4 MakeReflectionMatrix(const Collision::Plane& plane) {
+        Matrix4x4 result;
+        DirectX::XMVECTOR planeVector = DirectX::XMVectorSet(
+            plane.normal.x, plane.normal.y, plane.normal.z, -plane.distance);
+        DirectX::XMStoreFloat4x4(&result, DirectX::XMMatrixReflect(planeVector));
         return result;
     }
 }

@@ -194,6 +194,92 @@ void TextureManager::InitializeDepthStencil(int32_t width, int32_t height, Descr
 	heaps->CreateDSV(device_, depthStencilResource_.Get());
 }
 
+ComPtr<ID3D12Resource> TextureManager::CreateRenderTargetTextureResource(int32_t width, int32_t height) {
+	D3D12_RESOURCE_DESC resourceDesc{};
+	resourceDesc.Width            = UINT(width);
+	resourceDesc.Height           = UINT(height);
+	resourceDesc.MipLevels        = 1;
+	resourceDesc.DepthOrArraySize = 1;
+	resourceDesc.Format           = DXGI_FORMAT_R8G8B8A8_UNORM;
+	resourceDesc.SampleDesc.Count = 1;
+	resourceDesc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	resourceDesc.Flags            = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+	D3D12_HEAP_PROPERTIES heapProperties{};
+	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	// 最適化クリア値のフォーマットはリソース本体のフォーマット(UNORM)に合わせる。
+	// RTV/SRVはビュー側でUNORM_SRGBとして解釈する（SwapChainのバックバッファと同じ手法）
+	D3D12_CLEAR_VALUE clearValue{};
+	clearValue.Format   = DXGI_FORMAT_R8G8B8A8_UNORM;
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 1.0f;
+
+	ID3D12Resource* resource = nullptr;
+	HRESULT hr = device_->CreateCommittedResource(
+		&heapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&resourceDesc,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		&clearValue,
+		IID_PPV_ARGS(&resource)
+	);
+	assert(SUCCEEDED(hr));
+	return resource;
+}
+
+TextureHandle TextureManager::CreateMirrorRenderTargetTexture(int32_t width, int32_t height, DescriptorHeaps* heaps) {
+	mirrorColorResource_ = CreateRenderTargetTextureResource(width, height);
+
+	TextureHandle handle = nextHandle_++;
+	uint32_t heapIndex = handle;
+	if (heapIndex >= kMaxTextureCount) {
+		Logger::Log(std::format("TextureManager: texture count exceeds kMaxTextureCount({})\n", kMaxTextureCount));
+		assert(false);
+	}
+
+	// RTVはDescriptorHeapsのRTVヒープindex 2（0/1はスワップチェイン専用）へ登録
+	heaps->CreateRTVAt(device_, mirrorColorResource_.Get(), DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 2);
+	auto srvHandles = heaps->CreateTextureSRV_new(device_, mirrorColorResource_.Get(), DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 1, heapIndex);
+
+	TextureResource texRes;
+	texRes.resource            = mirrorColorResource_;
+	texRes.srvCpuHandle        = srvHandles.cpuHandle;
+	texRes.srvGpuHandle        = srvHandles.gpuHandle;
+	texRes.descriptorHeapIndex = heapIndex;
+	// ファイルロード由来のテクスチャと違いmetadata/intermediateResourceは使わないため既定値のまま
+
+	textures_[handle] = texRes;
+	mirrorTextureHandle_ = handle;
+
+	Logger::Log(std::format("TextureManager: Created mirror render target -> handle {}\n", handle));
+	return handle;
+}
+
+void TextureManager::InitializeMirrorDepthStencil(int32_t width, int32_t height, DescriptorHeaps* heaps) {
+	mirrorDepthStencilResource_ = CreateDepthStencilTextureResource(width, height);
+	// DSVヒープindex 1（0はメイン画面用）へ登録
+	heaps->CreateDSVAt(device_, mirrorDepthStencilResource_.Get(), DXGI_FORMAT_D24_UNORM_S8_UINT, 1);
+}
+
+void TextureManager::ResizeMirrorRenderTarget(int32_t width, int32_t height, DescriptorHeaps* heaps) {
+	if (mirrorTextureHandle_ == kTextureNone) return; // 初期化前（起動シーケンス中の初回リサイズ等）は何もしない
+
+	mirrorColorResource_ = CreateRenderTargetTextureResource(width, height);
+	heaps->CreateRTVAt(device_, mirrorColorResource_.Get(), DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 2);
+
+	TextureResource& texRes = textures_[mirrorTextureHandle_];
+	auto srvHandles = heaps->CreateTextureSRV_new(device_, mirrorColorResource_.Get(), DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 1, texRes.descriptorHeapIndex);
+	texRes.resource     = mirrorColorResource_;
+	texRes.srvCpuHandle = srvHandles.cpuHandle;
+	texRes.srvGpuHandle = srvHandles.gpuHandle;
+
+	mirrorDepthStencilResource_ = CreateDepthStencilTextureResource(width, height);
+	heaps->CreateDSVAt(device_, mirrorDepthStencilResource_.Get(), DXGI_FORMAT_D24_UNORM_S8_UINT, 1);
+}
+
 D3D12_GPU_DESCRIPTOR_HANDLE TextureManager::GetSrvGpuHandle(TextureHandle handle) const {
 	auto it = textures_.find(handle);
 	if (it == textures_.end()) {

@@ -47,9 +47,19 @@ public:
 	// 深度ステンシルバッファの初期化（エンジン内部用）
 	void InitializeDepthStencil(int32_t width, int32_t height, DescriptorHeaps* heaps);
 
+	// 鏡の反射描画先（RTV兼SRV）を作成し、通常のテクスチャと同じTextureHandleとして登録する。
+	// これにより鏡面オブジェクトは既存のDrawCube等にこのhandleを渡すだけで反射像を表示できる
+	TextureHandle CreateMirrorRenderTargetTexture(int32_t width, int32_t height, DescriptorHeaps* heaps);
+	// 鏡の反射パス専用の深度ステンシルバッファ（DSVヒープのindex 1）を初期化する
+	void InitializeMirrorDepthStencil(int32_t width, int32_t height, DescriptorHeaps* heaps);
+	// ウィンドウリサイズ時、鏡の反射先（カラー・深度とも）を新しいサイズで作り直す。
+	// TextureHandleとRTV/SRV/DSVのヒープindexは維持したまま中身だけ差し替える
+	void ResizeMirrorRenderTarget(int32_t width, int32_t height, DescriptorHeaps* heaps);
+
 	// === リソースアクセス ===
 	D3D12_GPU_DESCRIPTOR_HANDLE GetSrvGpuHandle(TextureHandle handle) const;
 	ID3D12Resource* GetDepthStencilResource() const { return depthStencilResource_.Get(); }
+	ID3D12Resource* GetMirrorColorResource() const { return mirrorColorResource_.Get(); }
 
 	bool IsLoaded(TextureHandle handle) const;
 
@@ -59,6 +69,8 @@ public:
 private:
 	ComPtr<ID3D12Resource> CreateTextureResource(const DirectX::TexMetadata& metadata);
 	ComPtr<ID3D12Resource> CreateDepthStencilTextureResource(int32_t width, int32_t height);
+	// ALLOW_RENDER_TARGETフラグ付きのオフスクリーンカラーバッファを作る（鏡の反射描画先用）
+	ComPtr<ID3D12Resource> CreateRenderTargetTextureResource(int32_t width, int32_t height);
 	DirectX::ScratchImage LoadFromFile(const std::string& filePath);
 	ComPtr<ID3D12Resource> UploadTextureData(ComPtr<ID3D12Resource> textureResource, const DirectX::ScratchImage& mipImages);
 	TextureHandle RegisterTexture(ComPtr<ID3D12Resource> resource, const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> intermediate, DescriptorHeaps* heaps);
@@ -69,4 +81,7 @@ private:
 	ID3D12GraphicsCommandList* commandList_ = nullptr;
 	uint32_t nextHandle_ = 0;
 	ComPtr<ID3D12Resource> depthStencilResource_ = nullptr;
+	ComPtr<ID3D12Resource> mirrorColorResource_ = nullptr;
+	ComPtr<ID3D12Resource> mirrorDepthStencilResource_ = nullptr;
+	TextureHandle mirrorTextureHandle_ = kTextureNone;
 };

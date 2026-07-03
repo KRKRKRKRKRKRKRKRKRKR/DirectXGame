@@ -8,6 +8,11 @@ void Renderer::Resize(int width, int height) {
 	windowHeight_ = height;
 	// GPUがDepthStencilバッファを使い終わっている前提（呼び出し元でGPU待機済み）
 	textureManager_.InitializeDepthStencil(width, height, heaps_);
+
+	// 鏡の反射先もメインウィンドウと同じ解像度で作り直す。TextureHandle/ヒープindexは維持されるため
+	// mirrorRTVHandle_/mirrorDSVHandle_（固定index由来のCPUハンドル値）は再取得不要
+	textureManager_.ResizeMirrorRenderTarget(width, height, heaps_);
+	mirrorColorState_ = D3D12_RESOURCE_STATE_RENDER_TARGET; // 新しいリソースはRENDER_TARGET状態で生成されるため追跡をリセット
 }
 
 void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, DescriptorHeaps* heaps, int width, int height) {
@@ -49,6 +54,12 @@ void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* comma
 	sphere_ = std::make_unique<Sphere>();
 	sphere_->Initialize(device_, &textureManager_, pipeline_.GetRootSignature(), &pipeline_, heaps);
 
+	// 鏡の反射描画先（RTV兼SRV）と専用深度バッファを用意する
+	mirrorTextureHandle_ = textureManager_.CreateMirrorRenderTargetTexture(width, height, heaps);
+	textureManager_.InitializeMirrorDepthStencil(width, height, heaps);
+	mirrorRTVHandle_ = heaps->GetRTVHandle(2);
+	mirrorDSVHandle_ = heaps->GetDSVHandle(1);
+
 	light_.Initialize(device_);
 
 	InitializeGridLines();
@@ -66,6 +77,12 @@ void Renderer::Finalize() {
 
 void Renderer::ResetFrameIndex() {
 	currentLineIndex_ = 0;
+	// 鏡の反射パスと通常パスが同一フレーム内でインスタンス配列を衝突なく使い分けられるよう、
+	// フレーム先頭でウォーターマークを0に戻す
+	nextCubeInstanceOffset_     = 0;
+	nextSphereInstanceOffset_   = 0;
+	nextTriangleInstanceOffset_ = 0;
+	nextModelInstanceOffset_    = 0;
 }
 
 void Renderer::InitializeGridLines() {
@@ -115,17 +132,22 @@ void Renderer::DrawModel(ModelHandle handle, const Transform& t, const Vector4& 
 void Renderer::FlushModels() {
 	if (modelCommands_.empty()) return;
 
+	// 鏡の反射パスと通常パスが同一フレーム内で同じModelインスタンス配列に書き込んでも
+	// 衝突しないよう、ウォーターマークからの相対indexを使う
+	uint32_t base = nextModelInstanceOffset_;
 	for (int i = 0; i < (int)modelCommands_.size(); i++) {
 		auto& cmd = modelCommands_[i];
 		Model* model = models_[cmd.handle].get();
+		uint32_t idx = base + static_cast<uint32_t>(i);
 
-		model->SetWvpMatrix(cmd.wvp, cmd.world, i);
-		model->SetColor(cmd.color, i);
+		model->SetWvpMatrix(cmd.wvp, cmd.world, idx);
+		model->SetColor(cmd.color, idx);
 
 		// 呼び出し側がテクスチャを指定していればそれを使い、なければモデルのMTLテクスチャを使う
 		TextureHandle tex = (cmd.texture != kTextureNone) ? cmd.texture : model->GetTextureHandle();
-		IssueDrawCommand(model, tex, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, static_cast<uint32_t>(i));
+		IssueDrawCommand(model, tex, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, idx);
 	}
+	nextModelInstanceOffset_ = base + static_cast<uint32_t>(modelCommands_.size());
 
 	modelCommands_.clear();
 }
@@ -177,15 +199,24 @@ void Renderer::DrawSphere(const Matrix4x4& wvp, const Vector4& color, TextureHan
 // ---- Flush ----
 
 void Renderer::FlushTriangles() {
-	FlushBatch(triangleCommands_, triangle_.get());
+	uint32_t base = nextTriangleInstanceOffset_;
+	uint32_t count = static_cast<uint32_t>(triangleCommands_.size());
+	FlushBatch(triangleCommands_, triangle_.get(), base);
+	nextTriangleInstanceOffset_ = base + count;
 }
 
 void Renderer::FlushCubes() {
-	FlushBatch(cubeCommands_, cube_.get());
+	uint32_t base = nextCubeInstanceOffset_;
+	uint32_t count = static_cast<uint32_t>(cubeCommands_.size());
+	FlushBatch(cubeCommands_, cube_.get(), base);
+	nextCubeInstanceOffset_ = base + count;
 }
 
 void Renderer::FlushSpheres() {
-	FlushBatch(sphereCommands_, sphere_.get());
+	uint32_t base = nextSphereInstanceOffset_;
+	uint32_t count = static_cast<uint32_t>(sphereCommands_.size());
+	FlushBatch(sphereCommands_, sphere_.get(), base);
+	nextSphereInstanceOffset_ = base + count;
 }
 
 // ---- Line / Grid ----
@@ -252,4 +283,78 @@ void Renderer::FlushSprites2D() {
 	}
 
 	sprite2DCommands_.clear();
+}
+
+// ---- FlushAll / 鏡（反射）----
+
+void Renderer::FlushAll() {
+	FlushTriangles();
+	FlushCubes();
+	FlushModels();
+	FlushLines();
+	FlushSpheres();
+	FlushSprites2D(); // 2DスプライトはDepth無効で最後に描画 → 常に最前面
+}
+
+void Renderer::BeginMirrorPass(const Matrix4x4& view, const Matrix4x4& projection, const Vector3& cameraPosition) {
+	// 反射テクスチャがシェーダー参照可能状態（前フレームのPIXEL_SHADER_RESOURCE）なら、
+	// 描画先として使えるようRENDER_TARGETへ戻す。初回フレームは生成時から既にRENDER_TARGETなので不要
+	if (mirrorColorState_ != D3D12_RESOURCE_STATE_RENDER_TARGET) {
+		D3D12_RESOURCE_BARRIER barrier{};
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		barrier.Transition.pResource = textureManager_.GetMirrorColorResource();
+		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+		barrier.Transition.StateBefore = mirrorColorState_;
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		commandList_->ResourceBarrier(1, &barrier);
+		mirrorColorState_ = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	}
+
+	commandList_->OMSetRenderTargets(1, &mirrorRTVHandle_, false, &mirrorDSVHandle_);
+	Vector4 clearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	commandList_->ClearRenderTargetView(mirrorRTVHandle_, reinterpret_cast<float*>(&clearColor), 0, nullptr);
+	commandList_->ClearDepthStencilView(mirrorDSVHandle_, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	D3D12_VIEWPORT viewport{};
+	viewport.Width = static_cast<float>(windowWidth_);
+	viewport.Height = static_cast<float>(windowHeight_);
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	D3D12_RECT scissorRect{ 0, 0, windowWidth_, windowHeight_ };
+	commandList_->RSSetViewports(1, &viewport);
+	commandList_->RSSetScissorRects(1, &scissorRect);
+
+	SetCamera(view, projection, cameraPosition);
+}
+
+void Renderer::EndMirrorPass() {
+	// ここまでに積まれた描画コマンドを反射用RTVへ実際に描画する
+	FlushAll();
+
+	D3D12_RESOURCE_BARRIER barrier{};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barrier.Transition.pResource = textureManager_.GetMirrorColorResource();
+	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	barrier.Transition.StateBefore = mirrorColorState_;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+	commandList_->ResourceBarrier(1, &barrier);
+	mirrorColorState_ = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+
+	// 以降の通常パス描画に備えて、RTV/DSV・ビューポートをバックバッファ側へ戻す
+	// （BeginFrameで既にクリア済みのため、ここで再クリアはしない）
+	commandList_->OMSetRenderTargets(1, &backBufferRTV_, false, &backBufferDSV_);
+	D3D12_VIEWPORT viewport{};
+	viewport.Width = static_cast<float>(windowWidth_);
+	viewport.Height = static_cast<float>(windowHeight_);
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	D3D12_RECT scissorRect{ 0, 0, windowWidth_, windowHeight_ };
+	commandList_->RSSetViewports(1, &viewport);
+	commandList_->RSSetScissorRects(1, &scissorRect);
 }

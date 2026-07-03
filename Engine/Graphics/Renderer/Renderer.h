@@ -79,6 +79,22 @@ public:
 	void FlushSpheres();
 	void FlushCubes();
 
+	// フレーム先頭（BeginFrame直後）に呼ぶ。バックバッファのRTV/DSVをキャッシュし、
+	// 鏡の反射パス終了後にRTV/DSVバインドを戻す先として使う
+	void SetBackBufferTarget(D3D12_CPU_DESCRIPTOR_HANDLE rtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv) {
+		backBufferRTV_ = rtv;
+		backBufferDSV_ = dsv;
+	}
+
+	// 鏡の反射パス：RTV/DSVを反射用オフスクリーンに切り替えてクリアし、反射視点のカメラを設定する。
+	// この後に通常のDrawXxxで反射に映すオブジェクトを積み、EndMirrorPass()で確定させる
+	void BeginMirrorPass(const Matrix4x4& view, const Matrix4x4& projection, const Vector3& cameraPosition);
+	// 積まれた描画コマンドを反射用RTVへFlushし、シェーダーから読めるようバリアを張り、
+	// RTV/DSVバインドをバックバッファへ戻す
+	void EndMirrorPass();
+	// 鏡面オブジェクトに貼るためのテクスチャハンドル（反射結果）
+	TextureHandle GetMirrorTextureHandle() const { return mirrorTextureHandle_; }
+
 	void DrawLine(const Vector3& start, const Vector3& end, const Vector4& color, const Matrix4x4& view, const Matrix4x4& projection);
 	void FlushLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
@@ -89,6 +105,10 @@ public:
 	void DrawSprite2D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = false, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
 		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 	void FlushSprites2D();
+
+	// Triangles→Cubes→Models→Lines→Spheres→Sprites2Dの順で全部Flushする。通常の
+	// Engine::Flush()と鏡のEndMirrorPass()の両方から使う共通処理
+	void FlushAll();
 
 	SceneLight& GetLight() { return light_; }
 
@@ -140,9 +160,11 @@ private:
 
 	// Triangle/Cube/Sphereの3種で共通のFlush処理（ソート→バッチ化→描画）。
 	// objはSetWvpMatrix/SetColor/SetPipelineCommands/Drawという同一シグネチャの
-	// メンバ関数を持つ型（Triangle*/Cube*/Sphere*）を渡す
+	// メンバ関数を持つ型（Triangle*/Cube*/Sphere*）を渡す。instanceBaseは書き込み先の
+	// インスタンス配列の開始位置（鏡の反射パスと通常パスが同一フレーム内で衝突しないための
+	// ウォーターマーク、Renderer::ResetFrameIndex()で0にリセットされる）
 	template<typename ObjectT, typename CommandT>
-	void FlushBatch(std::vector<CommandT>& commands, ObjectT* obj);
+	void FlushBatch(std::vector<CommandT>& commands, ObjectT* obj, uint32_t instanceBase);
 
 	// Model/Sprite3D/Sprite2Dで共通の「1件描画」シーケンス
 	// （SetPipelineCommands→ライトCBV→インスタンスオフセット定数→Draw）。
@@ -185,12 +207,30 @@ private:
 
 	Matrix4x4 view_{};
 	Matrix4x4 projection_{};
+
+	// ---- 鏡（反射）関連 ----
+	TextureHandle mirrorTextureHandle_ = kTextureNone;
+	D3D12_CPU_DESCRIPTOR_HANDLE mirrorRTVHandle_{};
+	D3D12_CPU_DESCRIPTOR_HANDLE mirrorDSVHandle_{};
+	// 反射用カラーテクスチャの現在のリソース状態を追跡する（RENDER_TARGET/PIXEL_SHADER_RESOURCEを
+	// 毎フレーム往復するため、初回フレームで不整合なバリアを発行しないように必要）
+	D3D12_RESOURCE_STATES mirrorColorState_ = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	D3D12_CPU_DESCRIPTOR_HANDLE backBufferRTV_{};
+	D3D12_CPU_DESCRIPTOR_HANDLE backBufferDSV_{};
+
+	// インスタンスバッファのウォーターマーク（フレーム先頭でResetFrameIndex()により0にリセット）。
+	// 反射パス・通常パスが同一フレーム内で同じCube/Sphere/Triangle/Modelインスタンス配列に
+	// 書き込む際、互いの書き込み範囲が重ならないようにするための「次に書き込む位置」
+	uint32_t nextCubeInstanceOffset_     = 0;
+	uint32_t nextSphereInstanceOffset_   = 0;
+	uint32_t nextTriangleInstanceOffset_ = 0;
+	uint32_t nextModelInstanceOffset_    = 0;
 };
 
 // Triangle/Cube/Sphereで共通のFlush処理。ソートキー・バッチ判定はDrawCommandBaseの
 // フィールド（texture→blendMode→blendStrength→enableAlphaTest→alphaThreshold→useLighting）で行う
 template<typename ObjectT, typename CommandT>
-void Renderer::FlushBatch(std::vector<CommandT>& commands, ObjectT* obj) {
+void Renderer::FlushBatch(std::vector<CommandT>& commands, ObjectT* obj, uint32_t instanceBase) {
 	if (commands.empty()) return;
 
 	std::stable_sort(commands.begin(), commands.end(),
@@ -204,12 +244,13 @@ void Renderer::FlushBatch(std::vector<CommandT>& commands, ObjectT* obj) {
 		});
 
 	for (int i = 0; i < (int)commands.size(); i++) {
+		uint32_t idx = instanceBase + static_cast<uint32_t>(i);
 		if (commands[i].worldInverseTranspose.has_value()) {
-			obj->SetWvpMatrix(commands[i].wvp, commands[i].world, *commands[i].worldInverseTranspose, i);
+			obj->SetWvpMatrix(commands[i].wvp, commands[i].world, *commands[i].worldInverseTranspose, idx);
 		} else {
-			obj->SetWvpMatrix(commands[i].wvp, commands[i].world, i);
+			obj->SetWvpMatrix(commands[i].wvp, commands[i].world, idx);
 		}
-		obj->SetColor(commands[i].color, i);
+		obj->SetColor(commands[i].color, idx);
 	}
 
 	int start = 0;
@@ -230,8 +271,8 @@ void Renderer::FlushBatch(std::vector<CommandT>& commands, ObjectT* obj) {
 			   commands[end].alphaThreshold  == batchThreshold) end++;
 		obj->SetPipelineCommands(commandList_, &textureManager_, currentTex, batchBlend, batchStrength, batchAlphaTest, batchThreshold);
 		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(batchLighting));
-		commandList_->SetGraphicsRoot32BitConstant(4, (UINT)start, 0);
-		obj->Draw(commandList_, end - start, start);
+		commandList_->SetGraphicsRoot32BitConstant(4, instanceBase + (UINT)start, 0);
+		obj->Draw(commandList_, end - start, instanceBase + start);
 		start = end;
 	}
 

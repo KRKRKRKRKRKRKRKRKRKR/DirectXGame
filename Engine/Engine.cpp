@@ -31,17 +31,13 @@ bool Engine::Update() {
 	directX_.BeginFrame();
 	renderer_.ResetFrameIndex();
 	renderer_.SetCommandList(directX_.GetCommandList());
+	renderer_.SetBackBufferTarget(directX_.GetRTVHandle(), directX_.GetDSVHandle());
 	imgui_.BeginFrame();
 	return true;
 }
 
 void Engine::Flush() {
-	renderer_.FlushTriangles();
-	renderer_.FlushCubes();
-	renderer_.FlushModels();
-	renderer_.FlushLines();
-	renderer_.FlushSpheres();
-	renderer_.FlushSprites2D(); // 2DスプライトはDepth無効で最後に描画 → 常に最前面
+	renderer_.FlushAll();
 	imgui_.EndFrame(&directX_);
 	directX_.EndFrame();
 }

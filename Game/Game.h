@@ -49,6 +49,11 @@ private:
 	GameObject sprite3DObject_;
 	GameObject sprite2DObject_;
 
+	// 鏡（平面反射）。floorObject_と同じ「薄いCubeを板として使う」パターンで表現する
+	GameObject mirrorObject_;
+	// mirrorObject_のTransformから反射平面（法線・原点からの距離）を導出する
+	Collision::Plane ComputeMirrorPlane(const Transform& mirrorTransform) const;
+
 	Sound bgm;
 
 	std::vector<Transform> gridCubes_;

@@ -3,12 +3,14 @@
 #include "../../Utils/Logger.h" // DescriptorHeaps が Graphics/DescriptorHeaps/ にあるので ../../Utils/
 #include <cassert>
 void DescriptorHeaps::Initialize(ID3D12Device* device) {
-	rtvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 2, false);
+	// index 0/1はスワップチェインのバックバッファ、index 2は鏡の反射用オフスクリーンRTV
+	rtvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 3, false);
 	// index 0〜(kMaxTextureCount-1): テクスチャ専用帯（TextureManager::RegisterTexture、
 	// handleをそのままheapIndexとして使う自己完結の仕組み）
 	// index kMaxTextureCount〜: AllocateSRVIndexで払い出すTriangle/Cube/Sphere/Sprite/Model等の帯
 	srvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, kSrvHeapCapacity, true);
-	dsvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, false);
+	// index 0はメイン画面用、index 1は鏡の反射用オフスクリーン深度
+	dsvDescriptorHeap_ = CreateDescriptorHeap(device, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 2, false);
 	SetDescriptorSizes(device);
 	nextSrvAllocIndex_ = kMaxTextureCount;
 }
@@ -28,23 +30,34 @@ void DescriptorHeaps::Finalize() {
 }
 
 void DescriptorHeaps::CreateRTV(ID3D12Device* device, ID3D12Resource* resource0, ID3D12Resource* resource1) {
-	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
-	rtvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvStartHandle = rtvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
-	rtvHandles_[0] = rtvStartHandle;
-	device->CreateRenderTargetView(resource0, &rtvDesc, rtvHandles_[0]);
-	rtvHandles_[1].ptr = rtvHandles_[0].ptr + device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	device->CreateRenderTargetView(resource1, &rtvDesc, rtvHandles_[1]);
+	CreateRTVAt(device, resource0, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 0);
+	CreateRTVAt(device, resource1, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, 1);
 }
 
 void DescriptorHeaps::CreateDSV(ID3D12Device* device, ID3D12Resource* depthStencilResource) {
+	CreateDSVAt(device, depthStencilResource, DXGI_FORMAT_D24_UNORM_S8_UINT, 0);
+}
+
+void DescriptorHeaps::CreateRTVAt(ID3D12Device* device, ID3D12Resource* resource, DXGI_FORMAT format, uint32_t index) {
+	D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{};
+	rtvDesc.Format = format;
+	rtvDesc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = rtvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+	handle.ptr += index * device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	rtvHandles_[index] = handle;
+	device->CreateRenderTargetView(resource, &rtvDesc, handle);
+}
+
+void DescriptorHeaps::CreateDSVAt(ID3D12Device* device, ID3D12Resource* resource, DXGI_FORMAT format, uint32_t index) {
 	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
-	dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	dsvDesc.Format = format;
 	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	device->CreateDepthStencilView(depthStencilResource, &dsvDesc, dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart());
-	dsvHandle_ = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = dsvDescriptorHeap_->GetCPUDescriptorHandleForHeapStart();
+	handle.ptr += index * device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+	dsvHandles_[index] = handle;
+	device->CreateDepthStencilView(resource, &dsvDesc, handle);
 }
 
 DescriptorHeaps::SrvHandle DescriptorHeaps::CreateTextureSRV_new(

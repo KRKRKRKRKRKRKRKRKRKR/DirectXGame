@@ -21,12 +21,17 @@ public:
 	void CreateDSV(ID3D12Device* device, ID3D12Resource* depthStencilResource);
 	void CreateTextureSRV(ID3D12Device* device, ID3D12Resource* textureResource, DXGI_FORMAT format, UINT mipLevels, uint32_t heapIndex);
 
-	
+	// 任意のリソース・フォーマットで、RTV/DSVヒープの指定indexへ1枚だけビューを作る汎用版。
+	// CreateRTV/CreateDSV（スワップチェイン専用の固定2枚/1枚版）はこれの薄いラッパー
+	void CreateRTVAt(ID3D12Device* device, ID3D12Resource* resource, DXGI_FORMAT format, uint32_t index);
+	void CreateDSVAt(ID3D12Device* device, ID3D12Resource* resource, DXGI_FORMAT format, uint32_t index);
+
 	ID3D12DescriptorHeap* GetSRVDescriptorHeap() const { return srvDescriptorHeap_.Get(); }
 	ID3D12DescriptorHeap* GetRTVDescriptorHeap() const { return rtvDescriptorHeap_.Get(); }
 	ID3D12DescriptorHeap* GetDSVDescriptorHeap() const { return dsvDescriptorHeap_.Get(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetRTVHandle(uint32_t index) const { return rtvHandles_[index]; }
-	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return dsvHandle_; }
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return dsvHandles_[0]; }
+	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle(uint32_t index) const { return dsvHandles_[index]; }
 
 	uint32_t GetDescriptorSizeSRV() const { return descriptorSizeSRV_; }
 	uint32_t GetDescriptorSizeRTV() const { return descriptorSizeRTV_; }
@@ -60,8 +65,10 @@ private:
 	ComPtr<ID3D12DescriptorHeap> rtvDescriptorHeap_ = nullptr;
 	ComPtr<ID3D12DescriptorHeap> srvDescriptorHeap_ = nullptr;
 	ComPtr<ID3D12DescriptorHeap> dsvDescriptorHeap_ = nullptr;
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[2] = {};
-	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle_ = {};
+	// index 0/1: スワップチェインのバックバッファ, index 2: 鏡の反射用オフスクリーンRTV
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandles_[3] = {};
+	// index 0: メイン画面用, index 1: 鏡の反射用オフスクリーン深度
+	D3D12_CPU_DESCRIPTOR_HANDLE dsvHandles_[2] = {};
 	std::map<uint32_t, SrvHandle> textureSrvHandles_;
 	uint32_t descriptorSizeSRV_ = 0;
 	uint32_t descriptorSizeRTV_ = 0;

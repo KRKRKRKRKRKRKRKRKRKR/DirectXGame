@@ -3,6 +3,7 @@
 #include "../Externals/ImGuizmo/src/ImGuizmo.h"
 #include "../Math/MatrixMath.h"
 #include "../Math/TransformMath.h"
+#include "../Math/VectorMath.h"
 #include "../Engine/Audio/AudioManager.h"
 #include <cmath>
 #include <algorithm>
@@ -139,13 +140,30 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 		renderer_->LoadModel("Resources/Model", "HumanModel_ver2.fbx"), /*hasAnimation=*/true);
 	fbxModelRender->textureHandle = textures_[fbxModelTexIndex_].handle;
 
+	// 鏡（平面反射）。floor同様に薄く引き伸ばしたCubeを板として使う。textureHandleは
+	// 毎フレームRender()内でRenderer::GetMirrorTextureHandle()に差し替えるためここでは未設定
+	mirrorObject_.name = "Mirror";
+	mirrorObject_.transform.translation = { -6.0f, 2.0f, -3.0f };
+	mirrorObject_.transform.scale       = { 4.0f, 3.0f, 0.05f };
+	CubeRenderComponent* mirrorRender = mirrorObject_.AddComponent<CubeRenderComponent>();
+	mirrorRender->lighting = false; // 反射像をそのまま表示するため照明計算は不要
+
 	// 全ての通常オブジェクトのGameObjectをギズモ選択対象として登録する。
 	// name(GameObject::name)がそのままImGuiコンボの表示名になる。
 	// sprite2DObject_とgridCubes_は既存通りギズモ対象外のため含めない
 	gizmoTargets_ = {
 		&cubeObject_, &sphereObject_, &triangleObject_, &floorObject_,
-		&sprite3DObject_, &modelObject_, &fbxModelObject_,
+		&sprite3DObject_, &modelObject_, &fbxModelObject_, &mirrorObject_,
 	};
+}
+
+Collision::Plane Game::ComputeMirrorPlane(const Transform& mirrorTransform) const {
+	// 鏡面オブジェクトの前面（Cube.cppのZ+面）をローカル法線として使う。
+	// Camera::HandleInputと同じ「回転のみのアフィン行列で方向ベクトルを変換する」パターン
+	Matrix4x4 rotationOnly = TransformMath::MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, mirrorTransform.rotation, { 0.0f, 0.0f, 0.0f });
+	Vector3 normal = TransformMath::Transform({ 0.0f, 0.0f, 1.0f }, rotationOnly);
+	float distance = VectorMath::Dot(normal, mirrorTransform.translation);
+	return Collision::Plane{ normal, distance };
 }
 
 void Game::Update(float deltaTime) {
@@ -171,6 +189,22 @@ void Game::Render() {
 	Matrix4x4 view = camera_->GetViewMatrix();
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
 		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
+
+	// ---- 鏡（反射）パス：鏡の平面に対して反射させた視点で、床・Cube・Sphere・Triangleを
+	// オフスクリーンテクスチャへ描く。mirrorObject_自身は描かない（無限反射を避けるため） ----
+	Collision::Plane mirrorPlane   = ComputeMirrorPlane(mirrorObject_.transform);
+	Matrix4x4        reflection    = MatrixMath::MakeReflectionMatrix(mirrorPlane);
+	Matrix4x4        reflectedView = reflection * view;
+	Vector3           reflectedCamPos = TransformMath::Transform(camera_->GetCameraData().position, reflection);
+
+	renderer_->BeginMirrorPass(reflectedView, proj, reflectedCamPos);
+	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.transform);
+	triangleObject_.GetComponent<TriangleRenderComponent>()->Draw(renderer_, triangleObject_.transform);
+	cubeObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, cubeObject_.transform);
+	sphereObject_.GetComponent<SphereRenderComponent>()->Draw(renderer_, sphereObject_.transform);
+	renderer_->EndMirrorPass();
+
+	// ---- 通常パス ----
 	renderer_->SetCamera(view, proj, camera_->GetCameraData().position);
 
 	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.transform);
@@ -219,6 +253,11 @@ void Game::Render() {
 	fbxModelObject_.GetComponent<ModelRenderComponent>()->Draw(renderer_, fbxModelObject_.transform, deltaTime_);
 	sprite3DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite3DObject_.transform);
 	sprite2DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite2DObject_.transform);
+
+	// 鏡面オブジェクト自体を、反射パスで描いたテクスチャを貼って表示する
+	CubeRenderComponent* mirrorRender = mirrorObject_.GetComponent<CubeRenderComponent>();
+	mirrorRender->textureHandle = renderer_->GetMirrorTextureHandle();
+	mirrorRender->Draw(renderer_, mirrorObject_.transform);
 
 	// Collider（当たり判定）の可視化：重なっていれば赤、していなければ緑のワイヤーフレームで表示
 	DrawColliderGizmos(view, proj);
