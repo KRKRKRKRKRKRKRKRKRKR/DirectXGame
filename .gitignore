@@ -369,4 +369,9 @@ Dumps/
 *.log
 logs/
 
-imgui.ini 
+imgui.ini
+
+# assimp runtime dll is needed by the post-build copy step,
+# but "[Bb]in/" above would otherwise ignore this folder
+!Externals/assimp/bin/
+!Externals/assimp/bin/*.dll
