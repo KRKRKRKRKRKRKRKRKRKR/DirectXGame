@@ -124,6 +124,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\SpriteRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\SphereColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\OBBColliderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\RenderComponentFactory.cpp" />
     <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
@@ -183,6 +184,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\SpriteRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\SphereColliderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\OBBColliderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\RenderComponentFactory.h" />
     <ClInclude Include="Engine\Graphics\Lighting\SceneLight.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />

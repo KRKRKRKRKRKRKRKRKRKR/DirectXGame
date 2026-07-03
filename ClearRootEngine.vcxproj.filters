@@ -68,6 +68,7 @@
     <ClCompile Include="Engine\GameObject\Component\TriangleRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\ModelRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\SpriteRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\RenderComponentFactory.cpp" />
     <ClCompile Include="Engine\GameObject\Component\SphereColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\OBBColliderComponent.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
@@ -163,6 +164,7 @@
     <ClInclude Include="Engine\GameObject\Component\SpriteRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\SphereColliderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\OBBColliderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\RenderComponentFactory.h" />
     <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
     <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />
     <ClInclude Include="Engine\Graphics\Object\Triangle\Triangle.h" />

@@ -1,8 +1,8 @@
-IF(NOT EXISTS "C:/SchoolProgram/2ndYear/CG2/DirectXGame/Externals/assimp/install_manifest.txt")
-  MESSAGE(FATAL_ERROR "Cannot find install manifest: \"C:/SchoolProgram/2ndYear/CG2/DirectXGame/Externals/assimp/install_manifest.txt\"")
-ENDIF(NOT EXISTS "C:/SchoolProgram/2ndYear/CG2/DirectXGame/Externals/assimp/install_manifest.txt")
+IF(NOT EXISTS "C:/2ndYearProject/CG2/DirectXGame/Externals/assimp/install_manifest.txt")
+  MESSAGE(FATAL_ERROR "Cannot find install manifest: \"C:/2ndYearProject/CG2/DirectXGame/Externals/assimp/install_manifest.txt\"")
+ENDIF(NOT EXISTS "C:/2ndYearProject/CG2/DirectXGame/Externals/assimp/install_manifest.txt")
 
-FILE(READ "C:/SchoolProgram/2ndYear/CG2/DirectXGame/Externals/assimp/install_manifest.txt" files)
+FILE(READ "C:/2ndYearProject/CG2/DirectXGame/Externals/assimp/install_manifest.txt" files)
 STRING(REGEX REPLACE "\n" ";" files "${files}")
 FOREACH(file ${files})
   MESSAGE(STATUS "Uninstalling \"$ENV{DESTDIR}${file}\"")
