@@ -16,4 +16,8 @@ public:
 	float         blendStrength = 1.0f;
 	bool          alphaTest = false;
 	float         alphaThreshold = 0.5f;
+
+	// "{namePrefix} Lighting"/"{namePrefix} Color"/"{namePrefix} BlendMode"/
+	// "{namePrefix} Blend Strength"/"{namePrefix} Alpha Test"を描画する
+	void DrawImGui(const char* namePrefix);
 };

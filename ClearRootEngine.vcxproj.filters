@@ -63,6 +63,8 @@
     <ClCompile Include="Engine\Graphics\Pipeline\LinePipeline.cpp" />
     <ClCompile Include="Engine\Graphics\Pipeline\Pipeline.cpp" />
     <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\RenderComponentBase.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\ColliderComponentBase.cpp" />
     <ClCompile Include="Engine\GameObject\Component\CubeRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\SphereRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\TriangleRenderComponent.cpp" />
@@ -77,6 +79,11 @@
     <ClCompile Include="Engine\Graphics\Texture\TextureManager.cpp" />
     <ClCompile Include="Engine\InputDevice\InputDevice.cpp" />
     <ClCompile Include="Game\Game.cpp" />
+    <ClCompile Include="Game\PlayScene.cpp" />
+    <ClCompile Include="Game\SceneManager.cpp" />
+    <ClCompile Include="Game\TitleScene.cpp" />
+    <ClCompile Include="Game\SelectScene.cpp" />
+    <ClCompile Include="Game\GameOverScene.cpp" />
     <ClCompile Include="Engine\Utils\DeltaTime.cpp" />
     <ClCompile Include="Engine\Utils\Logger.cpp" />
     <ClCompile Include="Engine\Utils\StringUtils.cpp" />
@@ -164,6 +171,8 @@
     <ClInclude Include="Engine\GameObject\Component\SpriteRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\SphereColliderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\OBBColliderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\CollisionLayer.h" />
+    <ClInclude Include="Engine\GameObject\Component\ColliderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\RenderComponentFactory.h" />
     <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
     <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />
@@ -172,6 +181,13 @@
     <ClInclude Include="Engine\Graphics\Texture\TextureManager.h" />
     <ClInclude Include="Engine\InputDevice\InputDevice.h" />
     <ClInclude Include="Game\Game.h" />
+    <ClInclude Include="Game\PlayScene.h" />
+    <ClInclude Include="Game\SceneType.h" />
+    <ClInclude Include="Game\IScene.h" />
+    <ClInclude Include="Game\SceneManager.h" />
+    <ClInclude Include="Game\TitleScene.h" />
+    <ClInclude Include="Game\SelectScene.h" />
+    <ClInclude Include="Game\GameOverScene.h" />
     <ClInclude Include="Engine\Utils\DeltaTime.h" />
     <ClInclude Include="Engine\Utils\Logger.h" />
     <ClInclude Include="Engine\Utils\StringUtils.h" />

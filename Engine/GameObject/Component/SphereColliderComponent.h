@@ -1,5 +1,5 @@
 #pragma once
-#include "../IComponent.h"
+#include "ColliderComponentBase.h"
 #include "../../../Math/MathTypes.h"
 #include "../../../Math/Collision.h"
 #include "../../../Math/VectorMath.h"
@@ -7,7 +7,8 @@
 
 // GameObjectに付与する球形の当たり判定。offsetはオーナーのtranslationからの
 // ローカル相対位置、radiusはワールド単位の半径（scaleは考慮しない、絶対値を直接持つ）
-class SphereColliderComponent : public IComponent {
+// layer/isTriggerはColliderComponentBaseから継承
+class SphereColliderComponent : public ColliderComponentBase {
 public:
 	Vector3 offset = { 0.0f, 0.0f, 0.0f };
 	float   radius = 1.0f;

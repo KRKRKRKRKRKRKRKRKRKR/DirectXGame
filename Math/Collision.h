@@ -87,6 +87,18 @@ bool OBBLine(const OBB& obb, const Line& line);
 bool OBBRay(const OBB& obb, const Ray& ray);
 bool OBBOBB(const OBB& obb1, const OBB& obb2);
 
+// 重なっている場合にtrueを返し、out_normalに「aからbへ向かう単位ベクトル」、
+// out_depthに重なっている深さを書き込む（aを-normal*depth、bを+normal*depthだけ
+// 動かせばちょうど接する状態になる。押し戻し処理向けのMTV計算）
+bool SphereSpherePenetration(const Sphere& a, const Sphere& b, Vector3& out_normal, float& out_depth);
+
+// OBBOBBのSAT判定を「分離軸が見つかった時点で打ち切る」のではなく全15軸調べ、
+// 最も重なりが小さい軸をMTV(最小移動ベクトル)として返す版。out_normalはobb1→obb2向き
+bool OBBOBBPenetration(const OBB& obb1, const OBB& obb2, Vector3& out_normal, float& out_depth);
+
+// out_normalはobb→sphere向き（sphereをこの向きに押し出せば分離する）
+bool OBBSpherePenetration(const OBB& obb, const Sphere& sphere, Vector3& out_normal, float& out_depth);
+
 bool AABBLineBase(const AABB& aabb, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_tMin, float& out_tMax);
 bool OBBLineBase(const OBB& obb, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_tMin, float& out_tMax);
 

@@ -1,0 +1,22 @@
+#pragma once
+#include "IScene.h"
+#include <memory>
+
+class Renderer;
+class Camera;
+
+// 現在のSceneを1つだけ保持し、IScene::GetNextScene()の戻り値を見て毎フレーム切り替えを行う。
+// 複数シーンの同時ロードや先読み等は行わない、常に1つを生成・破棄する単純な方式にしている
+class SceneManager {
+public:
+	void Initialize(Renderer* renderer, Camera* camera, SceneType startScene);
+	void Render(float deltaTime);
+
+private:
+	Renderer* renderer_ = nullptr;
+	Camera* camera_ = nullptr;
+	std::unique_ptr<IScene> currentScene_;
+
+	void ChangeScene(SceneType next);
+	std::unique_ptr<IScene> CreateScene(SceneType type);
+};

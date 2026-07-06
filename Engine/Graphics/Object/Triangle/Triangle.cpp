@@ -169,4 +169,4 @@ void Triangle::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCou
 void Triangle::SetColor(const Vector4& color, uint32_t materialIndex) {
 	wvpColorBuffer_.SetColor(color, materialIndex);
 }
-
+ 

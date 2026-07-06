@@ -62,6 +62,26 @@ namespace {
 		if (len < 1e-8f) len = 1e-8f;
 		return Plane{ Vector3{ a / len, b / len, c / len }, d / len };
 	}
+
+	// OBBOBBのSAT判定で調べる15本の分離軸候補（各OBBの3軸＋それぞれの外積9本）を組み立てる。
+	// OBBOBB/OBBOBBPenetrationの両方から使う共通部分をここに集約する
+	void BuildOBBAxes15(const OBB& obb1, const OBB& obb2, Vector3 axes[15]) {
+		axes[0]  = obb1.Orientation[0];
+		axes[1]  = obb1.Orientation[1];
+		axes[2]  = obb1.Orientation[2];
+		axes[3]  = obb2.Orientation[0];
+		axes[4]  = obb2.Orientation[1];
+		axes[5]  = obb2.Orientation[2];
+		axes[6]  = VectorMath::Cross(obb1.Orientation[0], obb2.Orientation[0]);
+		axes[7]  = VectorMath::Cross(obb1.Orientation[0], obb2.Orientation[1]);
+		axes[8]  = VectorMath::Cross(obb1.Orientation[0], obb2.Orientation[2]);
+		axes[9]  = VectorMath::Cross(obb1.Orientation[1], obb2.Orientation[0]);
+		axes[10] = VectorMath::Cross(obb1.Orientation[1], obb2.Orientation[1]);
+		axes[11] = VectorMath::Cross(obb1.Orientation[1], obb2.Orientation[2]);
+		axes[12] = VectorMath::Cross(obb1.Orientation[2], obb2.Orientation[0]);
+		axes[13] = VectorMath::Cross(obb1.Orientation[2], obb2.Orientation[1]);
+		axes[14] = VectorMath::Cross(obb1.Orientation[2], obb2.Orientation[2]);
+	}
 }
 
 Frustum MakeFrustumFromViewProjection(const Matrix4x4& viewProjection) {
@@ -255,21 +275,7 @@ bool OBBOBB(const OBB& obb1, const OBB& obb2) {
 	Vector3 d = obb2.center - obb1.center;
 
 	Vector3 axes[15];
-	axes[0]  = obb1.Orientation[0];
-	axes[1]  = obb1.Orientation[1];
-	axes[2]  = obb1.Orientation[2];
-	axes[3]  = obb2.Orientation[0];
-	axes[4]  = obb2.Orientation[1];
-	axes[5]  = obb2.Orientation[2];
-	axes[6]  = VectorMath::Cross(obb1.Orientation[0], obb2.Orientation[0]);
-	axes[7]  = VectorMath::Cross(obb1.Orientation[0], obb2.Orientation[1]);
-	axes[8]  = VectorMath::Cross(obb1.Orientation[0], obb2.Orientation[2]);
-	axes[9]  = VectorMath::Cross(obb1.Orientation[1], obb2.Orientation[0]);
-	axes[10] = VectorMath::Cross(obb1.Orientation[1], obb2.Orientation[1]);
-	axes[11] = VectorMath::Cross(obb1.Orientation[1], obb2.Orientation[2]);
-	axes[12] = VectorMath::Cross(obb1.Orientation[2], obb2.Orientation[0]);
-	axes[13] = VectorMath::Cross(obb1.Orientation[2], obb2.Orientation[1]);
-	axes[14] = VectorMath::Cross(obb1.Orientation[2], obb2.Orientation[2]);
+	BuildOBBAxes15(obb1, obb2, axes);
 
 	for (int i = 0; i < 15; i++) {
 		if (VectorMath::Dot(axes[i], axes[i]) < 1e-6f) continue;
@@ -284,6 +290,108 @@ bool OBBOBB(const OBB& obb1, const OBB& obb2) {
 		if (fabsf(VectorMath::Dot(d, axes[i])) > r1 + r2) return false;
 	}
 
+	return true;
+}
+
+bool SphereSpherePenetration(const Sphere& a, const Sphere& b, Vector3& out_normal, float& out_depth) {
+	Vector3 d = b.center - a.center; // a→b向き
+	float dist = VectorMath::Length(d);
+	float r = a.radius + b.radius;
+	if (dist > r) return false;
+
+	out_depth = r - dist;
+	// 中心が完全一致する退化ケース（distがほぼ0で向きを決められない）は上向きにフォールバックする
+	out_normal = (dist > 1e-6f) ? d * (1.0f / dist) : Vector3{ 0.0f, 1.0f, 0.0f };
+	return true;
+}
+
+bool OBBOBBPenetration(const OBB& obb1, const OBB& obb2, Vector3& out_normal, float& out_depth) {
+	Vector3 d = obb2.center - obb1.center; // obb1→obb2向き
+
+	Vector3 axes[15];
+	BuildOBBAxes15(obb1, obb2, axes);
+
+	float minOverlap = FLT_MAX;
+	Vector3 minAxis{ 0.0f, 0.0f, 0.0f };
+	bool found = false;
+
+	for (int i = 0; i < 15; i++) {
+		float lenSq = VectorMath::Dot(axes[i], axes[i]);
+		if (lenSq < 1e-6f) continue; // 2軸がほぼ平行で外積が退化している場合はスキップ（OBBOBBと同様）
+
+		// MTVは実距離（重なりの深さ）として意味を持たせる必要があるため、SAT本体と違い軸を正規化する
+		Vector3 axis = axes[i] * (1.0f / sqrtf(lenSq));
+		float r1 =
+			fabsf(VectorMath::Dot(obb1.Orientation[0] * obb1.Size.x, axis)) +
+			fabsf(VectorMath::Dot(obb1.Orientation[1] * obb1.Size.y, axis)) +
+			fabsf(VectorMath::Dot(obb1.Orientation[2] * obb1.Size.z, axis));
+		float r2 =
+			fabsf(VectorMath::Dot(obb2.Orientation[0] * obb2.Size.x, axis)) +
+			fabsf(VectorMath::Dot(obb2.Orientation[1] * obb2.Size.y, axis)) +
+			fabsf(VectorMath::Dot(obb2.Orientation[2] * obb2.Size.z, axis));
+		float overlap = (r1 + r2) - fabsf(VectorMath::Dot(d, axis));
+		if (overlap < 0.0f) return false; // 分離軸が見つかった＝重なっていない
+
+		if (overlap < minOverlap) {
+			minOverlap = overlap;
+			minAxis = axis;
+			found = true;
+		}
+	}
+	if (!found) return false; // 全軸が退化していた場合（実質起こりえないが念のため）
+
+	// minAxisはobb1→obb2向きになるよう符号を揃える（SATでは軸の向きは任意のため）
+	if (VectorMath::Dot(d, minAxis) < 0.0f) minAxis = minAxis * -1.0f;
+
+	out_normal = minAxis;
+	out_depth  = minOverlap;
+	return true;
+}
+
+bool OBBSpherePenetration(const OBB& obb, const Sphere& sphere, Vector3& out_normal, float& out_depth) {
+	Vector3 diff = sphere.center - obb.center;
+	Vector3 local = {
+		VectorMath::Dot(diff, obb.Orientation[0]),
+		VectorMath::Dot(diff, obb.Orientation[1]),
+		VectorMath::Dot(diff, obb.Orientation[2]),
+	};
+	Vector3 closest = {
+		std::clamp(local.x, -obb.Size.x, obb.Size.x),
+		std::clamp(local.y, -obb.Size.y, obb.Size.y),
+		std::clamp(local.z, -obb.Size.z, obb.Size.z),
+	};
+	Vector3 dLocal = local - closest;
+	float distSq = VectorMath::Dot(dLocal, dLocal);
+	if (distSq > sphere.radius * sphere.radius) return false;
+
+	Vector3 normalLocal;
+	if (distSq > 1e-8f) {
+		// 通常ケース：球の中心がOBBの外側（面上含む）にある。最近接点→球中心の向きがそのまま押し出し方向
+		float dist = sqrtf(distSq);
+		normalLocal = dLocal * (1.0f / dist);
+		out_depth = sphere.radius - dist;
+	} else {
+		// 退化ケース：球の中心がOBBの内部にある（最近接点=中心そのもので方向が決まらない）。
+		// 中心から各面までの最短距離を比較し、最も近い面の向きに押し出す
+		float penX = obb.Size.x - fabsf(local.x);
+		float penY = obb.Size.y - fabsf(local.y);
+		float penZ = obb.Size.z - fabsf(local.z);
+		float faceDepth;
+		if (penX <= penY && penX <= penZ) {
+			normalLocal = { local.x >= 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f };
+			faceDepth = penX;
+		} else if (penY <= penZ) {
+			normalLocal = { 0.0f, local.y >= 0.0f ? 1.0f : -1.0f, 0.0f };
+			faceDepth = penY;
+		} else {
+			normalLocal = { 0.0f, 0.0f, local.z >= 0.0f ? 1.0f : -1.0f };
+			faceDepth = penZ;
+		}
+		out_depth = faceDepth + sphere.radius; // 面から球中心までの距離ぶんに加え、半径ぶんも押し出す
+	}
+
+	// ローカル軸の法線をOBBのワールド軸に戻す（obb→sphere向き）
+	out_normal = obb.Orientation[0] * normalLocal.x + obb.Orientation[1] * normalLocal.y + obb.Orientation[2] * normalLocal.z;
 	return true;
 }
 
