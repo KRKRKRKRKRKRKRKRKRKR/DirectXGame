@@ -9,29 +9,6 @@
 #include <algorithm>
 #include <cfloat>
 
-void Game::RebuildGridCubes() {
-	constexpr float kSpacing  = 2.0f;
-	constexpr float kBaseY    = 0.5f; // 床(floor_のY≈-0.5)にめり込まないよう最下段を底上げする
-	const float     kOffsetXZ = (gridSize_ - 1) * kSpacing / 2.0f;
-
-	gridCubes_.clear();
-	gridCubes_.reserve(static_cast<size_t>(gridSize_) * gridSize_ * gridSize_);
-	for (int y = 0; y < gridSize_; y++) {
-		for (int z = 0; z < gridSize_; z++) {
-			for (int x = 0; x < gridSize_; x++) {
-				Transform t;
-				t.translation = {
-					x * kSpacing - kOffsetXZ,
-					y * kSpacing + kBaseY,
-					z * kSpacing - kOffsetXZ
-				};
-				t.scale = { 1.0f, 1.0f, 1.0f };
-				gridCubes_.push_back(t);
-			}
-		}
-	}
-}
-
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
 	camera_ = camera;
@@ -98,8 +75,6 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 	TriangleRenderComponent* triangleRender = triangleObject_.AddComponent<TriangleRenderComponent>();
 	triangleRender->textureHandle = textures_[triangleTexIndex_].handle;
 
-	RebuildGridCubes();
-
 	// 3Dスプライト（ワールド空間）
 	sprite3DObject_.name = "Sprite3D";
 	sprite3DObject_.transform.translation = { 0.0f, 3.0f, 0.0f };
@@ -150,7 +125,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 	// 全ての通常オブジェクトのGameObjectをギズモ選択対象として登録する。
 	// name(GameObject::name)がそのままImGuiコンボの表示名になる。
-	// sprite2DObject_とgridCubes_は既存通りギズモ対象外のため含めない
+	// sprite2DObject_は既存通りギズモ対象外のため含めない
 	gizmoTargets_ = {
 		&cubeObject_, &sphereObject_, &triangleObject_, &floorObject_,
 		&sprite3DObject_, &modelObject_, &fbxModelObject_, &mirrorObject_,
@@ -208,37 +183,6 @@ void Game::Render() {
 	renderer_->SetCamera(view, proj, camera_->GetCameraData().position);
 
 	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.transform);
-
-	// グリッドは全個体が同じ回転・スケールのため、WorldInverseTranspose（回転成分のみに依存）は
-	// 個体間で共通。回転が変化した時だけ再計算し、毎フレームの2500回分のInverse+Transpose計算を省く
-	if (gridCubeCachedRotation_.x != gridCubeRotation_.x ||
-		gridCubeCachedRotation_.y != gridCubeRotation_.y ||
-		gridCubeCachedRotation_.z != gridCubeRotation_.z) {
-		Matrix4x4 rotationOnlyWorld = TransformMath::MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, gridCubeRotation_, { 0.0f, 0.0f, 0.0f });
-		gridCubeWorldInverseTranspose_ = MatrixMath::Transpose(MatrixMath::Inverse(rotationOnlyWorld));
-		gridCubeCachedRotation_ = gridCubeRotation_;
-	}
-
-	// フラストラムカリング：視錐台の外にあるCubeはDrawCube自体を呼ばずスキップする。
-	// グリッドCubeは1辺1.0の立方体（scale=1,1,1固定）なので、包含球半径は対角線の半分 sqrt(3)/2 で近似できる
-	constexpr float kGridCubeBoundingRadius = 0.8660254f; // sqrt(3)/2
-	Collision::Frustum frustum{};
-	if (gridFrustumCullingEnabled_) {
-		frustum = Collision::MakeFrustumFromViewProjection(view * proj);
-	}
-
-	gridCubesDrawnCount_ = 0;
-	for (auto& t : gridCubes_) {
-		if (gridFrustumCullingEnabled_) {
-			Collision::Sphere bounds{ t.translation, kGridCubeBoundingRadius };
-			if (!Collision::SphereFrustum(bounds, frustum)) continue;
-		}
-		Transform rotated = t;
-		rotated.rotation = gridCubeRotation_;
-		renderer_->DrawCube(rotated, gridCubeWorldInverseTranspose_, gridCubeColor_, textures_[gridCubeTexIndex_].handle, gridCubeLighting_, gridCubeBlendMode_, gridCubeBlendStrength_, gridCubeAlphaTest_, gridCubeAlphaThreshold_);
-		gridCubesDrawnCount_++;
-	}
-
 
 	// マウスピッキング：3Dビュー上の左クリックでギズモ選択対象を切り替える（コンボボックス選択と共存）
 	UpdatePicking(view, proj);
@@ -698,22 +642,6 @@ void Game::DrawImGui() {
 	blendModeCombo("Floor BlendMode", floorRender->blendMode);
 	blendStrengthSlider("Floor Blend Strength", floorRender->blendMode, floorRender->blendStrength);
 	alphaTestControls("Floor Alpha Test", "Floor Alpha Threshold", floorRender->alphaTest, floorRender->alphaThreshold);
-
-	ImGui::Separator();
-	ImGui::Text("Grid Cubes");
-	ImGui::Text("Cube Count: %d (Drawn: %d)", static_cast<int>(gridCubes_.size()), gridCubesDrawnCount_);
-	if (ImGui::SliderInt("Grid Size (NxNxN)", &gridSize_, 0, kGridSizeMax))
-		RebuildGridCubes();
-	ImGui::Checkbox("Frustum Culling", &gridFrustumCullingEnabled_);
-	ImGui::Checkbox("Grid Lighting", &gridCubeLighting_);
-	ImGui::ColorEdit4("Grid Color", &gridCubeColor_.x);
-	ImGui::DragFloat3("Grid Rotation", &gridCubeRotation_.x, 0.01f, -3.14f, 3.14f);
-	if (ImGui::SliderFloat("Grid Smoothness", &cubeSmoothness_, 0.0f, 1.0f))
-		renderer_->SetCubeSmoothness(cubeSmoothness_);
-	textureCombo("Grid Texture", gridCubeTexIndex_);
-	blendModeCombo("Grid BlendMode", gridCubeBlendMode_);
-	blendStrengthSlider("Grid Blend Strength", gridCubeBlendMode_, gridCubeBlendStrength_);
-	alphaTestControls("Grid Alpha Test", "Grid Alpha Threshold", gridCubeAlphaTest_, gridCubeAlphaThreshold_);
 
 	ImGui::Separator();
 	ImGui::Text("Triangle");

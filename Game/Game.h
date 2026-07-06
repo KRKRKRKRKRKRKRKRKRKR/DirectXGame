@@ -56,19 +56,6 @@ private:
 
 	Sound bgm;
 
-	std::vector<Transform> gridCubes_;
-
-	// 負荷テスト用：立方体状グリッドの1辺の個数（個数はgridSize_の3乗）。
-	// ImGuiで変更すると次フレームにgridCubes_を作り直す（Cube::kMaxInstanceCountの上限まで試せる）
-	int gridSize_ = 30;
-	static constexpr int kGridSizeMax = 48; // 48^3=110592。Cube::kMaxInstanceCount(131072)以内
-	void RebuildGridCubes();
-
-	// フラストラムカリング：視錐台の外にあるグリッドCubeのDrawCube呼び出し自体をスキップする。
-	// CPU側の毎フレームコスト（行列計算・SetWvpMatrix・Root Constant設定）を削減するのが目的
-	bool  gridFrustumCullingEnabled_ = true;
-	int   gridCubesDrawnCount_       = 0; // 直近フレームで実際にDrawCubeした個数（ImGui表示用）
-
 	struct TextureEntry {
 		TextureHandle handle;
 		std::string   name;
@@ -79,33 +66,13 @@ private:
 	int triangleTexIndex_  = 0;
 	int cubeTexIndex_      = 0;
 	int sphereTexIndex_    = 0;
-	int gridCubeTexIndex_  = 0;
 	int floorTexIndex_     = 0;
 	int modelTexIndex_     = 0;
 	int fbxModelTexIndex_  = 0;
 
-	Vector4 gridCubeColor_    = { 1,1,1,1 };
-	bool    gridCubeLighting_ = true;
-	Vector3 gridCubeRotation_ = { 0.0f, 0.0f, 0.0f };
-
-	// グリッドは全個体が同じ回転（位置のみ個体ごとに違う）。WorldInverseTransposeは
-	// 回転成分だけで決まるため、回転が変化した時だけ再計算してキャッシュする
-	Vector3   gridCubeCachedRotation_{ 0.0f, 1.0f, 0.0f }; // 初期値をgridCubeRotation_と異なる値にして初回必ず計算させる
-	Matrix4x4 gridCubeWorldInverseTranspose_{};
-
 	float triangleSmoothness_ = 1.0f;
 	float cubeSmoothness_     = 1.0f;
 	int   sphereSubdivision_  = static_cast<int>(Renderer::kSphereMaxSubdivision);
-
-	BlendMode gridCubeBlendMode_ = BlendMode::kNone;
-
-	// OMSetBlendFactorに渡す0〜1の強さ。kNormal/kAdd/kSubtractのみ効果がある
-	float gridCubeBlendStrength_ = 1.0f;
-
-	// 2値抜き(Binary Alpha/αTest)。αがしきい値未満のピクセルをdiscardする
-	bool  gridCubeAlphaTest_  = false;
-
-	float gridCubeAlphaThreshold_  = 0.5f;
 
 	// FPS表示（負荷テスト用）。0.5秒ごとに直近フレームの平均FPS/フレーム時間を更新する
 	// （毎フレームの値は変動が激しく読みづらいため、一定間隔でサンプリングして表示する）
@@ -115,7 +82,7 @@ private:
 	float frameTimeDisplayMs_ = 0.0f;
 
 	// Blenderライクなギズモ操作：ImGuiで選んだ1オブジェクトのTransformをドラッグで編集する。
-	// gridCubes_/sprite2Dは対象外（gridCubes_は9万個規模で個別編集不可、sprite2Dはスクリーン空間UI）。
+	// sprite2Dは対象外（スクリーン空間UIのため）。
 	// PointLight/SpotLightはSceneLightのSetter経由でしか書き込めずTransformを持たないため、
 	// lightGizmoScratch_という一時Transformを橋渡しに使う（UpdateGizmo()参照）。
 	// 通常オブジェクト（GameObjectを持つもの）はenumのケースを手で並べず、gizmoTargets_という

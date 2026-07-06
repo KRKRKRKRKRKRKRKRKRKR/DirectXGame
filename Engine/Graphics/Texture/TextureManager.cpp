@@ -208,10 +208,10 @@ ComPtr<ID3D12Resource> TextureManager::CreateRenderTargetTextureResource(int32_t
 	D3D12_HEAP_PROPERTIES heapProperties{};
 	heapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
 
-	// 最適化クリア値のフォーマットはリソース本体のフォーマット(UNORM)に合わせる。
-	// RTV/SRVはビュー側でUNORM_SRGBとして解釈する（SwapChainのバックバッファと同じ手法）
+	// 最適化クリア値のフォーマットはRTV作成時に使うUNORM_SRGBに合わせる。異なるとClearRenderTargetViewで
+	// D3D12 WARNING #820 (CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE) が発生する
 	D3D12_CLEAR_VALUE clearValue{};
-	clearValue.Format   = DXGI_FORMAT_R8G8B8A8_UNORM;
+	clearValue.Format   = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
 	clearValue.Color[0] = 0.0f;
 	clearValue.Color[1] = 0.0f;
 	clearValue.Color[2] = 0.0f;
