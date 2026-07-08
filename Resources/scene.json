@@ -1,0 +1,752 @@
+{
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            1.0,
+                            100.0,
+                            1.0
+                        ],
+                        "isStatic": true,
+                        "isTrigger": false,
+                        "layer": "Environment",
+                        "offset": [
+                            0.0,
+                            -0.9900000095367432,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "name": "Floor",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    100.0,
+                    0.009999999776482582,
+                    100.0
+                ],
+                "translation": [
+                    0.0,
+                    -0.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "TriangleRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "radius": 1.0
+                    },
+                    "type": "SphereCollider"
+                }
+            ],
+            "name": "Triangle",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    -1.8707740306854248,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            false,
+                            false,
+                            true
+                        ],
+                        "halfSize": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Obstacle",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "gravity": 9.800000190734863,
+                        "maxFallSpeed": 20.0
+                    },
+                    "type": "Gravity"
+                }
+            ],
+            "name": "Cube",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -3.0,
+                    1.8619961738586426,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "SphereRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            false,
+                            false,
+                            false
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "radius": 1.0
+                    },
+                    "type": "SphereCollider"
+                }
+            ],
+            "name": "Sphere",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    1.8485441207885742,
+                    1.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "directoryPath": "Resources/Model",
+                        "filename": "player.obj",
+                        "hasAnimation": false,
+                        "lighting": true
+                    },
+                    "type": "ModelRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "radius": 2.0
+                    },
+                    "type": "SphereCollider"
+                }
+            ],
+            "name": "Model (OBJ)",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    5.0,
+                    3.316375494003296,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "directoryPath": "Resources/Model",
+                        "filename": "HumanModel_ver2.fbx",
+                        "hasAnimation": true,
+                        "lighting": true
+                    },
+                    "type": "ModelRender"
+                },
+                {
+                    "data": {
+                        "textureName": "なし"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "radius": 1.0
+                    },
+                    "type": "SphereCollider"
+                }
+            ],
+            "name": "FBX Model",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.009999999776482582,
+                    0.009999999776482582,
+                    0.009999999776482582
+                ],
+                "translation": [
+                    8.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "is3D": true,
+                        "lighting": true,
+                        "uvOffset": [
+                            0.0,
+                            0.0
+                        ],
+                        "uvRotation": 0.0,
+                        "uvScale": [
+                            1.0,
+                            1.0
+                        ]
+                    },
+                    "type": "SpriteRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "radius": 1.0
+                    },
+                    "type": "SphereCollider"
+                }
+            ],
+            "name": "Sprite3D",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    3.0,
+                    -1.584989309310913
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": null,
+                    "type": "Mirror"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "isStatic": true,
+                        "isTrigger": false,
+                        "layer": "Environment",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "name": "Mirror",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    4.0,
+                    3.0,
+                    0.05000000074505806
+                ],
+                "translation": [
+                    -6.0,
+                    2.0,
+                    -3.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "is3D": false,
+                        "lighting": false,
+                        "uvOffset": [
+                            0.0,
+                            0.0
+                        ],
+                        "uvRotation": 0.0,
+                        "uvScale": [
+                            1.0,
+                            1.0
+                        ]
+                    },
+                    "type": "SpriteRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                }
+            ],
+            "name": "Sprite2D",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    200.0,
+                    200.0,
+                    1.0
+                ],
+                "translation": [
+                    100.0,
+                    100.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "ambient": 0.20000000298023224,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "enabled": true,
+                        "halfLambertPower": 2.0
+                    },
+                    "type": "DirectionalLight"
+                }
+            ],
+            "name": "Directional Light",
+            "transform": {
+                "rotation": [
+                    1.5707961320877075,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    15.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "decay": 1.0,
+                        "enabled": false,
+                        "intensity": 1.0,
+                        "radius": 5.0
+                    },
+                    "type": "PointLight"
+                }
+            ],
+            "name": "Point Light",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    2.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "cosAngle": 0.800000011920929,
+                        "cosFalloffStart": 0.8999999761581421,
+                        "decay": 2.0,
+                        "distance": 7.0,
+                        "enabled": false,
+                        "intensity": 1.0
+                    },
+                    "type": "SpotLight"
+                }
+            ],
+            "name": "Spot Light",
+            "transform": {
+                "rotation": [
+                    1.5707963705062866,
+                    -0.7853981852531433,
+                    -0.7853981852531433
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    2.0,
+                    3.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "filePath": "Resources/Audio/BGM.mp3",
+                        "loop": true,
+                        "registeredName": "BGM",
+                        "soundType": 0
+                    },
+                    "type": "AudioSource"
+                }
+            ],
+            "name": "BGM",
+            "transform": {
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        }
+    ]
+}

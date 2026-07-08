@@ -1,0 +1,13 @@
+#pragma once
+// Render/配下の全ヘッダをまとめて取り込むための便利ヘッダ。
+// 個別のパスを知らなくても #include "Component/Render/Render.h" だけで済む
+#include "RenderComponentBase.h"
+#include "CubeRenderComponent.h"
+#include "SphereRenderComponent.h"
+#include "TriangleRenderComponent.h"
+#include "ModelRenderComponent.h"
+#include "SpriteRenderComponent.h"
+#include "RenderComponentFactory.h"
+#include "TextureEntry.h"
+#include "TextureSelectorComponent.h"
+#include "MirrorComponent.h"

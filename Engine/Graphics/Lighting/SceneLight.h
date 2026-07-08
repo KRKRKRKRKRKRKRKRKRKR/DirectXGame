@@ -117,6 +117,11 @@ public:
 
     LightData& GetData() { return data_; }
 
+    // Toon Shading/Specular/Rim Lightは特定オブジェクトの位置・向きを持たない、シーン全体の
+    // シェーディング設定のため、GameObject/コンポーネントには乗せずSceneLight自身がImGuiを持つ
+    // （AudioManager::DrawImGui()と同じ「データを持つクラス自身が描画する」パターン）
+    void DrawImGui();
+
     // enableLighting=true → ライティングON用バッファ、false → OFF用バッファ
     D3D12_GPU_VIRTUAL_ADDRESS GetGPUAddress(bool enableLighting = true) const {
         return enableLighting ? resource_->GetGPUVirtualAddress()

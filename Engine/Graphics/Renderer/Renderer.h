@@ -117,6 +117,11 @@ public:
 	void SetSphereSubdivision(uint32_t subdivision) { sphere_->SetSubdivision(subdivision); }
 	static constexpr uint32_t kSphereMaxSubdivision = Sphere::kMaxSubdivision;
 
+	// Cube/Triangle SmoothnessとSphere Subdivisionは個体ごとのパラメータではなく、
+	// cube_/triangle_/sphere_という単一の共有メッシュ全体に効くグローバル設定のため、
+	// データを持つRenderer自身がImGuiを描画する（SceneLight::DrawImGui()と同じパターン）
+	void DrawImGui();
+
 	void InitializeGridLines();
 	void ResetFrameIndex();
 
@@ -207,6 +212,11 @@ private:
 
 	Matrix4x4 view_{};
 	Matrix4x4 projection_{};
+
+	// DrawImGui()のスライダー用の現在値キャッシュ
+	float triangleSmoothness_ = 1.0f;
+	float cubeSmoothness_     = 1.0f;
+	int   sphereSubdivision_  = static_cast<int>(kSphereMaxSubdivision);
 
 	// ---- 鏡（反射）関連 ----
 	TextureHandle mirrorTextureHandle_ = kTextureNone;

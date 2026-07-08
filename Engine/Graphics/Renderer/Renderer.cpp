@@ -2,6 +2,7 @@
 #include "../../Utils/Logger.h"
 #include "../../../Math/MatrixMath.h"
 #include "../DescriptorHeaps/DescriptorHeaps.h"
+#include "../../../Externals/imgui/imgui.h"
 
 void Renderer::Resize(int width, int height) {
 	windowWidth_ = width;
@@ -357,4 +358,20 @@ void Renderer::EndMirrorPass() {
 	D3D12_RECT scissorRect{ 0, 0, windowWidth_, windowHeight_ };
 	commandList_->RSSetViewports(1, &viewport);
 	commandList_->RSSetScissorRects(1, &scissorRect);
+}
+
+void Renderer::DrawImGui() {
+	ImGui::Begin("Mesh Settings");
+
+	if (ImGui::SliderFloat("Cube Smoothness", &cubeSmoothness_, 0.0f, 1.0f)) {
+		SetCubeSmoothness(cubeSmoothness_);
+	}
+	if (ImGui::SliderFloat("Triangle Smoothness", &triangleSmoothness_, 0.0f, 1.0f)) {
+		SetTriangleSmoothness(triangleSmoothness_);
+	}
+	if (ImGui::SliderInt("Sphere Subdivision", &sphereSubdivision_, 1, static_cast<int>(kSphereMaxSubdivision))) {
+		SetSphereSubdivision(static_cast<uint32_t>(sphereSubdivision_));
+	}
+
+	ImGui::End();
 }

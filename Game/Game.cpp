@@ -1,9 +1,11 @@
 #include "Game.h"
 #include "../Externals/imgui/imgui.h"
+#include "../Engine/GameObject/ComponentRegistration.h"
 
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
 	camera_ = camera;
+	RegisterEngineComponents(); // JSON保存/復元のためのコンポーネント型登録（シーン初期化前に一度だけ）
 	sceneManager_.Initialize(renderer, camera, SceneType::kTitle);
 }
 

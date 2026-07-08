@@ -1,11 +1,11 @@
 # 使用可能なコンポーネント一覧
 
-`GameObject`にアタッチできる`IComponent`派生クラスの一覧。`Engine/GameObject/Component/`配下にまとまっている。
+`GameObject`にアタッチできる`IComponent`派生クラスの一覧。`Engine/GameObject/Component/`配下に、機能ごとのサブフォルダ（`Render/`・`Physics/`・`Lighting/`・`Audio/`、全GameObjectが必ず持つ`TransformComponent`のみ直下）に分けてまとまっている。各サブフォルダには配下の全ヘッダをまとめて取り込む便利ヘッダ（`Render/Render.h`・`Physics/Physics.h`・`Lighting/Lighting.h`・`Audio/Audio.h`）があり、`PlayScene.h`のように「そのカテゴリを一通り使う」呼び出し側はこれ1本を`#include`するだけで済む。
 
 ## 共通の仕組み
 
 - `IComponent`（`Engine/GameObject/IComponent.h`）が全コンポーネントの最小抽象。`virtual void Update(float deltaTime, Transform& transform)`と`virtual void DrawImGui(const char* namePrefix)`の2つを持ち、どちらもデフォルトは何もしない。`Update`がオーナーの`Transform&`を直接受け取れるため、`GravityComponent`のように毎フレームTransformを書き換えるコンポーネントも追加パラメータなしで実装できる。
-- `GameObject`（`Engine/GameObject/GameObject.h`）は`AddComponent<T>(...)`でコンポーネントを追加し、`GetComponent<T>()`（`dynamic_cast`で検索）で取り出す。`Update()`/`DrawImGui()`は保持している全コンポーネントに対して型を気にせず一括で呼ぶだけ（`for (auto& c : components_) c->Update(deltaTime);`のような形）。
+- `GameObject`（`Engine/GameObject/GameObject.h`）は`AddComponent<T>(...)`でコンポーネントを追加し、`GetComponent<T>()`（`dynamic_cast`で検索）で取り出す。実体は`ComponentManager`（`Engine/GameObject/ComponentManager.h`）に委譲しており、`GameObject`自身はコンポーネントの保持ロジックを持たない（下記参照）。
 - **`TransformComponent`は全GameObjectが生成時に自動で1つ持つ**（`GameObject`のコンストラクタで`AddComponent<TransformComponent>()`済み）。他のコンポーネントは`AddComponent<T>()`で明示的に追加する必要がある。
 - `DrawImGui(namePrefix)`をoverrideしているコンポーネントは、`GameObject::DrawImGui()`を呼ぶだけで自動的に自分の項目（見出し無しの生の値のみ）がImGuiに表示される。ラベルは`"{namePrefix} 項目名"`という形式になる。
 
@@ -20,6 +20,16 @@ collider->layer = CollisionLayer::kObstacle;
 obj.GetTransform().translation = { 0.0f, 1.0f, 0.0f };
 obj.DrawImGui(); // Transform/Render/Colliderの項目がまとめて描画される
 ```
+
+---
+
+## ComponentManager（コンポーネントの保持・検索）
+
+`Engine/GameObject/ComponentManager.h`（ヘッダオンリー）
+
+`GameObject`が持つ`IComponent`群の保持・追加・検索・一括更新/描画を担当する。コンポーネントの種類が増えてきたため、`GameObject`本体からこの責務を切り出したもの（`ColliderSystem`/`GizmoController`と同じ「役割ごとに専用クラスへ切り出す」パターンを`GameObject`自身にも適用している）。
+
+`GameObject`は`ComponentManager`を1個持ち、`AddComponent`/`GetComponent`/`Update`/`DrawImGui`はすべてこれへ薄く委譲するだけになっている。外部から見た`GameObject`のAPI（`AddComponent<T>(...)`/`GetComponent<T>()`等）は変わらないため、コンポーネントを使う側はこのクラスの存在を意識する必要はない。
 
 ---
 
@@ -43,7 +53,7 @@ obj.DrawImGui(); // Transform/Render/Colliderの項目がまとめて描画さ�
 
 ## RenderComponentBase 系（描画）
 
-`RenderComponentBase`（`Engine/GameObject/Component/RenderComponentBase.h`）が描画コンポーネント共通の基底クラス。
+`RenderComponentBase`（`Engine/GameObject/Component/Render/RenderComponentBase.h`）が描画コンポーネント共通の基底クラス。
 
 ### 共通プロパティ（RenderComponentBase）
 
@@ -73,7 +83,7 @@ obj.DrawImGui(); // Transform/Render/Colliderの項目がまとめて描画さ�
 
 ## TextureSelectorComponent（テクスチャ選択）
 
-`Engine/GameObject/Component/TextureSelectorComponent.h`
+`Engine/GameObject/Component/Render/TextureSelectorComponent.h`
 
 `RenderComponentBase`系コンポーネントに「テクスチャ選択コンボ」を後付けするコンポーネント。単体では意味を持たず、必ず対象の`RenderComponentBase*`とセットで使う。
 
@@ -87,9 +97,28 @@ obj.AddComponent<TextureSelectorComponent>(render, &textures_, 1);
 
 ---
 
+## MirrorComponent（鏡面反射）
+
+`Engine/GameObject/Component/Render/MirrorComponent.h`
+
+鏡面反射オブジェクトに付与するコンポーネント。`TextureSelectorComponent`と同じく、対象の`CubeRenderComponent*`をコンストラクタで受け取り、自分では描画せず委譲する。
+
+```cpp
+CubeRenderComponent* render = obj.AddComponent<CubeRenderComponent>();
+render->lighting = false; // 反射像をそのまま表示するため照明計算は不要
+obj.AddComponent<MirrorComponent>(render);
+```
+
+- `ComputePlane(ownerTransform)`：自身のTransform（回転・位置）から反射平面（法線・原点からの距離）を導出する（鏡面の前面＝Cube.cppのZ+面をローカル法線として使う）。呼び出し側（`PlayScene::Render()`）はこれを`MatrixMath::MakeReflectionMatrix`に渡して反射視点を作る。
+- `Draw(renderer, ownerTransform, deltaTime)`：反射パスで描いたテクスチャ（`Renderer::GetMirrorTextureHandle()`）を自分の`textureHandle`に差し替えてから、対象の`CubeRenderComponent::Draw`に委譲する（鏡面自体はアニメーションしないため`deltaTime`は常に`0.0f`を渡す）。
+
+`RenderComponentBase::Draw(Renderer*, const Transform&, float deltaTime) const`は仮想関数になっており、`PlayScene::Render()`は`objects_`を`GetComponent<RenderComponentBase>()`で汎用的に走査して描画する。反射パスで「どのオブジェクトを映り込ませるか」も同じ汎用ループを使い、Mirror自身と非3DのSpriteRenderComponent（Sprite2D）だけを除外している。Mirror自体は反射テクスチャの差し替えタイミングが特殊なため、汎用ループからは除外して専用に描画する。
+
+---
+
 ## ColliderComponentBase 系（当たり判定）
 
-`ColliderComponentBase`（`Engine/GameObject/Component/ColliderComponentBase.h`）が当たり判定コンポーネント共通の基底クラス。
+`ColliderComponentBase`（`Engine/GameObject/Component/Physics/ColliderComponentBase.h`）が当たり判定コンポーネント共通の基底クラス。
 
 ### 共通プロパティ（ColliderComponentBase）
 
@@ -114,13 +143,31 @@ enum class CollisionLayer { kDefault, kPlayer, kObstacle, kItem, kEnvironment, k
 | `SphereColliderComponent` | 球形の当たり判定 | `offset`（オーナー位置からの相対位置）、`radius`（ワールド単位、scaleの影響を受けない絶対値） |
 | `OBBColliderComponent` | 回転追従の直方体（OBB）当たり判定 | `offset`、`halfSize`（オーナーの`transform.scale`が自動で掛かる）。回転はオーナーのTransform.rotationをそのまま使う |
 
-どちらも`GetWorldSphere(ownerTransform)`/`GetWorldOBB(ownerTransform)`でワールド座標の形状を取得し、`Collision::`名前空間の関数（`SphereSphere`/`OBBOBB`/`OBBSphere`とその`*Penetration`版）で判定・押し戻し計算を行う（`PlayScene::ResolveAndDrawColliderGizmos`参照）。`DrawWireframe(...)`でワイヤーフレーム描画もできる。
+どちらも`GetWorldSphere(ownerTransform)`/`GetWorldOBB(ownerTransform)`でワールド座標の形状を取得し、`Collision::`名前空間の関数（`SphereSphere`/`OBBOBB`/`OBBSphere`とその`*Penetration`版）で判定・押し戻し計算を行う（`Engine/GameObject/Systems/ColliderSystem.h`の`ColliderSystem::ResolveAndDraw`参照）。`DrawWireframe(...)`でワイヤーフレーム描画もできる。
+
+`ColliderComponentBase`は`GetGizmoEditTransform(ownerTransform)`/`ApplyGizmoEditTransform(ownerTransform, edited)`という純粋仮想関数も持つ。"Gizmo"パネルの"Edit Collider"がオンの間、`GizmoController`（`Engine/GameObject/Systems/GizmoController.h`）はSphere/OBBのどちらかを個別に判定せず`GetComponent<ColliderComponentBase>()`一発で取得し、この2関数経由でワールド座標⇔offset/radius(またはhalfSize)を変換する（Sphereは`scale.x`を半径として、OBBは`scale`を`halfSize*2`として解釈する、という型ごとの違いをコンポーネント側に閉じ込めている）。
+
+---
+
+## AudioSourceComponent（音源）
+
+`Engine/GameObject/Component/Audio/AudioSourceComponent.h`
+
+GameObjectに音源（`Sound`）を持たせるコンポーネント。BGM等の非空間音源はTransformを使わない（付与先のGameObjectは見た目もGizmo編集項目も持たない「空のGameObject」として使う）。
+
+```cpp
+GameObject bgmObject;
+bgmObject.name = "BGM";
+bgmObject.AddComponent<AudioSourceComponent>("Resources/Audio/BGM.mp3", "BGM", SoundType::BGM, /*loop=*/true);
+```
+
+コンストラクタで`Sound::Load`→`AudioManager::RegisterSound`を行う（自動再生はしない。再生は`AudioManager::DrawImGui()`のパネルから手動で行う運用）。デストラクタで`AudioManager::UnregisterSound`を呼び、登録した生ポインタが破棄後にダングリングしないようにする。
 
 ---
 
 ## GravityComponent（重力）
 
-`Engine/GameObject/Component/GravityComponent.h`
+`Engine/GameObject/Component/Physics/GravityComponent.h`
 
 `Update(deltaTime, transform)`で速度を積算し`transform.translation.y`を動かすだけの単純な重力。地面判定自体は持たない。
 
@@ -131,7 +178,7 @@ enum class CollisionLayer { kDefault, kPlayer, kObstacle, kItem, kEnvironment, k
 | `velocityY` | `float` | 現在の落下速度（内部状態。着地時の押し戻しでリセットされる） |
 | `maxFallSpeed` | `float` | 終端速度。無制限に加速すると1フレームの移動量が薄い床の厚みを超えてすり抜ける原因になるため上限を設けている |
 
-地面で実際に止まるには、このGameObjectが以下をすべて満たす必要がある（着地は`GravityComponent`単体ではなく`PlayScene::ResolveAndDrawColliderGizmos`の押し戻し処理との連動で実現している）。
+地面で実際に止まるには、このGameObjectが以下をすべて満たす必要がある（着地は`GravityComponent`単体ではなく`ColliderSystem::ResolveAndDraw`の押し戻し処理との連動で実現している）。
 
 1. Collider（Sphere/OBB）を持つ
 2. Solid（`isTrigger = false`）
@@ -142,7 +189,7 @@ enum class CollisionLayer { kDefault, kPlayer, kObstacle, kItem, kEnvironment, k
 
 ## ライトコンポーネント（DirectionalLight / PointLight / SpotLight）
 
-`Engine/GameObject/Component/DirectionalLightComponent.h` / `PointLightComponent.h` / `SpotLightComponent.h`
+`Engine/GameObject/Component/Lighting/DirectionalLightComponent.h` / `PointLightComponent.h` / `SpotLightComponent.h`
 
 Unityのライトと同じく、**「空のGameObject」にライトコンポーネントを1つ付ける**という使い方をする（`Render`/`Collider`コンポーネントは持たせない）。位置・向きは自分では持たず、オーナーの`TransformComponent`（`translation`/`rotation`）から導出するため、他のオブジェクトと全く同じくGizmoで動かす・回転させるだけで光も連動する。共通の基底クラスは作っていない（共有できるのは`enabled`/`color`程度で、`SyncToRenderer`の中身が3つとも全く違うため、共通化の効果が薄い）。
 
@@ -202,7 +249,7 @@ light->DrawGizmoVisualization(renderer_, pointLightObject.GetTransform(), view, 
 
 ## RenderComponentFactory（ユーティリティ）
 
-`Engine/GameObject/Component/RenderComponentFactory.h`
+`Engine/GameObject/Component/Render/RenderComponentFactory.h`
 
 データ駆動生成（実行時にenum値から具体的なコンポーネントを生成する）を見据えたヘルパー。
 

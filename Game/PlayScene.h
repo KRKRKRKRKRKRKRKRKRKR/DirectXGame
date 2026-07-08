@@ -2,39 +2,27 @@
 #include "IScene.h"
 #include "../Engine/Graphics/Renderer/Renderer.h"
 #include "../Engine/Graphics/Pipeline/BlendMode.h"
-#include "../Engine/GameObject/Component/CollisionLayer.h"
 #include "../Engine/Camera/Camera.h"
-#include "../Engine/Audio/Sound.h"
 #include "../Math/MathTypes.h"
 #include "../Math/Collision.h"
-#include "../Externals/imgui/imgui.h" // ImGuizmo.hがImDrawList等imgui型を前提にしており、先にインクルードする必要がある
+#include "../Externals/imgui/imgui.h" // ImGuizmo.hより先にインクルードする必要がある
 #include "../Externals/ImGuizmo/src/ImGuizmo.h"
 #include "../Engine/GameObject/GameObject.h"
-#include "../Engine/GameObject/Component/CubeRenderComponent.h"
-#include "../Engine/GameObject/Component/SphereRenderComponent.h"
-#include "../Engine/GameObject/Component/TriangleRenderComponent.h"
-#include "../Engine/GameObject/Component/ModelRenderComponent.h"
-#include "../Engine/GameObject/Component/SpriteRenderComponent.h"
-#include "../Engine/GameObject/Component/SphereColliderComponent.h"
-#include "../Engine/GameObject/Component/OBBColliderComponent.h"
-#include "../Engine/GameObject/Component/GravityComponent.h"
-#include "../Engine/GameObject/Component/DirectionalLightComponent.h"
-#include "../Engine/GameObject/Component/PointLightComponent.h"
-#include "../Engine/GameObject/Component/SpotLightComponent.h"
-#include "../Engine/GameObject/Component/TextureEntry.h"
-#include "../Engine/GameObject/Component/TextureSelectorComponent.h"
+#include "../Engine/GameObject/Systems/ColliderSystem.h"
+#include "../Engine/GameObject/Systems/GizmoController.h"
+#include "../Engine/GameObject/Component/Render/Render.h"
+#include "../Engine/GameObject/Component/Physics/Physics.h"
+#include "../Engine/GameObject/Component/Lighting/Lighting.h"
+#include "../Engine/GameObject/Component/Audio/Audio.h"
+#include "../Engine/GameObject/ComponentLoadContext.h"
+#include <memory>
 #include <vector>
 #include <string>
 
-// ワールドの中身（GameObject群・当たり判定・Gizmo編集・ライティング）を保持する、
-// ゲームプレイ画面用のIScene実装。Gameは「アプリの器」（Renderer/Cameraの橋渡し、FPS計測、
-// FPS/Cameraパネル）に徹し、SceneManagerがシーン切り替えを担う。実際のシーン内容は
-// すべてこちらに置く（Game.cppが肥大化したための分離、ロジックは無変更で移設したもの）
+// ゲームプレイ画面のワールド（GameObject群・当たり判定・Gizmo編集・ライティング）を保持するIScene実装
 class PlayScene : public IScene {
 public:
 	void Initialize(Renderer* renderer, Camera* camera) override;
-
-	// 内部でImGuizmo::BeginFrame()〜通常描画〜当たり判定〜ImGuiパネル描画までを一括して行う
 	void Render(float deltaTime) override;
 
 	SceneType GetNextScene() const override { return nextScene_; }
@@ -42,100 +30,44 @@ public:
 private:
 	Renderer* renderer_ = nullptr;
 	Camera* camera_ = nullptr;
-
-	// 遷移先。デフォルトはkNone（遷移しない）で、デバッグ用のキー入力で書き換える
 	SceneType nextScene_ = SceneType::kNone;
 
-	// Unityの Play/Stop に相当する状態。falseの間（Stop＝編集モード）は
-	// GameObject::Update()（GravityComponent等）とColliderの押し戻し解決を止め、
-	// Gizmoで自由にオブジェクトを配置できるようにする（重なり検知・色分け表示自体は常時行う）。
-	// デフォルトはfalse（シーンを開いた直後は編集モードから始まる、Unityと同じ挙動）
+	// Unityの Play/Stop 相当。false(Stop)ではGameObject::Update()と押し戻しを止め、Gizmoで自由に配置できる
 	bool isPlaying_ = false;
 
-	// GameObject/コンポーネントシステムへの移行対象。CubeとFloorはプロパティ構成が
-	// 完全に同一（Smoothness等の固有パラメータを持たない）ため、専用クラスを作らず
-	// 同じCubeRenderComponent型を2個のGameObjectインスタンスで使い回している。
-	// Sphere/TriangleはそれぞれSphereRenderComponent/TriangleRenderComponentという専用
-	// クラスを持つ（Subdivision/Smoothnessはグローバル設定のためコンポーネントには持たせず、
-	// cubeSmoothness_と同様にPlayScene側に据え置く）。Model(OBJ)/FBXModelはModelHandleを持つ
-	// ModelRenderComponentを共用（hasAnimationフラグでボーンアニメーション更新の有無を切替）。
-	// Sprite3D/Sprite2DはUVTransformを持つSpriteRenderComponentを共用（is3Dフラグで
-	// DrawSprite3D/DrawSprite2Dのどちらを呼ぶか切替）。これで全9対象オブジェクトの移行が完了する
-	GameObject cubeObject_;
-	GameObject floorObject_;
-	GameObject sphereObject_;
-	GameObject triangleObject_;
-	GameObject modelObject_;
-	GameObject fbxModelObject_;
-	GameObject sprite3DObject_;
-	GameObject sprite2DObject_;
+	// シーン内の全GameObject。unique_ptrで持つのは、vector再配置後もGameObject自体のアドレスが
+	// 変わらないようにするため（gizmoTargets_/objectPanelTargets_が生ポインタで参照し続ける）
+	std::vector<std::unique_ptr<GameObject>> objects_;
 
-	// 鏡（平面反射）。floorObject_と同じ「薄いCubeを板として使う」パターンで表現する
-	GameObject mirrorObject_;
-	// mirrorObject_のTransformから反射平面（法線・原点からの距離）を導出する
-	Collision::Plane ComputeMirrorPlane(const Transform& mirrorTransform) const;
+	// 新しいGameObjectを生成してobjects_へ追加し、安定した参照を返す
+	GameObject& CreateObject(const std::string& name);
 
-	// ライト用の「空のGameObject」。Render/Colliderコンポーネントは持たず、対応する
-	// XxxLightComponentのみを持つ。Transformが実在するため、他のオブジェクトと全く同じ
-	// Gizmo選択・ドラッグ編集の仕組みに乗る（ライトだけの特殊分岐が不要になる）
-	GameObject directionalLightObject_;
-	GameObject pointLightObject_;
-	GameObject spotLightObject_;
+	// "Objects"パネルの"Create"から選べるアーキタイプ名の一覧と、選ばれた名前からGameObjectを
+	// 1体生成する処理。中身はComponentRegistryが使うのと同じJSON形式のひな形をFromJsonに渡すだけ
+	GameObject& CreateObjectFromArchetype(const std::string& archetypeName);
 
-	Sound bgm;
+	// Gizmoパネルで選択中のオブジェクトをobjects_から削除する
+	void DeleteSelectedObject();
 
-	// テクスチャの選択インデックスは各オブジェクトが持つTextureSelectorComponentへ移った
-	// （PlayScene側は共有一覧のtextures_のみを持つ）
+	// excludeFromGizmoList/excludeFromObjectPanelを見てgizmoTargets_/objectPanelTargets_を
+	// objects_から作り直す。オブジェクトの生成・削除・ロードの後に必ず呼ぶ
+	void RebuildDerivedLists();
+
 	std::vector<TextureEntry> textures_;
 
-	float triangleSmoothness_ = 1.0f;
-	float cubeSmoothness_     = 1.0f;
-	int   sphereSubdivision_  = static_cast<int>(Renderer::kSphereMaxSubdivision);
-
-	// Blenderライクなギズモ操作：ImGuiで選んだ1オブジェクトのTransformをドラッグで編集する。
-	// sprite2Dは対象外（スクリーン空間UIのため）。ライト用GameObjectも他と同じくTransformを
-	// 実在させたため、通常オブジェクトと全く同じ形（gizmoTargets_＋gizmoTargetIndex_）で選択できる
-	ImGuizmo::OPERATION  gizmoOperation_ = ImGuizmo::TRANSLATE;
-
-	// 通常オブジェクト（Transformを直接持つGameObject）の一覧。Initialize()末尾で
-	// 全GameObjectメンバのアドレスを登録する
+	// Gizmo選択対象一覧（excludeFromGizmoList=falseのオブジェクトのみ）
 	std::vector<GameObject*> gizmoTargets_;
 
-	// gizmoTargets_内で現在選択中のインデックス。-1は「このリストからは何も選んでいない」
-	int gizmoTargetIndex_ = -1;
-
-	// "Objects"パネルに表示する全GameObjectの一覧（表示順）。gizmoTargets_とは目的が異なる
-	// （Gizmo選択可否ではなくObjectsパネル表示可否）ため独立して持つ。Sprite2DはgizmoTargets_には
-	// 含まれないがこちらには含まれる
+	// "Objects"パネル表示用一覧（excludeFromObjectPanel=falseのオブジェクトのみ）
 	std::vector<GameObject*> objectPanelTargets_;
 
-	// "Gizmo"パネルの"Edit Collider"チェックボックス。オンの間、ギズモの対象は選択中
-	// GameObjectのTransformではなく、そのGameObjectが持つCollider（オフセット+サイズ）に切り替わる
-	bool editCollider_ = false;
+	ColliderSystem colliderSystem_;
+	GizmoController gizmoController_;
 
-	// Collider編集を仲介する一時バッファ。translationはワールド座標に変換したコライダー中心、
-	// scaleはSphereなら{radius,radius,radius}、Boxならhalfsize*2を格納する。rotationは使わない
-	Transform colliderGizmoScratch_;
-
-	// マウスピッキング：3Dビュー上で左クリックした瞬間を検知するための前フレーム状態。
-	// InputDeviceは左クリックの「押されているか」のみでトリガー版を持たないため、ここで保持する
-	bool prevMouseLeftPressed_ = false;
-
-	Transform* GetGizmoTargetTransform();
-	void       UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj);
-
-	// gizmoTargets_内のオブジェクトをTransform.scaleから概算したBounding Sphereとみなし、
-	// 左クリック位置から飛ばしたレイとの交差判定で最も手前のものをギズモ選択状態に反映する。
-	// ImGuizmo操作中/ImGuiパネル操作中は発火しない（既存のコンボボックス選択と共存する追加手段）
-	void UpdatePicking(const Matrix4x4& view, const Matrix4x4& proj);
-
-	// gizmoTargets_内でCollider（Sphere/Box）を持つ全オブジェクトについて、
-	// ColliderComponentBase::ShouldLayersCollide（お互いが相手の所属レイヤーを自分の
-	// collidesWithに含めている場合のみtrue）を通過したペアの重なりを判定する。両方Solid（isTrigger=false）で重なっている場合は
-	// Collision::*Penetrationで押し戻し量を求め、Transform.translationを半分ずつ動かして分離する
-	// （isTriggerがどちらかtrueなら押し戻さず検知のみ）。判定・押し戻し後の位置でワイヤーフレームを
-	// 緑（重なりなし）/黄（Trigger込みの重なり）/赤（Solid同士の重なり）に色分けして描画する
-	void ResolveAndDrawColliderGizmos(const Matrix4x4& view, const Matrix4x4& proj);
+	// 固定パス（Resources/scene.json）へobjects_全体を保存/復元する。Loadはobjects_を
+	// 一度全部破棄してJSONの内容から丸ごと再構築するため、保存時と異なる数でも復元できる
+	void SaveScene(const std::string& path);
+	void LoadScene(const std::string& path);
 
 	void DrawGrid();
 	void DrawImGui();
