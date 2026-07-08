@@ -19,5 +19,5 @@ public:
 
 	// "{namePrefix} Lighting"/"{namePrefix} Color"/"{namePrefix} BlendMode"/
 	// "{namePrefix} Blend Strength"/"{namePrefix} Alpha Test"を描画する
-	void DrawImGui(const char* namePrefix);
+	void DrawImGui(const char* namePrefix) override;
 };

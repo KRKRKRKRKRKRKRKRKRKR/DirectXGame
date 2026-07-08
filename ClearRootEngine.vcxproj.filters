@@ -64,7 +64,13 @@
     <ClCompile Include="Engine\Graphics\Pipeline\Pipeline.cpp" />
     <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
     <ClCompile Include="Engine\GameObject\Component\RenderComponentBase.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\TransformComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\ColliderComponentBase.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\GravityComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\DirectionalLightComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\PointLightComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\SpotLightComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\TextureSelectorComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\CubeRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\SphereRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\TriangleRenderComponent.cpp" />
@@ -164,6 +170,7 @@
     <ClInclude Include="Engine\GameObject\GameObject.h" />
     <ClInclude Include="Engine\GameObject\IComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\RenderComponentBase.h" />
+    <ClInclude Include="Engine\GameObject\Component\TransformComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\CubeRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\SphereRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\TriangleRenderComponent.h" />
@@ -173,6 +180,12 @@
     <ClInclude Include="Engine\GameObject\Component\OBBColliderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\CollisionLayer.h" />
     <ClInclude Include="Engine\GameObject\Component\ColliderComponentBase.h" />
+    <ClInclude Include="Engine\GameObject\Component\GravityComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\DirectionalLightComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\PointLightComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\SpotLightComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\TextureEntry.h" />
+    <ClInclude Include="Engine\GameObject\Component\TextureSelectorComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\RenderComponentFactory.h" />
     <ClInclude Include="Engine\Graphics\Object\IDrawable.h" />
     <ClInclude Include="Engine\Graphics\Object\Line\Line.h" />

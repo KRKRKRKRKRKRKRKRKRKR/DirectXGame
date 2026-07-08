@@ -17,6 +17,12 @@
 #include "../Engine/GameObject/Component/SpriteRenderComponent.h"
 #include "../Engine/GameObject/Component/SphereColliderComponent.h"
 #include "../Engine/GameObject/Component/OBBColliderComponent.h"
+#include "../Engine/GameObject/Component/GravityComponent.h"
+#include "../Engine/GameObject/Component/DirectionalLightComponent.h"
+#include "../Engine/GameObject/Component/PointLightComponent.h"
+#include "../Engine/GameObject/Component/SpotLightComponent.h"
+#include "../Engine/GameObject/Component/TextureEntry.h"
+#include "../Engine/GameObject/Component/TextureSelectorComponent.h"
 #include <vector>
 #include <string>
 
@@ -39,6 +45,12 @@ private:
 
 	// 遷移先。デフォルトはkNone（遷移しない）で、デバッグ用のキー入力で書き換える
 	SceneType nextScene_ = SceneType::kNone;
+
+	// Unityの Play/Stop に相当する状態。falseの間（Stop＝編集モード）は
+	// GameObject::Update()（GravityComponent等）とColliderの押し戻し解決を止め、
+	// Gizmoで自由にオブジェクトを配置できるようにする（重なり検知・色分け表示自体は常時行う）。
+	// デフォルトはfalse（シーンを開いた直後は編集モードから始まる、Unityと同じ挙動）
+	bool isPlaying_ = false;
 
 	// GameObject/コンポーネントシステムへの移行対象。CubeとFloorはプロパティ構成が
 	// 完全に同一（Smoothness等の固有パラメータを持たない）ため、専用クラスを作らず
@@ -63,52 +75,39 @@ private:
 	// mirrorObject_のTransformから反射平面（法線・原点からの距離）を導出する
 	Collision::Plane ComputeMirrorPlane(const Transform& mirrorTransform) const;
 
+	// ライト用の「空のGameObject」。Render/Colliderコンポーネントは持たず、対応する
+	// XxxLightComponentのみを持つ。Transformが実在するため、他のオブジェクトと全く同じ
+	// Gizmo選択・ドラッグ編集の仕組みに乗る（ライトだけの特殊分岐が不要になる）
+	GameObject directionalLightObject_;
+	GameObject pointLightObject_;
+	GameObject spotLightObject_;
+
 	Sound bgm;
 
-	struct TextureEntry {
-		TextureHandle handle;
-		std::string   name;
-	};
+	// テクスチャの選択インデックスは各オブジェクトが持つTextureSelectorComponentへ移った
+	// （PlayScene側は共有一覧のtextures_のみを持つ）
 	std::vector<TextureEntry> textures_;
-	int sprite2DTexIndex_  = 0;
-	int sprite3DTexIndex_  = 0;
-	int triangleTexIndex_  = 0;
-	int cubeTexIndex_      = 0;
-	int sphereTexIndex_    = 0;
-	int floorTexIndex_     = 0;
-	int modelTexIndex_     = 0;
-	int fbxModelTexIndex_  = 0;
 
 	float triangleSmoothness_ = 1.0f;
 	float cubeSmoothness_     = 1.0f;
 	int   sphereSubdivision_  = static_cast<int>(Renderer::kSphereMaxSubdivision);
 
 	// Blenderライクなギズモ操作：ImGuiで選んだ1オブジェクトのTransformをドラッグで編集する。
-	// sprite2Dは対象外（スクリーン空間UIのため）。
-	// PointLight/SpotLightはSceneLightのSetter経由でしか書き込めずTransformを持たないため、
-	// lightGizmoScratch_という一時Transformを橋渡しに使う（UpdateGizmo()参照）。
-	// 通常オブジェクト（GameObjectを持つもの）はenumのケースを手で並べず、gizmoTargets_という
-	// 動的リストとgizmoTargetIndex_（リスト内インデックス）で選択する
-	enum class GizmoTarget {
-		kNone,
-		kPointLight,
-		kSpotLight,
-	};
-	GizmoTarget          gizmoTarget_    = GizmoTarget::kNone;
+	// sprite2Dは対象外（スクリーン空間UIのため）。ライト用GameObjectも他と同じくTransformを
+	// 実在させたため、通常オブジェクトと全く同じ形（gizmoTargets_＋gizmoTargetIndex_）で選択できる
 	ImGuizmo::OPERATION  gizmoOperation_ = ImGuizmo::TRANSLATE;
 
 	// 通常オブジェクト（Transformを直接持つGameObject）の一覧。Initialize()末尾で
-	// 全GameObjectメンバのアドレスを登録する。PointLight/SpotLightはGameObjectを
-	// 持たない特殊ケースのため、このリストには含めずgizmoTarget_(enum)側で扱う
+	// 全GameObjectメンバのアドレスを登録する
 	std::vector<GameObject*> gizmoTargets_;
 
 	// gizmoTargets_内で現在選択中のインデックス。-1は「このリストからは何も選んでいない」
-	// （gizmoTarget_がkPointLight/kSpotLightの場合、またはkNoneの場合はこちらが有効になる）
 	int gizmoTargetIndex_ = -1;
 
-	// PointLight/SpotLightのギズモ操作を仲介する一時バッファ。SceneLightはTransform型を持たず
-	// Setter経由でしか書き込めないため、ここに現在値をコピー→ImGuizmoで編集→差分をSetterへ書き戻す
-	Transform lightGizmoScratch_;
+	// "Objects"パネルに表示する全GameObjectの一覧（表示順）。gizmoTargets_とは目的が異なる
+	// （Gizmo選択可否ではなくObjectsパネル表示可否）ため独立して持つ。Sprite2DはgizmoTargets_には
+	// 含まれないがこちらには含まれる
+	std::vector<GameObject*> objectPanelTargets_;
 
 	// "Gizmo"パネルの"Edit Collider"チェックボックス。オンの間、ギズモの対象は選択中
 	// GameObjectのTransformではなく、そのGameObjectが持つCollider（オフセット+サイズ）に切り替わる

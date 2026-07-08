@@ -21,6 +21,9 @@ void ColliderComponentBase::DrawImGui(const char* namePrefix) {
 	std::string triggerLabel = std::string(namePrefix) + " Collider Is Trigger";
 	ImGui::Checkbox(triggerLabel.c_str(), &isTrigger);
 
+	std::string staticLabel = std::string(namePrefix) + " Collider Is Static";
+	ImGui::Checkbox(staticLabel.c_str(), &isStatic);
+
 	// 衝突対象レイヤーのチェックボックス群。「所属レイヤー」とは別概念で、
 	// 「このコライダーがどのレイヤーと衝突判定するか」を個別に選べるようにする。
 	// ShouldLayersCollideは両者が互いに相手を選んでいる場合のみtrueを返す

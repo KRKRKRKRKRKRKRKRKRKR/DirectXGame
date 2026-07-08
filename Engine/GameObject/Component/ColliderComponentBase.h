@@ -25,9 +25,15 @@ public:
 		return collidesWith[static_cast<size_t>(other)];
 	}
 
+	// true: 押し戻しで動かない（地面や壁など、常に固定しておきたいオブジェクト用）。
+	// 両方Solidで重なった場合、isStaticでない側だけが100%押し戻される
+	// （両方isStaticなら押し戻し自体をスキップする）
+	bool isStatic = false;
+
 	// "{namePrefix} Collider Layer"コンボ・"{namePrefix} Collider Is Trigger"チェックボックス・
-	// "{namePrefix} Collides With"のレイヤー別チェックボックス一覧を描画する
-	void DrawImGui(const char* namePrefix);
+	// "{namePrefix} Collider Is Static"チェックボックス・"{namePrefix} Collides With"の
+	// レイヤー別チェックボックス一覧を描画する
+	void DrawImGui(const char* namePrefix) override;
 };
 
 // 2つのコライダーが判定対象かどうか。お互いが相手の所属レイヤーを自分の衝突対象に

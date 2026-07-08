@@ -9,10 +9,8 @@ public:
 
 	void Draw(Renderer* renderer, const Transform& transform) const;
 
-	// "{headerPrefix} UV Transform"という見出しの下に"{fieldPrefix} UV Offset/Rotation/Scale"を描画する。
-	// 見出しとフィールドで別々のprefixを取るのは、既存UIが"Sprite3D UV Transform"（見出し）と
-	// "3D UV Offset"（フィールド）のように異なる接頭辞を使っていたものをそのまま維持するため
-	void DrawUVTransformImGui(const char* headerPrefix, const char* fieldPrefix);
+	// 共通項目（RenderComponentBase::DrawImGui）に加えて、UV Transform（Offset/Rotation/Scale）も描画する
+	void DrawImGui(const char* namePrefix) override;
 
 	bool        is3D;
 	UVTransform uvTransform;

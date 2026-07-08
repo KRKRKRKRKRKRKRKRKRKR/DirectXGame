@@ -10,6 +10,39 @@
 #include <algorithm>
 #include <cfloat>
 
+// 方向ベクトル → オイラー角(ラジアン、XMMatrixRotationRollPitchYaw規約)。
+// 基準方向{0,0,1}から目標方向への回転をクォータニオンで求め、既存のMakeAffineMatrix/Decomposeと
+// 整合する経路（回転行列→ImGuizmo::DecomposeMatrixToComponentsでのオイラー角抽出）で変換する。
+// Directional/Spot Lightの初期回転を、旧SceneLightのデフォルト方向値から逆算するためだけに
+// Initialize()で使う（実行時のGizmo操作パスでは不要になった。方向はTransform.rotationから
+// 一方向にTransformMath::EulerRadiansToDirectionで求めるだけで済むため）
+static Vector3 DirectionToEulerRadians(const Vector3& direction) {
+	using namespace DirectX;
+	XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&direction));
+	XMVECTOR baseDir = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
+	float dot = XMVectorGetX(XMVector3Dot(baseDir, dir));
+	dot = std::clamp(dot, -1.0f, 1.0f);
+	XMVECTOR axis = XMVector3Cross(baseDir, dir);
+	XMVECTOR quat;
+	if (XMVectorGetX(XMVector3LengthSq(axis)) < 1e-8f) {
+		// 平行または反対向き：外積が定義できないので特別扱い
+		quat = (dot > 0.0f) ? XMQuaternionIdentity()
+		                     : XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), XM_PI);
+	} else {
+		quat = XMQuaternionRotationAxis(XMVector3Normalize(axis), acosf(dot));
+	}
+	Matrix4x4 rotMat;
+	XMStoreFloat4x4(&rotMat, XMMatrixRotationQuaternion(quat));
+
+	// 自前の三角関数展開を書かず、既に実績のある「行列→DecomposeMatrixToComponents」の経路を再利用する
+	float t[3], r[3], s[3];
+	ImGuizmo::DecomposeMatrixToComponents(&rotMat._11, t, r, s);
+	return {
+		XMConvertToRadians(r[0]),
+		XMConvertToRadians(r[1]),
+		XMConvertToRadians(r[2]) };
+}
+
 void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
 	camera_ = camera;
@@ -29,22 +62,17 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 		textures_.push_back({ h, path.substr(path.find_last_of('/') + 1) });
 	}
 
-	sprite2DTexIndex_ = 1; // t.png をデフォルト
-	sprite3DTexIndex_ = 1;
-	triangleTexIndex_ = 1;
-	cubeTexIndex_ = 1;
-	sphereTexIndex_ = 1;
-
 	// GameObject/コンポーネントシステムへの移行第1号。CubeRenderComponentが
-	// Renderer::DrawCubeへの実際の描画呼び出しを担う（cubeTexIndex_はtextures_配列への
-	// UI選択インデックスとしてPlayScene側に残し、選んだ結果のhandleだけコンポーネントへ渡す）
+	// Renderer::DrawCubeへの実際の描画呼び出しを担う。テクスチャの選択インデックスは
+	// TextureSelectorComponentが自分で持ち、DrawImGuiのたびにtextureHandleへ反映する
 	cubeObject_.name = "Cube";
-	cubeObject_.transform.translation = { -3.0f, 1.0f, 0.0f };
+	cubeObject_.GetTransform().translation = { -3.0f, 1.0f, 0.0f };
 	CubeRenderComponent* cubeRender = cubeObject_.AddComponent<CubeRenderComponent>();
-	cubeRender->textureHandle = textures_[cubeTexIndex_].handle;
+	cubeRender->textureHandle = textures_[1].handle; // 初期テクスチャ: t.png
+	cubeObject_.AddComponent<TextureSelectorComponent>(cubeRender, &textures_, 1);
 
 	// CubeはOBB（回転追従の直方体）を使う。見た目（1辺2.0相当）に近いhalfSizeを初期値にする。
-	// 回転はコライダー自身では持たず、cubeObject_.transform.rotationをそのまま使うため、
+	// 回転はコライダー自身では持たず、cubeObject_.GetTransform().rotationをそのまま使うため、
 	// Cubeを回転させると当たり判定も一緒に追従する。"Gizmo"パネルの"Edit Collider"で
 	// オフセット・サイズをドラッグ調整できる
 	OBBColliderComponent* cubeCollider = cubeObject_.AddComponent<OBBColliderComponent>();
@@ -54,29 +82,44 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 	cubeCollider->collidesWith[static_cast<size_t>(CollisionLayer::kObstacle)] = false; // 障害物同士は判定しない
 	cubeCollider->collidesWith[static_cast<size_t>(CollisionLayer::kItem)]     = false; // 障害物とアイテムは判定しない
 
+	// 重力デモ用：CubeはSolidでEnvironment(Floor)と衝突するため、そのままGravityComponentの
+	// 動作確認に使える（Gizmoで持ち上げて離すと落下しFloor上で止まる）
+	cubeObject_.AddComponent<GravityComponent>();
+
 	// 大きなFloor（Cubeを平たく大きく引き伸ばして床として使う）。CubeとFloorは
 	// プロパティ構成が完全に同一なため、専用クラスを作らずCubeRenderComponentを再利用する
-	floorTexIndex_ = 1;
 	floorObject_.name = "Floor";
-	floorObject_.transform.translation = { 0.0f, -0.5f, 0.0f };
-	floorObject_.transform.scale       = { 100.0f, 0.01f, 100.0f };
+	floorObject_.GetTransform().translation = { 0.0f, -0.5f, 0.0f };
+	floorObject_.GetTransform().scale       = { 100.0f, 0.01f, 100.0f };
 	CubeRenderComponent* floorRender = floorObject_.AddComponent<CubeRenderComponent>();
-	floorRender->textureHandle = textures_[floorTexIndex_].handle;
+	floorRender->textureHandle = textures_[1].handle;
+	floorObject_.AddComponent<TextureSelectorComponent>(floorRender, &textures_, 1);
 
-	// Floorの当たり判定：Cubeと同じ基準halfSize={1,1,1}。GetWorldOBBがtransform.scaleを
-	// 自動で掛けるため、実際の床サイズ(100,0.01,100)に一致する。背景系はisTrigger=trueにして
-	// 押し戻し（現状50/50均等分配）で床自体が動いてしまう不自然さを避ける
+	// Floorの当たり判定：X/ZはCubeと同じ基準halfSize=1（GetWorldOBBがtransform.scaleを
+	// 自動で掛けるため実際の床サイズ100に一致する）。Yだけは見た目の厚み(scale.y=0.01)より
+	// はるかに厚い判定用ボリュームにする：halfSize.y=100(スケール後1.0)、offset.yで見た目の
+	// 上面位置(-0.49)を保ったまま下方向にだけ拡張する。GravityComponentで加速したオブジェクトが
+	// 薄い床を1フレームで通り抜けてしまう「すり抜け」を防ぐための安全マージン
 	OBBColliderComponent* floorCollider = floorObject_.AddComponent<OBBColliderComponent>();
-	floorCollider->halfSize = { 1.0f, 1.0f, 1.0f };
+	floorCollider->halfSize = { 1.0f, 100.0f, 1.0f };
+	floorCollider->offset   = { 0.0f, -0.99f, 0.0f };
 	floorCollider->layer = CollisionLayer::kEnvironment;
-	floorCollider->isTrigger = true;
+	// 背景系はisStatic=trueにして、Solidでも押し戻しで自分自身は動かないようにする
+	// （isStaticの導入前はisTrigger=trueで押し戻し自体を回避していたが、本来の意図に戻す）
+	floorCollider->isStatic = true;
+
+	// Floorは巨大なオブジェクトなのでSRTのドラッグ刻み幅・範囲を広くする
+	TransformComponent* floorTransform = floorObject_.GetComponent<TransformComponent>();
+	floorTransform->scaleSpeed = 0.1f; floorTransform->scaleMin = 0.1f; floorTransform->scaleMax = 200.0f;
+	floorTransform->translationSpeed = 0.1f; floorTransform->translationMin = -100.0f; floorTransform->translationMax = 100.0f;
 
 	// Sphere。sphereSubdivision_はrenderer_->SetSphereSubdivision()というグローバル設定
 	// （個体ごとのパラメータではない）のため、cubeSmoothness_と同様にコンポーネントには持たせない
 	sphereObject_.name = "Sphere";
-	sphereObject_.transform.translation = { 3.0f, 1.0f, 0.0f };
+	sphereObject_.GetTransform().translation = { 3.0f, 1.0f, 0.0f };
 	SphereRenderComponent* sphereRender = sphereObject_.AddComponent<SphereRenderComponent>();
-	sphereRender->textureHandle = textures_[sphereTexIndex_].handle;
+	sphereRender->textureHandle = textures_[1].handle;
+	sphereObject_.AddComponent<TextureSelectorComponent>(sphereRender, &textures_, 1);
 
 	// Cubeとの重なり判定を確認するための検証用Collider（Collider導入検証第2号）
 	SphereColliderComponent* sphereCollider = sphereObject_.AddComponent<SphereColliderComponent>();
@@ -91,9 +134,10 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 	// Triangle。triangleSmoothness_はrenderer_->SetTriangleSmoothness()というグローバル設定
 	// のため、cubeSmoothness_/sphereSubdivision_と同様にコンポーネントには持たせない
 	triangleObject_.name = "Triangle";
-	triangleObject_.transform.translation = { 0.0f, 1.0f, 0.0f };
+	triangleObject_.GetTransform().translation = { 0.0f, 1.0f, 0.0f };
 	TriangleRenderComponent* triangleRender = triangleObject_.AddComponent<TriangleRenderComponent>();
-	triangleRender->textureHandle = textures_[triangleTexIndex_].handle;
+	triangleRender->textureHandle = textures_[1].handle;
+	triangleObject_.AddComponent<TextureSelectorComponent>(triangleRender, &textures_, 1);
 
 	// Triangle用のコライダーはTriangle形状専用のものが存在しないため、Cube/Sphereと
 	// 同じ「scale=1のとき半径1」基準のSphereColliderComponentで近似する
@@ -103,9 +147,10 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 
 	// 3Dスプライト（ワールド空間）
 	sprite3DObject_.name = "Sprite3D";
-	sprite3DObject_.transform.translation = { 0.0f, 3.0f, 0.0f };
+	sprite3DObject_.GetTransform().translation = { 0.0f, 3.0f, 0.0f };
 	SpriteRenderComponent* sprite3DRender = sprite3DObject_.AddComponent<SpriteRenderComponent>(/*is3D=*/true);
-	sprite3DRender->textureHandle = textures_[sprite3DTexIndex_].handle;
+	sprite3DRender->textureHandle = textures_[1].handle;
+	sprite3DObject_.AddComponent<TextureSelectorComponent>(sprite3DRender, &textures_, 1);
 
 	// Sprite3D（ワールド空間）にも他と同じ基準のSphereColliderComponentを付ける
 	SphereColliderComponent* sprite3DCollider = sprite3DObject_.AddComponent<SphereColliderComponent>();
@@ -114,24 +159,31 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 
 	// 2DスプライトUI（ピクセル座標、左上原点）。lightingのデフォルトがfalseな点に注意
 	sprite2DObject_.name = "Sprite2D";
-	sprite2DObject_.transform.translation = { 100.0f, 100.0f, 0.0f };
-	sprite2DObject_.transform.scale = { 200.0f, 200.0f, 1.0f };
+	sprite2DObject_.GetTransform().translation = { 100.0f, 100.0f, 0.0f };
+	sprite2DObject_.GetTransform().scale = { 200.0f, 200.0f, 1.0f };
 	SpriteRenderComponent* sprite2DRender = sprite2DObject_.AddComponent<SpriteRenderComponent>(/*is3D=*/false);
 	sprite2DRender->lighting = false;
-	sprite2DRender->textureHandle = textures_[sprite2DTexIndex_].handle;
+	sprite2DRender->textureHandle = textures_[1].handle;
+	sprite2DObject_.AddComponent<TextureSelectorComponent>(sprite2DRender, &textures_, 1);
+
+	// Sprite2Dはスクリーン座標(px)のUIなので、TransformComponentを2D表示モードにする
+	TransformComponent* sprite2DTransform = sprite2DObject_.GetComponent<TransformComponent>();
+	sprite2DTransform->is2D = true;
+	sprite2DTransform->translationSpeed = 1.0f; sprite2DTransform->translationMin = 0.0f; sprite2DTransform->translationMax = 1920.0f;
+	sprite2DTransform->scaleSpeed = 1.0f; sprite2DTransform->scaleMin = 1.0f; sprite2DTransform->scaleMax = 1920.0f;
 
 	bgm.Load("Resources/Audio/BGM.mp3");
 	AudioManager::GetInstance().RegisterSound("BGM", &bgm, SoundType::BGM, true);
 
 	modelObject_.name = "Model (OBJ)";
-	modelObject_.transform.translation = { 5.0f, 0.0f, 0.0f };
+	modelObject_.GetTransform().translation = { 5.0f, 0.0f, 0.0f };
 	// player.objはメッシュ自体の実寸がCube等の「単位1.0形状」前提と異なるため、
 	// ピッキング用の基準半径を実測値に合わせて個別に設定する（scale=1なのでこの値がそのまま半径になる）
 	modelObject_.pickingRadiusHint = 2.0f;
-	modelTexIndex_ = 1; // デフォルトで t.png を使用
 	ModelRenderComponent* modelRender = modelObject_.AddComponent<ModelRenderComponent>(
 		renderer_->LoadModel("Resources/Model", "player.obj"), /*hasAnimation=*/false);
-	modelRender->textureHandle = textures_[modelTexIndex_].handle;
+	modelRender->textureHandle = textures_[1].handle; // 初期テクスチャ: t.png
+	modelObject_.AddComponent<TextureSelectorComponent>(modelRender, &textures_, 1);
 
 	// pickingRadiusHintは既にメッシュの実測サイズに校正済みなので、そのままコライダー半径に流用する
 	SphereColliderComponent* modelCollider = modelObject_.AddComponent<SphereColliderComponent>();
@@ -140,28 +192,34 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 
 	// Assimp導入確認用（FBX読み込みテスト。ボーン+アニメーション付きのHumanModel_ver2.fbxで確認）
 	fbxModelObject_.name = "FBX Model";
-	fbxModelObject_.transform.translation = { 8.0f, 0.0f, 0.0f };
+	fbxModelObject_.GetTransform().translation = { 8.0f, 0.0f, 0.0f };
 	// MixamoモデルはFBXのUnitScaleFactorメタデータが1.0のまま実寸(cm相当)で出力されており、
 	// 他オブジェクトと同じ単位系に合わせるには実測で0.01倍が丁度良かった
-	fbxModelObject_.transform.scale = { 0.01f, 0.01f, 0.01f };
+	fbxModelObject_.GetTransform().scale = { 0.01f, 0.01f, 0.01f };
 	// ピッキング半径 = pickingRadiusHint * scale なので、実寸(cm相当)の人間サイズに対して
 	// scale=0.01を掛けた後に半径1.0m程度になるよう、逆算して100.0を基準値にする
 	fbxModelObject_.pickingRadiusHint = 100.0f;
 	ModelRenderComponent* fbxModelRender = fbxModelObject_.AddComponent<ModelRenderComponent>(
 		renderer_->LoadModel("Resources/Model", "HumanModel_ver2.fbx"), /*hasAnimation=*/true);
-	fbxModelRender->textureHandle = textures_[fbxModelTexIndex_].handle;
+	fbxModelRender->textureHandle = textures_[0].handle; // 現状未選択(なし)のまま据え置き
+	fbxModelObject_.AddComponent<TextureSelectorComponent>(fbxModelRender, &textures_, 0);
 
 	// SphereColliderComponentのradiusはtransform.scaleの影響を受けない絶対値のため、
 	// ピッキングと同じ換算（pickingRadiusHint * scale）をあらかじめ計算しておく
 	SphereColliderComponent* fbxModelCollider = fbxModelObject_.AddComponent<SphereColliderComponent>();
-	fbxModelCollider->radius = fbxModelObject_.pickingRadiusHint * fbxModelObject_.transform.scale.x;
+	fbxModelCollider->radius = fbxModelObject_.pickingRadiusHint * fbxModelObject_.GetTransform().scale.x;
 	fbxModelCollider->layer = CollisionLayer::kDefault;
+
+	// FBX Modelは実寸(cm相当)にscale=0.01を掛けている関係でscaleの刻み幅を細かくする
+	TransformComponent* fbxModelTransform = fbxModelObject_.GetComponent<TransformComponent>();
+	fbxModelTransform->scaleSpeed = 0.001f; fbxModelTransform->scaleMin = 0.001f; fbxModelTransform->scaleMax = 1.0f;
+	fbxModelTransform->translationSpeed = 0.1f; fbxModelTransform->translationMin = -50.0f; fbxModelTransform->translationMax = 50.0f;
 
 	// 鏡（平面反射）。floor同様に薄く引き伸ばしたCubeを板として使う。textureHandleは
 	// 毎フレームRender()内でRenderer::GetMirrorTextureHandle()に差し替えるためここでは未設定
 	mirrorObject_.name = "Mirror";
-	mirrorObject_.transform.translation = { -6.0f, 2.0f, -3.0f };
-	mirrorObject_.transform.scale       = { 4.0f, 3.0f, 0.05f };
+	mirrorObject_.GetTransform().translation = { -6.0f, 2.0f, -3.0f };
+	mirrorObject_.GetTransform().scale       = { 4.0f, 3.0f, 0.05f };
 	CubeRenderComponent* mirrorRender = mirrorObject_.AddComponent<CubeRenderComponent>();
 	mirrorRender->lighting = false; // 反射像をそのまま表示するため照明計算は不要
 
@@ -169,7 +227,26 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 	OBBColliderComponent* mirrorCollider = mirrorObject_.AddComponent<OBBColliderComponent>();
 	mirrorCollider->halfSize = { 1.0f, 1.0f, 1.0f };
 	mirrorCollider->layer = CollisionLayer::kEnvironment;
-	mirrorCollider->isTrigger = true;
+	// Floorと同じ理由でisStatic=trueにする
+	mirrorCollider->isStatic = true;
+
+	// ライト用の「空のGameObject」。Render/Colliderは持たず、対応するXxxLightComponentのみを
+	// 持つ。Transformが実在するため、他のオブジェクトと全く同じGizmo選択・ドラッグ編集の
+	// 仕組みに乗る（旧GizmoTarget::kPointLight/kSpotLightのような特殊分岐が不要になる）。
+	// 初期値は旧SceneLight::LightDataのデフォルト値をそのまま踏襲し、見た目が変わらないようにする
+	directionalLightObject_.name = "Directional Light";
+	directionalLightObject_.GetTransform().translation = { 0.0f, 15.0f, 0.0f }; // 旧可視化位置(-direction*15)を踏襲
+	directionalLightObject_.GetTransform().rotation = DirectionToEulerRadians({ 0.0f, -1.0f, 0.0f }); // 旧directionデフォルト
+	directionalLightObject_.AddComponent<DirectionalLightComponent>();
+
+	pointLightObject_.name = "Point Light";
+	pointLightObject_.GetTransform().translation = { 0.0f, 2.0f, 0.0f }; // 旧pointPositionデフォルト
+	pointLightObject_.AddComponent<PointLightComponent>();
+
+	spotLightObject_.name = "Spot Light";
+	spotLightObject_.GetTransform().translation = { 2.0f, 3.0f, 0.0f }; // 旧spotPositionデフォルト
+	spotLightObject_.GetTransform().rotation = DirectionToEulerRadians({ -1.0f, -1.0f, 0.0f }); // 旧spotDirectionデフォルト
+	spotLightObject_.AddComponent<SpotLightComponent>();
 
 	// 全ての通常オブジェクトのGameObjectをギズモ選択対象として登録する。
 	// name(GameObject::name)がそのままImGuiコンボの表示名になる。
@@ -177,6 +254,15 @@ void PlayScene::Initialize(Renderer* renderer, Camera* camera) {
 	gizmoTargets_ = {
 		&cubeObject_, &sphereObject_, &triangleObject_, &floorObject_,
 		&sprite3DObject_, &modelObject_, &fbxModelObject_, &mirrorObject_,
+		&directionalLightObject_, &pointLightObject_, &spotLightObject_,
+	};
+
+	// "Objects"パネルに表示する全GameObjectの一覧（表示順そのまま）。gizmoTargets_と違い
+	// sprite2DObject_（スクリーン空間UI）も含む
+	objectPanelTargets_ = {
+		&floorObject_, &triangleObject_, &cubeObject_, &sphereObject_,
+		&modelObject_, &fbxModelObject_, &sprite3DObject_, &mirrorObject_,
+		&sprite2DObject_, &directionalLightObject_, &pointLightObject_, &spotLightObject_,
 	};
 }
 
@@ -193,28 +279,36 @@ void PlayScene::Render(float deltaTime) {
 	// ImGuizmo導入確認用（Step0）。ImGui::NewFrame()の後、ImGui::Render()の前に呼ぶ必要がある
 	ImGuizmo::BeginFrame();
 
+	// 全オブジェクトのコンポーネントを更新する（GravityComponent等、毎フレームTransformを
+	// 書き換えるコンポーネントはここで動く）。この直後のResolveAndDrawColliderGizmosが
+	// 同じフレーム内で地面との重なりを検出して押し戻すため、「落下→着地」が1フレームで揃う。
+	// Stop中（isPlaying_=false）はGizmoで自由に配置できるよう、シミュレーション自体を止める
+	if (isPlaying_) {
+		for (auto* obj : gizmoTargets_) obj->Update(deltaTime);
+	}
+
 	Matrix4x4 view = camera_->GetViewMatrix();
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
 		camera_->GetAspectRatio(renderer_->GetClientWidth(), renderer_->GetClientHeight()));
 
 	// ---- 鏡（反射）パス：鏡の平面に対して反射させた視点で、床・Cube・Sphere・Triangleを
 	// オフスクリーンテクスチャへ描く。mirrorObject_自身は描かない（無限反射を避けるため） ----
-	Collision::Plane mirrorPlane   = ComputeMirrorPlane(mirrorObject_.transform);
+	Collision::Plane mirrorPlane   = ComputeMirrorPlane(mirrorObject_.GetTransform());
 	Matrix4x4        reflection    = MatrixMath::MakeReflectionMatrix(mirrorPlane);
 	Matrix4x4        reflectedView = reflection * view;
 	Vector3           reflectedCamPos = TransformMath::Transform(camera_->GetCameraData().position, reflection);
 
 	renderer_->BeginMirrorPass(reflectedView, proj, reflectedCamPos);
-	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.transform);
-	triangleObject_.GetComponent<TriangleRenderComponent>()->Draw(renderer_, triangleObject_.transform);
-	cubeObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, cubeObject_.transform);
-	sphereObject_.GetComponent<SphereRenderComponent>()->Draw(renderer_, sphereObject_.transform);
+	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.GetTransform());
+	triangleObject_.GetComponent<TriangleRenderComponent>()->Draw(renderer_, triangleObject_.GetTransform());
+	cubeObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, cubeObject_.GetTransform());
+	sphereObject_.GetComponent<SphereRenderComponent>()->Draw(renderer_, sphereObject_.GetTransform());
 	renderer_->EndMirrorPass();
 
 	// ---- 通常パス ----
 	renderer_->SetCamera(view, proj, camera_->GetCameraData().position);
 
-	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.transform);
+	floorObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, floorObject_.GetTransform());
 
 	// マウスピッキング：3Dビュー上の左クリックでギズモ選択対象を切り替える（コンボボックス選択と共存）
 	UpdatePicking(view, proj);
@@ -222,74 +316,35 @@ void PlayScene::Render(float deltaTime) {
 	// Blenderライクなギズモ操作："Gizmo"パネルで選んだ1オブジェクトのTransformをドラッグで編集する
 	UpdateGizmo(view, proj);
 
-	triangleObject_.GetComponent<TriangleRenderComponent>()->Draw(renderer_, triangleObject_.transform);
-	cubeObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, cubeObject_.transform);
-	sphereObject_.GetComponent<SphereRenderComponent>()->Draw(renderer_, sphereObject_.transform);
-	modelObject_.GetComponent<ModelRenderComponent>()->Draw(renderer_, modelObject_.transform, deltaTime);
-	fbxModelObject_.GetComponent<ModelRenderComponent>()->Draw(renderer_, fbxModelObject_.transform, deltaTime);
-	sprite3DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite3DObject_.transform);
-	sprite2DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite2DObject_.transform);
+	triangleObject_.GetComponent<TriangleRenderComponent>()->Draw(renderer_, triangleObject_.GetTransform());
+	cubeObject_.GetComponent<CubeRenderComponent>()->Draw(renderer_, cubeObject_.GetTransform());
+	sphereObject_.GetComponent<SphereRenderComponent>()->Draw(renderer_, sphereObject_.GetTransform());
+	modelObject_.GetComponent<ModelRenderComponent>()->Draw(renderer_, modelObject_.GetTransform(), deltaTime);
+	fbxModelObject_.GetComponent<ModelRenderComponent>()->Draw(renderer_, fbxModelObject_.GetTransform(), deltaTime);
+	sprite3DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite3DObject_.GetTransform());
+	sprite2DObject_.GetComponent<SpriteRenderComponent>()->Draw(renderer_, sprite2DObject_.GetTransform());
 
 	// 鏡面オブジェクト自体を、反射パスで描いたテクスチャを貼って表示する
 	CubeRenderComponent* mirrorRender = mirrorObject_.GetComponent<CubeRenderComponent>();
 	mirrorRender->textureHandle = renderer_->GetMirrorTextureHandle();
-	mirrorRender->Draw(renderer_, mirrorObject_.transform);
+	mirrorRender->Draw(renderer_, mirrorObject_.GetTransform());
 
 	// Collider（当たり判定）の判定・押し戻し・可視化（詳細はResolveAndDrawColliderGizmos参照）
 	ResolveAndDrawColliderGizmos(view, proj);
 
-	// 光源を可視化：direction の逆方向 × 15 の位置に黄色い球、原点へのラインで方向を表示
-	{
-		const Vector3& d = renderer_->GetLight().GetData().direction;
-		float len = sqrtf(d.x * d.x + d.y * d.y + d.z * d.z);
-		if (len > 0.001f) {
-			// 光源位置 = ライトが向く方向の逆方向に 15 進んだ点
-			Vector3 lightPos = { -d.x / len * 15.0f, -d.y / len * 15.0f, -d.z / len * 15.0f };
-
-			// 光源位置に黄色い球（ライティングOFF で常に同じ色）
-			Transform lightSphere;
-			lightSphere.translation = lightPos;
-			lightSphere.scale = { 0.5f, 0.5f, 0.5f };
-			renderer_->DrawSphere(lightSphere, { 1.0f, 1.0f, 0.0f, 1.0f }, kTextureNone, false);
-
-			// 光源 → 原点 のラインで照射方向を表示
-			renderer_->DrawLine(lightPos, { 0.0f, 0.0f, 0.0f }, { 1.0f, 1.0f, 0.0f, 1.0f }, view, proj);
-		}
+	// 光源をSceneLightへ反映し、可視化する（各コンポーネントが自分のSetter呼び出しと
+	// デバッグ表示を担う。位置・向きはライトオブジェクトのTransformから導出される）
+	if (auto* c = directionalLightObject_.GetComponent<DirectionalLightComponent>()) {
+		c->SyncToRenderer(renderer_, directionalLightObject_.GetTransform());
+		c->DrawGizmoVisualization(renderer_, directionalLightObject_.GetTransform(), view, proj);
 	}
-
-	// Point Light を可視化：位置に球を表示（ライティングOFFで色そのまま）
-	{
-		auto& data = renderer_->GetLight().GetData();
-		if (data.enablePoint != 0) {
-			Transform pointSphere;
-			pointSphere.translation = data.pointPosition;
-			pointSphere.scale = { 0.3f, 0.3f, 0.3f };
-			Vector4 c = { data.pointColor.x, data.pointColor.y, data.pointColor.z, 1.0f };
-			renderer_->DrawSphere(pointSphere, c, kTextureNone, false);
-		}
+	if (auto* c = pointLightObject_.GetComponent<PointLightComponent>()) {
+		c->SyncToRenderer(renderer_, pointLightObject_.GetTransform());
+		c->DrawGizmoVisualization(renderer_, pointLightObject_.GetTransform(), view, proj);
 	}
-
-	// Spot Light を可視化：位置に球、照射方向にラインを表示
-	{
-		auto& data = renderer_->GetLight().GetData();
-		if (data.enableSpot != 0) {
-			Transform spotSphere;
-			spotSphere.translation = data.spotPosition;
-			spotSphere.scale = { 0.3f, 0.3f, 0.3f };
-			Vector4 c = { data.spotColor.x, data.spotColor.y, data.spotColor.z, 1.0f };
-			renderer_->DrawSphere(spotSphere, c, kTextureNone, false);
-
-			const Vector3& sd = data.spotDirection;
-			float len = sqrtf(sd.x * sd.x + sd.y * sd.y + sd.z * sd.z);
-			if (len > 0.001f) {
-				Vector3 tip = {
-					data.spotPosition.x + sd.x / len * 3.0f,
-					data.spotPosition.y + sd.y / len * 3.0f,
-					data.spotPosition.z + sd.z / len * 3.0f
-				};
-				renderer_->DrawLine(data.spotPosition, tip, c, view, proj);
-			}
-		}
+	if (auto* c = spotLightObject_.GetComponent<SpotLightComponent>()) {
+		c->SyncToRenderer(renderer_, spotLightObject_.GetTransform());
+		c->DrawGizmoVisualization(renderer_, spotLightObject_.GetTransform(), view, proj);
 	}
 
 	//DrawGrid();
@@ -302,9 +357,6 @@ void PlayScene::Render(float deltaTime) {
 }
 
 Transform* PlayScene::GetGizmoTargetTransform() {
-	if (gizmoTarget_ == GizmoTarget::kPointLight || gizmoTarget_ == GizmoTarget::kSpotLight) {
-		return &lightGizmoScratch_;
-	}
 	if (gizmoTargetIndex_ >= 0 && gizmoTargetIndex_ < static_cast<int>(gizmoTargets_.size())) {
 		GameObject* obj = gizmoTargets_[gizmoTargetIndex_];
 		if (editCollider_) {
@@ -315,7 +367,7 @@ Transform* PlayScene::GetGizmoTargetTransform() {
 			}
 			return nullptr; // Colliderを持たないオブジェクトを選んでいる場合は何も編集しない
 		}
-		return &obj->transform;
+		return &obj->GetTransform();
 	}
 	return nullptr;
 }
@@ -356,13 +408,13 @@ void PlayScene::ResolveAndDrawColliderGizmos(const Matrix4x4& view, const Matrix
 
 			bool hit = false;
 			if (a.sphere && b.sphere) {
-				hit = Collision::SphereSphere(a.sphere->GetWorldSphere(a.obj->transform), b.sphere->GetWorldSphere(b.obj->transform));
+				hit = Collision::SphereSphere(a.sphere->GetWorldSphere(a.obj->GetTransform()), b.sphere->GetWorldSphere(b.obj->GetTransform()));
 			} else if (a.obb && b.obb) {
-				hit = Collision::OBBOBB(a.obb->GetWorldOBB(a.obj->transform), b.obb->GetWorldOBB(b.obj->transform));
+				hit = Collision::OBBOBB(a.obb->GetWorldOBB(a.obj->GetTransform()), b.obb->GetWorldOBB(b.obj->GetTransform()));
 			} else if (a.sphere && b.obb) {
-				hit = Collision::OBBSphere(b.obb->GetWorldOBB(b.obj->transform), a.sphere->GetWorldSphere(a.obj->transform));
+				hit = Collision::OBBSphere(b.obb->GetWorldOBB(b.obj->GetTransform()), a.sphere->GetWorldSphere(a.obj->GetTransform()));
 			} else if (a.obb && b.sphere) {
-				hit = Collision::OBBSphere(a.obb->GetWorldOBB(a.obj->transform), b.sphere->GetWorldSphere(b.obj->transform));
+				hit = Collision::OBBSphere(a.obb->GetWorldOBB(a.obj->GetTransform()), b.sphere->GetWorldSphere(b.obj->GetTransform()));
 			}
 			if (!hit) continue;
 
@@ -372,24 +424,51 @@ void PlayScene::ResolveAndDrawColliderGizmos(const Matrix4x4& view, const Matrix
 			} else {
 				a.overlappingSolid = true; b.overlappingSolid = true;
 
+				// Stop中（isPlaying_=false）は押し戻しを行わない。重なりの検知・色分け表示だけは
+				// 常時行い、Gizmoでの自由な配置を妨げないようにする
+				if (!isPlaying_) continue;
+
 				// 両方Solid：実際に押し戻して重なりを解消する（半分ずつ均等に分配）
 				Vector3 normal{ 0.0f, 0.0f, 0.0f }; // a→b向き
 				float   depth = 0.0f;
 				bool    resolved = false;
 				if (a.sphere && b.sphere) {
-					resolved = Collision::SphereSpherePenetration(a.sphere->GetWorldSphere(a.obj->transform), b.sphere->GetWorldSphere(b.obj->transform), normal, depth);
+					resolved = Collision::SphereSpherePenetration(a.sphere->GetWorldSphere(a.obj->GetTransform()), b.sphere->GetWorldSphere(b.obj->GetTransform()), normal, depth);
 				} else if (a.obb && b.obb) {
-					resolved = Collision::OBBOBBPenetration(a.obb->GetWorldOBB(a.obj->transform), b.obb->GetWorldOBB(b.obj->transform), normal, depth);
+					resolved = Collision::OBBOBBPenetration(a.obb->GetWorldOBB(a.obj->GetTransform()), b.obb->GetWorldOBB(b.obj->GetTransform()), normal, depth);
 				} else if (a.sphere && b.obb) {
 					// OBBSpherePenetrationはobb→sphere向きを返すため、a(sphere)→b(obb)向きに揃えるため反転する
-					resolved = Collision::OBBSpherePenetration(b.obb->GetWorldOBB(b.obj->transform), a.sphere->GetWorldSphere(a.obj->transform), normal, depth);
+					resolved = Collision::OBBSpherePenetration(b.obb->GetWorldOBB(b.obj->GetTransform()), a.sphere->GetWorldSphere(a.obj->GetTransform()), normal, depth);
 					normal = normal * -1.0f;
 				} else if (a.obb && b.sphere) {
-					resolved = Collision::OBBSpherePenetration(a.obb->GetWorldOBB(a.obj->transform), b.sphere->GetWorldSphere(b.obj->transform), normal, depth);
+					resolved = Collision::OBBSpherePenetration(a.obb->GetWorldOBB(a.obj->GetTransform()), b.sphere->GetWorldSphere(b.obj->GetTransform()), normal, depth);
 				}
 				if (resolved) {
-					a.obj->transform.translation = a.obj->transform.translation - normal * (depth * 0.5f);
-					b.obj->transform.translation = b.obj->transform.translation + normal * (depth * 0.5f);
+					// isStaticな側は押し戻しで動かさない。両方staticなら押し戻し自体をスキップし、
+					// 片方だけstaticならもう片方に100%を割り当てる（デフォルトは従来通り50/50）
+					float aRatio = 0.5f, bRatio = 0.5f;
+					if (a.base->isStatic && !b.base->isStatic) {
+						aRatio = 0.0f; bRatio = 1.0f;
+					} else if (b.base->isStatic && !a.base->isStatic) {
+						aRatio = 1.0f; bRatio = 0.0f;
+					} else if (a.base->isStatic && b.base->isStatic) {
+						aRatio = 0.0f; bRatio = 0.0f;
+					}
+
+					Vector3 aDelta = normal * (-depth * aRatio);
+					Vector3 bDelta = normal * (depth * bRatio);
+					a.obj->GetTransform().translation = a.obj->GetTransform().translation + aDelta;
+					b.obj->GetTransform().translation = b.obj->GetTransform().translation + bDelta;
+
+					// 重力で落下中のオブジェクトが押し戻しで上方向に着地した場合、蓄積された落下速度を
+					// リセットする（リセットしないと同じ速度で再びめり込み、押し戻しが毎フレーム
+					// 発生して振動してしまう）
+					if (GravityComponent* aGravity = a.obj->GetComponent<GravityComponent>()) {
+						if (aDelta.y > 0.0f && aGravity->velocityY < 0.0f) aGravity->velocityY = 0.0f;
+					}
+					if (GravityComponent* bGravity = b.obj->GetComponent<GravityComponent>()) {
+						if (bDelta.y > 0.0f && bGravity->velocityY < 0.0f) bGravity->velocityY = 0.0f;
+					}
 				}
 			}
 		}
@@ -402,42 +481,11 @@ void PlayScene::ResolveAndDrawColliderGizmos(const Matrix4x4& view, const Matrix
 		Vector4 color = e.overlappingSolid   ? kSolidOverlapColor
 		              : e.overlappingTrigger ? kTriggerOverlapColor
 		                                     : kNoOverlapColor;
-		if (e.sphere) e.sphere->DrawWireframe(renderer_, e.obj->transform, color, view, proj);
-		if (e.obb)    e.obb->DrawWireframe(renderer_, e.obj->transform, color, view, proj);
+		if (e.sphere) e.sphere->DrawWireframe(renderer_, e.obj->GetTransform(), color, view, proj);
+		if (e.obb)    e.obb->DrawWireframe(renderer_, e.obj->GetTransform(), color, view, proj);
 	}
 }
 
-// 方向ベクトル → オイラー角(ラジアン、XMMatrixRotationRollPitchYaw規約)。
-// 基準方向{0,0,1}から目標方向への回転をクォータニオンで求め、既存のMakeAffineMatrix/Decomposeと
-// 整合する経路（回転行列→ImGuizmo::DecomposeMatrixToComponentsでのオイラー角抽出）で変換する。
-// ジンバルロック付近では不安定になりうるため、ドラッグ操作中(ImGuizmo::IsUsing()==true)の
-// 毎フレーム呼び出しは避けること（呼び出し側で抑制する）
-static Vector3 DirectionToEulerRadians(const Vector3& direction) {
-	using namespace DirectX;
-	XMVECTOR dir = XMVector3Normalize(XMLoadFloat3(&direction));
-	XMVECTOR baseDir = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f);
-	float dot = XMVectorGetX(XMVector3Dot(baseDir, dir));
-	dot = std::clamp(dot, -1.0f, 1.0f);
-	XMVECTOR axis = XMVector3Cross(baseDir, dir);
-	XMVECTOR quat;
-	if (XMVectorGetX(XMVector3LengthSq(axis)) < 1e-8f) {
-		// 平行または反対向き：外積が定義できないので特別扱い
-		quat = (dot > 0.0f) ? XMQuaternionIdentity()
-		                     : XMQuaternionRotationAxis(XMVectorSet(1.0f, 0.0f, 0.0f, 0.0f), XM_PI);
-	} else {
-		quat = XMQuaternionRotationAxis(XMVector3Normalize(axis), acosf(dot));
-	}
-	Matrix4x4 rotMat;
-	XMStoreFloat4x4(&rotMat, XMMatrixRotationQuaternion(quat));
-
-	// 自前の三角関数展開を書かず、既に実績のある「行列→DecomposeMatrixToComponents」の経路を再利用する
-	float t[3], r[3], s[3];
-	ImGuizmo::DecomposeMatrixToComponents(&rotMat._11, t, r, s);
-	return {
-		XMConvertToRadians(r[0]),
-		XMConvertToRadians(r[1]),
-		XMConvertToRadians(r[2]) };
-}
 
 void PlayScene::UpdatePicking(const Matrix4x4& view, const Matrix4x4& proj) {
 	bool leftPressed = ImGui::IsMouseDown(ImGuiMouseButton_Left);
@@ -475,7 +523,7 @@ void PlayScene::UpdatePicking(const Matrix4x4& view, const Matrix4x4& proj) {
 	float closestT = FLT_MAX;
 	for (int i = 0; i < static_cast<int>(gizmoTargets_.size()); i++) {
 		if (gizmoTargets_[i] == &floorObject_) continue;
-		const Transform& t = gizmoTargets_[i]->transform;
+		const Transform& t = gizmoTargets_[i]->GetTransform();
 		float maxScale = (std::max)({ t.scale.x, t.scale.y, t.scale.z });
 		float radius = gizmoTargets_[i]->pickingRadiusHint * maxScale;
 		Collision::Sphere sphere{ t.translation, radius };
@@ -487,7 +535,6 @@ void PlayScene::UpdatePicking(const Matrix4x4& view, const Matrix4x4& proj) {
 	}
 
 	if (closestIndex >= 0) {
-		gizmoTarget_ = GizmoTarget::kNone; // 通常オブジェクト選択中はkNone扱い（コンボ選択と同じ規約）
 		gizmoTargetIndex_ = closestIndex;
 	}
 	// 何にも当たらなかった場合は現在の選択状態を維持する
@@ -497,30 +544,16 @@ void PlayScene::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
 	Transform* target = GetGizmoTargetTransform();
 	if (!target) return;
 
-	// PointLight/SpotLightの場合、操作開始前に現在値をlightGizmoScratch_へ反映する。
-	// ドラッグ中（ImGuizmo::IsUsing()）は往路変換のやり直しをスキップし、直前の値を維持する
-	// （方向→回転の逆算はジンバルロック付近で不安定なため、ドラッグ中に再計算すると暴れる）
-	auto& light = renderer_->GetLight();
-	auto& lightData = light.GetData();
-	if (!ImGuizmo::IsUsing()) {
-		if (gizmoTarget_ == GizmoTarget::kPointLight) {
-			lightGizmoScratch_.translation = lightData.pointPosition;
-		} else if (gizmoTarget_ == GizmoTarget::kSpotLight) {
-			lightGizmoScratch_.translation = lightData.spotPosition;
-			lightGizmoScratch_.rotation    = DirectionToEulerRadians(lightData.spotDirection);
-		}
-	}
-
 	// Collider編集モードの場合、操作開始前に現在のoffset/radius(またはhalfSize)を
 	// colliderGizmoScratch_へ反映する（ドラッグ中は再計算しない、上記ライトと同じ理由）
 	GameObject* gizmoTargetObj = (gizmoTargetIndex_ >= 0 && gizmoTargetIndex_ < static_cast<int>(gizmoTargets_.size()))
 		? gizmoTargets_[gizmoTargetIndex_] : nullptr;
 	if (editCollider_ && gizmoTargetObj && !ImGuizmo::IsUsing()) {
 		if (auto* sphereCol = gizmoTargetObj->GetComponent<SphereColliderComponent>()) {
-			colliderGizmoScratch_.translation = gizmoTargetObj->transform.translation + sphereCol->offset;
+			colliderGizmoScratch_.translation = gizmoTargetObj->GetTransform().translation + sphereCol->offset;
 			colliderGizmoScratch_.scale       = { sphereCol->radius, sphereCol->radius, sphereCol->radius };
 		} else if (auto* obbCol = gizmoTargetObj->GetComponent<OBBColliderComponent>()) {
-			colliderGizmoScratch_.translation = gizmoTargetObj->transform.translation + obbCol->offset;
+			colliderGizmoScratch_.translation = gizmoTargetObj->GetTransform().translation + obbCol->offset;
 			colliderGizmoScratch_.scale       = { obbCol->halfSize.x * 2.0f, obbCol->halfSize.y * 2.0f, obbCol->halfSize.z * 2.0f };
 		}
 	}
@@ -530,13 +563,7 @@ void PlayScene::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
 
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(target->scale, target->rotation, target->translation);
 
-	// PointLightは回転・スケールの概念がないためTranslateのみ、SpotLightはTranslate/Rotateのみに強制する
 	ImGuizmo::OPERATION operation = gizmoOperation_;
-	if (gizmoTarget_ == GizmoTarget::kPointLight) {
-		operation = ImGuizmo::TRANSLATE;
-	} else if (gizmoTarget_ == GizmoTarget::kSpotLight && gizmoOperation_ == ImGuizmo::SCALE) {
-		operation = ImGuizmo::TRANSLATE;
-	}
 	// Collider編集中はRotate操作を無効化する（Sphere/AABBに回転の意味がないため）
 	if (editCollider_ && operation == ImGuizmo::ROTATE) {
 		operation = ImGuizmo::TRANSLATE;
@@ -552,22 +579,13 @@ void PlayScene::UpdateGizmo(const Matrix4x4& view, const Matrix4x4& proj) {
 			DirectX::XMConvertToRadians(r[2]) }; // ImGuizmoは度数法、Transform.rotationはラジアン
 		target->scale        = { s[0], s[1], s[2] };
 
-		// ライトの場合はSetter経由で書き戻す（Upload()を確実に通す。GetData()の非const参照を
-		// 直接書き換えるとUpload()が呼ばれずGPUに反映されない罠があるため必ずSetter経由にする）
-		if (gizmoTarget_ == GizmoTarget::kPointLight) {
-			light.SetPointPosition(target->translation);
-		} else if (gizmoTarget_ == GizmoTarget::kSpotLight) {
-			light.SetSpotPosition(target->translation);
-			light.SetSpotDirection(TransformMath::EulerRadiansToDirection(target->rotation));
-		}
-
 		// Collider編集中の場合、ワールド座標系のtranslation/scaleをoffset/radius(またはhalfSize)へ変換して書き戻す
 		if (editCollider_ && gizmoTargetObj) {
 			if (auto* sphereCol = gizmoTargetObj->GetComponent<SphereColliderComponent>()) {
-				sphereCol->offset = target->translation - gizmoTargetObj->transform.translation;
+				sphereCol->offset = target->translation - gizmoTargetObj->GetTransform().translation;
 				sphereCol->radius = target->scale.x; // Scaleギズモは等方的なドラッグを想定し、xの値を採用
 			} else if (auto* obbCol = gizmoTargetObj->GetComponent<OBBColliderComponent>()) {
-				obbCol->offset   = target->translation - gizmoTargetObj->transform.translation;
+				obbCol->offset   = target->translation - gizmoTargetObj->GetTransform().translation;
 				obbCol->halfSize = { target->scale.x * 0.5f, target->scale.y * 0.5f, target->scale.z * 0.5f };
 			}
 		}
@@ -584,35 +602,28 @@ void PlayScene::DrawGrid() {
 void PlayScene::DrawImGui() {
 
 	ImGui::Begin("Gizmo");
-	// コンボの選択肢：0="None", 1..N=gizmoTargets_[0..N-1]の名前, N+1="Point Light", N+2="Spot Light"
-	int numTargets = static_cast<int>(gizmoTargets_.size());
+
+	// Unityの Play/Stop に相当するボタン。Stop中（isPlaying_=false）はGravityComponent等の
+	// シミュレーションと当たり判定の押し戻しを止め、Gizmoで自由にオブジェクトを配置できる
+	if (isPlaying_) {
+		if (ImGui::Button("Stop")) isPlaying_ = false;
+	} else {
+		if (ImGui::Button("Play")) isPlaying_ = true;
+	}
+	ImGui::SameLine();
+	ImGui::Text(isPlaying_ ? "(Playing)" : "(Stopped)");
+	ImGui::Separator();
+
+	// コンボの選択肢：0="None", 1..N=gizmoTargets_[0..N-1]の名前（ライト用GameObjectも
+	// 他と同じくTransformを持つため、ここに同列で並ぶ）
 	std::vector<const char*> comboNames;
 	comboNames.push_back("None");
 	for (auto* obj : gizmoTargets_) comboNames.push_back(obj->name.c_str());
-	comboNames.push_back("Point Light");
-	comboNames.push_back("Spot Light");
 
-	// 現在の選択状態(gizmoTarget_/gizmoTargetIndex_)をコンボの単一インデックスに変換
-	int currentCombo = 0; // "None"
-	if (gizmoTarget_ == GizmoTarget::kPointLight)     currentCombo = numTargets + 1;
-	else if (gizmoTarget_ == GizmoTarget::kSpotLight) currentCombo = numTargets + 2;
-	else if (gizmoTargetIndex_ >= 0)                  currentCombo = gizmoTargetIndex_ + 1;
+	int currentCombo = gizmoTargetIndex_ + 1; // -1("None")+1=0, 0以上はそのまま+1
 
 	if (ImGui::Combo("Target", &currentCombo, comboNames.data(), static_cast<int>(comboNames.size()))) {
-		if (currentCombo == 0) {
-			gizmoTarget_ = GizmoTarget::kNone;
-			gizmoTargetIndex_ = -1;
-		} else if (currentCombo == numTargets + 1) {
-			gizmoTarget_ = GizmoTarget::kPointLight;
-			gizmoTargetIndex_ = -1;
-		} else if (currentCombo == numTargets + 2) {
-			gizmoTarget_ = GizmoTarget::kSpotLight;
-			gizmoTargetIndex_ = -1;
-		} else {
-			// 通常オブジェクト選択中はkNone扱い（PointLight/SpotLightの特殊分岐に入らないようにする）
-			gizmoTarget_ = GizmoTarget::kNone;
-			gizmoTargetIndex_ = currentCombo - 1;
-		}
+		gizmoTargetIndex_ = currentCombo - 1; // 0("None")-1=-1
 	}
 
 	// Collider編集モード：選択中オブジェクトがCollider（Sphere/Box）を持つ場合のみ有効化できる。
@@ -628,11 +639,8 @@ void PlayScene::DrawImGui() {
 	ImGui::Checkbox("Edit Collider", &editCollider_);
 	if (!hasCollider) ImGui::EndDisabled();
 
-	// PointLight/SpotLightは回転・スケールの概念がない（点光源=Translateのみ、
-	// スポットライトの向き=Rotateのみ）ため、無効な操作モードはグレーアウトする。
-	// Collider編集中もRotateには意味がないため同様にグレーアウトする
-	bool disableRotate = (gizmoTarget_ == GizmoTarget::kPointLight) || editCollider_;
-	bool disableScale  = (gizmoTarget_ == GizmoTarget::kPointLight || gizmoTarget_ == GizmoTarget::kSpotLight);
+	// Collider編集中はRotateに意味がないためグレーアウトする（Sphere/AABBに回転の概念がない）
+	bool disableRotate = editCollider_;
 
 	if (ImGui::RadioButton("Translate", gizmoOperation_ == ImGuizmo::TRANSLATE)) gizmoOperation_ = ImGuizmo::TRANSLATE;
 	ImGui::SameLine();
@@ -640,134 +648,37 @@ void PlayScene::DrawImGui() {
 	if (ImGui::RadioButton("Rotate", gizmoOperation_ == ImGuizmo::ROTATE)) gizmoOperation_ = ImGuizmo::ROTATE;
 	if (disableRotate) ImGui::EndDisabled();
 	ImGui::SameLine();
-	if (disableScale) ImGui::BeginDisabled();
 	if (ImGui::RadioButton("Scale", gizmoOperation_ == ImGuizmo::SCALE)) gizmoOperation_ = ImGuizmo::SCALE;
-	if (disableScale) ImGui::EndDisabled();
 
 	// Collider同士の重なりは3Dビュー上のワイヤーフレーム色（緑=重なりなし/黄=Trigger込みの
 	// 重なり/赤=Solid同士の重なり）で表示されるため、テキストでの重複表示はしない。
 	// なお赤（Solid同士）の場合は検知だけでなく実際に押し戻しも行われる（ResolveAndDrawColliderGizmos()参照）
 	ImGui::End();
 
-	auto textureCombo = [&](const char* label, int& index) {
-		if (ImGui::BeginCombo(label, textures_[index].name.c_str())) {
-			for (int i = 0; i < (int)textures_.size(); i++) {
-				bool selected = (i == index);
-				if (ImGui::Selectable(textures_[i].name.c_str(), selected))
-					index = i;
-				if (selected) ImGui::SetItemDefaultFocus();
-			}
-			ImGui::EndCombo();
-		}
-		};
-
 	ImGui::Begin("Objects");
-	ImGui::Text("Floor");
-	CubeRenderComponent* floorRender = floorObject_.GetComponent<CubeRenderComponent>();
-	ImGui::DragFloat3("Floor Scale", &floorObject_.transform.scale.x, 0.1f, 0.1f, 200.0f);
-	ImGui::DragFloat3("Floor Rotation", &floorObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Floor Translation", &floorObject_.transform.translation.x, 0.1f, -100.0f, 100.0f);
-	textureCombo("Floor Texture", floorTexIndex_);
-	floorRender->textureHandle = textures_[floorTexIndex_].handle;
-	floorRender->DrawImGui("Floor");
-	OBBColliderComponent* floorCollider = floorObject_.GetComponent<OBBColliderComponent>();
-	floorCollider->DrawImGui("Floor");
+	bool firstObject = true;
+	for (auto* obj : objectPanelTargets_) {
+		if (!firstObject) ImGui::Separator();
+		firstObject = false;
 
-	ImGui::Separator();
-	ImGui::Text("Triangle");
-	TriangleRenderComponent* triangleRender = triangleObject_.GetComponent<TriangleRenderComponent>();
-	if (ImGui::SliderFloat("Triangle Smoothness", &triangleSmoothness_, 0.0f, 1.0f))
-		renderer_->SetTriangleSmoothness(triangleSmoothness_);
-	ImGui::DragFloat3("Triangle Scale", &triangleObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Triangle Rotation", &triangleObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Triangle Translation", &triangleObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
-	textureCombo("Triangle Texture", triangleTexIndex_);
-	triangleRender->textureHandle = textures_[triangleTexIndex_].handle;
-	triangleRender->DrawImGui("Triangle");
-	SphereColliderComponent* triangleCollider = triangleObject_.GetComponent<SphereColliderComponent>();
-	triangleCollider->DrawImGui("Triangle");
+		// Cube/Triangle SmoothnessとSphere Subdivisionは個体ごとのパラメータではなく、
+		// Renderer側で1つだけ共有しているメッシュ全体に効くグローバル設定（cube_/triangle_/sphere_は
+		// それぞれ単一インスタンス）のため、コンポーネント化せずここで個別に挿し込む
+		if (obj == &cubeObject_) {
+			if (ImGui::SliderFloat("Cube Smoothness", &cubeSmoothness_, 0.0f, 1.0f))
+				renderer_->SetCubeSmoothness(cubeSmoothness_);
+		} else if (obj == &triangleObject_) {
+			if (ImGui::SliderFloat("Triangle Smoothness", &triangleSmoothness_, 0.0f, 1.0f))
+				renderer_->SetTriangleSmoothness(triangleSmoothness_);
+		} else if (obj == &sphereObject_) {
+			if (ImGui::SliderInt("Sphere Subdivision", &sphereSubdivision_, 1, static_cast<int>(Renderer::kSphereMaxSubdivision)))
+				renderer_->SetSphereSubdivision(static_cast<uint32_t>(sphereSubdivision_));
+		}
 
-	ImGui::Separator();
-	ImGui::Text("Cube");
-	CubeRenderComponent* cubeRender = cubeObject_.GetComponent<CubeRenderComponent>();
-	if (ImGui::SliderFloat("Cube Smoothness", &cubeSmoothness_, 0.0f, 1.0f))
-		renderer_->SetCubeSmoothness(cubeSmoothness_);
-	ImGui::DragFloat3("Cube Scale", &cubeObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Cube Rotation", &cubeObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Cube Translation", &cubeObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
-	textureCombo("Cube Texture", cubeTexIndex_);
-	cubeRender->textureHandle = textures_[cubeTexIndex_].handle;
-	cubeRender->DrawImGui("Cube");
-	OBBColliderComponent* cubeCollider = cubeObject_.GetComponent<OBBColliderComponent>();
-	cubeCollider->DrawImGui("Cube");
+		obj->DrawImGui(); // 名前見出し＋Transform/Render/Texture/Collider/Gravity/Lightの項目を自動描画する
+	}
 
-	ImGui::Separator();
-	ImGui::Text("Sphere");
-	if (ImGui::SliderInt("Sphere Subdivision", &sphereSubdivision_, 1, static_cast<int>(Renderer::kSphereMaxSubdivision)))
-		renderer_->SetSphereSubdivision(static_cast<uint32_t>(sphereSubdivision_));
-	SphereRenderComponent* sphereRender = sphereObject_.GetComponent<SphereRenderComponent>();
-	ImGui::DragFloat3("Sphere Scale", &sphereObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Sphere Rotation", &sphereObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Sphere Translation", &sphereObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
-	textureCombo("Sphere Texture", sphereTexIndex_);
-	sphereRender->textureHandle = textures_[sphereTexIndex_].handle;
-	sphereRender->DrawImGui("Sphere");
-	SphereColliderComponent* sphereCollider = sphereObject_.GetComponent<SphereColliderComponent>();
-	sphereCollider->DrawImGui("Sphere");
-
-	ImGui::Separator();
-	ImGui::Text("Model (OBJ)");
-	ModelRenderComponent* modelRender = modelObject_.GetComponent<ModelRenderComponent>();
-	ImGui::DragFloat3("Model Scale", &modelObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Model Rotation", &modelObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Model Translation", &modelObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
-	textureCombo("Model Texture", modelTexIndex_);
-	modelRender->textureHandle = textures_[modelTexIndex_].handle;
-	modelRender->DrawImGui("Model");
-	SphereColliderComponent* modelCollider = modelObject_.GetComponent<SphereColliderComponent>();
-	modelCollider->DrawImGui("Model");
-
-	ImGui::Separator();
-	ImGui::Text("Model (FBX, Assimp)");
-	ModelRenderComponent* fbxModelRender = fbxModelObject_.GetComponent<ModelRenderComponent>();
-	ImGui::DragFloat3("FBX Model Scale", &fbxModelObject_.transform.scale.x, 0.001f, 0.001f, 1.0f);
-	ImGui::DragFloat3("FBX Model Rotation", &fbxModelObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("FBX Model Translation", &fbxModelObject_.transform.translation.x, 0.1f, -50.0f, 50.0f);
-	textureCombo("FBX Model Texture", fbxModelTexIndex_);
-	fbxModelRender->textureHandle = textures_[fbxModelTexIndex_].handle;
-	fbxModelRender->DrawImGui("FBX Model");
-	SphereColliderComponent* fbxModelCollider = fbxModelObject_.GetComponent<SphereColliderComponent>();
-	fbxModelCollider->DrawImGui("FBX Model");
-
-	ImGui::Separator();
-	ImGui::Text("Sprite3D (world space)");
-	SpriteRenderComponent* sprite3DRender = sprite3DObject_.GetComponent<SpriteRenderComponent>();
-	ImGui::DragFloat3("Sprite3D Scale", &sprite3DObject_.transform.scale.x, 0.01f, 0.1f, 10.0f);
-	ImGui::DragFloat3("Sprite3D Rotation", &sprite3DObject_.transform.rotation.x, 0.01f, -3.14f, 3.14f);
-	ImGui::DragFloat3("Sprite3D Translation", &sprite3DObject_.transform.translation.x, 0.01f, -10.0f, 10.0f);
-	textureCombo("Sprite3D Texture", sprite3DTexIndex_);
-	sprite3DRender->textureHandle = textures_[sprite3DTexIndex_].handle;
-	sprite3DRender->DrawImGui("Sprite3D");
-	SphereColliderComponent* sprite3DCollider = sprite3DObject_.GetComponent<SphereColliderComponent>();
-	sprite3DCollider->DrawImGui("Sprite3D");
-	sprite3DRender->DrawUVTransformImGui("Sprite3D", "3D");
-
-	ImGui::Separator();
-	ImGui::Text("Mirror");
-	OBBColliderComponent* mirrorCollider = mirrorObject_.GetComponent<OBBColliderComponent>();
-	mirrorCollider->DrawImGui("Mirror");
-
-	ImGui::Separator();
-	ImGui::Text("Sprite2D (pixel coords)");
-	SpriteRenderComponent* sprite2DRender = sprite2DObject_.GetComponent<SpriteRenderComponent>();
-	ImGui::DragFloat2("Sprite2D Pos (px)", &sprite2DObject_.transform.translation.x, 1.0f, 0.0f, 1920.0f);
-	ImGui::DragFloat2("Sprite2D Size (px)", &sprite2DObject_.transform.scale.x, 1.0f, 1.0f, 1920.0f);
-	ImGui::DragFloat("Sprite2D Rotation", &sprite2DObject_.transform.rotation.z, 0.01f, -3.14f, 3.14f);
-	textureCombo("Sprite2D Texture", sprite2DTexIndex_);
-	sprite2DRender->textureHandle = textures_[sprite2DTexIndex_].handle;
-	sprite2DRender->DrawImGui("Sprite2D");
-	sprite2DRender->DrawUVTransformImGui("Sprite2D", "2D");
-
+	cubeObject_.DrawImGui();
 	ImGui::End();
 
 	AudioManager::GetInstance().DrawImGui();
@@ -777,25 +688,6 @@ void PlayScene::DrawImGui() {
 
 	ImGui::Begin("Lighting");
 
-	ImGui::Text("Directional Light");
-	bool enableDirectional = data.enableDirectional != 0;
-	if (ImGui::Checkbox("Enable Directional Light", &enableDirectional)) {
-		light.SetEnableDirectional(enableDirectional);
-	}
-	if (ImGui::SliderFloat3("Direction", &data.direction.x, 0.00f, -1.0f)) {
-		light.SetDirection(data.direction);
-	}
-	if (ImGui::ColorEdit3("Color", &data.color.x)) {
-		light.SetColor(data.color);
-	}
-	if (ImGui::SliderFloat("Ambient", &data.ambient, 0.0f, 1.0f)) {
-		light.SetAmbient(data.ambient);
-	}
-	if (ImGui::SliderFloat("Half Lambert Power", &data.halfLambertPower, 0.1f, 8.0f)) {
-		light.SetHalfLambertPower(data.halfLambertPower);
-	}
-
-	ImGui::Separator();
 	ImGui::Text("Toon Shading");
 	bool enableToon = data.enableToon != 0;
 	if (ImGui::Checkbox("Enable Toon", &enableToon)) {
@@ -832,59 +724,6 @@ void PlayScene::DrawImGui() {
 	}
 	if (ImGui::SliderFloat("Rim Strength", &data.rimStrength, 0.0f, 4.0f)) {
 		light.SetRimStrength(data.rimStrength);
-	}
-
-	ImGui::Separator();
-	ImGui::Text("Point Light");
-	bool enablePoint = data.enablePoint != 0;
-	if (ImGui::Checkbox("Enable Point Light", &enablePoint)) {
-		light.SetEnablePointLight(enablePoint);
-	}
-	if (ImGui::DragFloat3("Point Position", &data.pointPosition.x, 0.05f, -20.0f, 20.0f)) {
-		light.SetPointPosition(data.pointPosition);
-	}
-	if (ImGui::ColorEdit3("Point Color", &data.pointColor.x)) {
-		light.SetPointColor(data.pointColor);
-	}
-	if (ImGui::SliderFloat("Point Intensity", &data.pointIntensity, 0.0f, 5.0f)) {
-		light.SetPointIntensity(data.pointIntensity);
-	}
-	if (ImGui::SliderFloat("Point Radius", &data.pointRadius, 0.1f, 30.0f)) {
-		light.SetPointRadius(data.pointRadius);
-	}
-	if (ImGui::SliderFloat("Point Decay", &data.pointDecay, 0.1f, 4.0f)) {
-		light.SetPointDecay(data.pointDecay);
-	}
-
-	ImGui::Separator();
-	ImGui::Text("Spot Light");
-	bool enableSpot = data.enableSpot != 0;
-	if (ImGui::Checkbox("Enable Spot Light", &enableSpot)) {
-		light.SetEnableSpotLight(enableSpot);
-	}
-	if (ImGui::DragFloat3("Spot Position", &data.spotPosition.x, 0.05f, -20.0f, 20.0f)) {
-		light.SetSpotPosition(data.spotPosition);
-	}
-	if (ImGui::SliderFloat3("Spot Direction", &data.spotDirection.x, -1.0f, 1.0f)) {
-		light.SetSpotDirection(data.spotDirection);
-	}
-	if (ImGui::ColorEdit3("Spot Color", &data.spotColor.x)) {
-		light.SetSpotColor(data.spotColor);
-	}
-	if (ImGui::SliderFloat("Spot Intensity", &data.spotIntensity, 0.0f, 5.0f)) {
-		light.SetSpotIntensity(data.spotIntensity);
-	}
-	if (ImGui::SliderFloat("Spot Distance", &data.spotDistance, 0.1f, 30.0f)) {
-		light.SetSpotDistance(data.spotDistance);
-	}
-	if (ImGui::SliderFloat("Spot Decay", &data.spotDecay, 0.1f, 4.0f)) {
-		light.SetSpotDecay(data.spotDecay);
-	}
-	bool spotAngleChanged = false;
-	spotAngleChanged |= ImGui::SliderFloat("Spot Cos Angle (outer)", &data.spotCosAngle, 0.0f, 0.999f);
-	spotAngleChanged |= ImGui::SliderFloat("Spot Cos Falloff Start (inner)", &data.spotCosFalloffStart, 0.0f, 0.999f);
-	if (spotAngleChanged) {
-		light.SetSpotConeAngles(data.spotCosAngle, data.spotCosFalloffStart);
 	}
 
 	ImGui::End();
