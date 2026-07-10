@@ -120,6 +120,76 @@ void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Rende
 	}
 }
 
+void GizmoController::UpdatePicking2D(const std::vector<GameObject*>& targets2D) {
+	bool leftPressed = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+	bool triggered = leftPressed && !prevMouseLeftPressed2D_;
+	prevMouseLeftPressed2D_ = leftPressed;
+
+	if (!triggered) return;
+	if (ImGuizmo::IsOver() || ImGuizmo::IsUsing()) return;
+	if (ImGui::GetIO().WantCaptureMouse) return;
+
+	// Transform.translationが既に画面px座標（左上原点）なので、3D版のようなアンプロジェクトは不要。
+	// マウスpx座標が矩形(translation〜translation+scale)に入っているかだけを見る簡易AABB判定
+	// （回転は反映しない）
+	ImVec2 mousePos = ImGui::GetMousePos();
+
+	int hitIndex = -1;
+	// 後ろから探すことで、重なっている場合は最後に描画される＝一番手前に見えるものを優先する
+	for (int i = static_cast<int>(targets2D.size()) - 1; i >= 0; --i) {
+		if (targets2D[i]->excludeFromPicking) continue;
+		const Transform& t = targets2D[i]->GetTransform();
+		float left = t.translation.x, top = t.translation.y;
+		float right = left + t.scale.x, bottom = top + t.scale.y;
+		if (mousePos.x >= left && mousePos.x <= right && mousePos.y >= top && mousePos.y <= bottom) {
+			hitIndex = i;
+			break;
+		}
+	}
+
+	if (hitIndex >= 0) {
+		gizmoTargetIndex2D_ = hitIndex;
+	}
+	// 何にも当たらなかった場合は現在の選択状態を維持する
+}
+
+void GizmoController::UpdateGizmo2D(const std::vector<GameObject*>& targets2D, Renderer* renderer) {
+	if (gizmoTargetIndex2D_ < 0 || gizmoTargetIndex2D_ >= static_cast<int>(targets2D.size())) return;
+	Transform* target = &targets2D[gizmoTargetIndex2D_]->GetTransform();
+
+	ImGuizmo::SetOrthographic(true);
+	ImGuizmo::SetRect(0, 0, (float)renderer->GetClientWidth(), (float)renderer->GetClientHeight());
+
+	// Renderer::DrawSprite2Dと全く同じ「world * 正射影(0,0)-(width,height)」空間で操作することで、
+	// 画面上の見た目とギズモの位置・大きさを一致させる（3Dカメラのview/projは使わない）
+	Matrix4x4 identityView = MatrixMath::Identity();
+	Matrix4x4 ortho = MatrixMath::MakeOrthographicMatrix(
+		static_cast<float>(renderer->GetClientWidth()), static_cast<float>(renderer->GetClientHeight()));
+	Matrix4x4 world = TransformMath::MakeAffineMatrix(target->scale, target->rotation, target->translation);
+
+	if (ImGuizmo::Manipulate(&identityView._11, &ortho._11, gizmoOperation_, ImGuizmo::WORLD, &world._11)) {
+		float t[3], r[3], s[3];
+		ImGuizmo::DecomposeMatrixToComponents(&world._11, t, r, s);
+		target->translation = { t[0], t[1], t[2] };
+		target->rotation    = {
+			DirectX::XMConvertToRadians(r[0]),
+			DirectX::XMConvertToRadians(r[1]),
+			DirectX::XMConvertToRadians(r[2]) };
+		target->scale        = { s[0], s[1], s[2] };
+	}
+}
+
+void GizmoController::DrawImGui2D(const std::vector<GameObject*>& targets2D) {
+	std::vector<const char*> comboNames;
+	comboNames.push_back("None");
+	for (auto* obj : targets2D) comboNames.push_back(obj->name.c_str());
+
+	int currentCombo = gizmoTargetIndex2D_ + 1;
+	if (ImGui::Combo("Target (2D)", &currentCombo, comboNames.data(), static_cast<int>(comboNames.size()))) {
+		gizmoTargetIndex2D_ = currentCombo - 1;
+	}
+}
+
 void GizmoController::DrawImGui(const std::vector<GameObject*>& targets) {
 	// コンボの選択肢：0="None", 1..N=targets[0..N-1]の名前
 	std::vector<const char*> comboNames;

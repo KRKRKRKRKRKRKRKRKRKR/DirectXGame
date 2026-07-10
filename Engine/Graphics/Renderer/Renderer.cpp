@@ -103,6 +103,14 @@ TextureHandle Renderer::LoadTexture(const std::string& filePath) {
 	return textureManager_.Load(filePath, heaps_);
 }
 
+TextureHandle Renderer::CreateTextureFromPixels(uint32_t width, uint32_t height, const uint8_t* rgbaPixels) {
+	return textureManager_.CreateFromPixels(width, height, rgbaPixels, heaps_);
+}
+
+bool Renderer::UpdateTextureFromPixels(TextureHandle handle, uint32_t width, uint32_t height, const uint8_t* rgbaPixels) {
+	return textureManager_.UpdatePixels(handle, width, height, rgbaPixels);
+}
+
 Renderer::ModelHandle Renderer::LoadModel(const std::string& directoryPath, const std::string& filename) {
 	auto model = std::make_unique<Model>();
 	// wvp, 色, ボーン行列パレット用に3枠払い出してもらう

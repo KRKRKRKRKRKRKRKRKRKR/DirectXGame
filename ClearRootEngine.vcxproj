@@ -122,6 +122,8 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\GameObject.cpp" />
     <ClCompile Include="Engine\GameObject\ComponentRegistry.cpp" />
     <ClCompile Include="Engine\GameObject\ComponentRegistration.cpp" />
+    <ClCompile Include="Engine\GameObject\SceneSerializer.cpp" />
+    <ClCompile Include="Engine\GameObject\ObjectArchetypes.cpp" />
     <ClCompile Include="Engine\GameObject\Component\TransformComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\RenderComponentBase.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\CubeRenderComponent.cpp" />
@@ -129,6 +131,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Render\TriangleRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\ModelRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\SpriteRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Render\TextRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\RenderComponentFactory.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\TextureSelectorComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\MirrorComponent.cpp" />
@@ -170,6 +173,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
     <ClCompile Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.cpp" />
     <ClCompile Include="Engine\Graphics\Texture\TextureManager.cpp" />
+    <ClCompile Include="Engine\Graphics\Text\TextBitmapBuilder.cpp" />
     <ClCompile Include="Engine\InputDevice\InputDevice.cpp" />
     <ClCompile Include="Game\Game.cpp" />
     <ClCompile Include="Game\PlayScene.cpp" />
@@ -200,6 +204,8 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\ComponentLoadContext.h" />
     <ClInclude Include="Engine\GameObject\ComponentRegistry.h" />
     <ClInclude Include="Engine\GameObject\ComponentRegistration.h" />
+    <ClInclude Include="Engine\GameObject\SceneSerializer.h" />
+    <ClInclude Include="Engine\GameObject\ObjectArchetypes.h" />
     <ClInclude Include="Engine\GameObject\Systems\ColliderSystem.h" />
     <ClInclude Include="Engine\GameObject\Systems\GizmoController.h" />
     <ClInclude Include="Engine\GameObject\Component\TransformComponent.h" />
@@ -209,6 +215,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Render\TriangleRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\ModelRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\SpriteRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Render\TextRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\TextureEntry.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\TextureSelectorComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\MirrorComponent.h" />
@@ -257,6 +264,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\Graphics\Object\Triangle\Triangle.h" />
     <ClInclude Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.h" />
     <ClInclude Include="Engine\Graphics\Texture\TextureManager.h" />
+    <ClInclude Include="Engine\Graphics\Text\TextBitmapBuilder.h" />
     <ClInclude Include="Engine\Graphics\Renderer\DirectXManager.h" />
     <ClInclude Include="Engine\Graphics\Renderer\Renderer.h" />
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />

@@ -15,6 +15,7 @@
 #include "../Engine/GameObject/Component/Lighting/Lighting.h"
 #include "../Engine/GameObject/Component/Audio/Audio.h"
 #include "../Engine/GameObject/ComponentLoadContext.h"
+#include "../Engine/GameObject/SceneSerializer.h"
 #include <memory>
 #include <vector>
 #include <string>
@@ -46,6 +47,16 @@ private:
 	// 1体生成する処理。中身はComponentRegistryが使うのと同じJSON形式のひな形をFromJsonに渡すだけ
 	GameObject& CreateObjectFromArchetype(const std::string& archetypeName);
 
+	// txt/フォントというファイルパスが要る点がModel/Spriteと同じでアーキタイプのコンボには
+	// 載せられないため、専用の生成処理を用意する（Sprite2Dと同じスクリーン空間UI扱い）
+	GameObject& CreateTextObject(const std::string& txtPath, const std::string& fontPath, float fontSize);
+
+	// CreateTextObjectの動的テキスト版。GameObject生成・スクリーン空間設定・TextRenderComponent::
+	// CreateDynamic呼び出し・SetTextProviderをまとめて行う（Camera座標HUD等、呼び出し側の
+	// 引数を「何を・どのフォントで・何を表示するか」だけに絞るためのラッパー）
+	GameObject& CreateDynamicTextObject(const std::string& name, const std::string& fontPath, float fontSize,
+		TextRenderComponent::TextProvider provider, uint32_t canvasWidth = 512, uint32_t canvasHeight = 32);
+
 	// Gizmoパネルで選択中のオブジェクトをobjects_から削除する
 	void DeleteSelectedObject();
 
@@ -61,13 +72,13 @@ private:
 	// "Objects"パネル表示用一覧（excludeFromObjectPanel=falseのオブジェクトのみ）
 	std::vector<GameObject*> objectPanelTargets_;
 
+	// スクリーン空間UI（TransformComponent::is2D==true）のマウス選択・Gizmo操作対象一覧。
+	// gizmoTargets_（3D、ワールド空間レイキャスト）とは別に、GizmoControllerの2D版
+	// （px座標のAABBピッキング＋正射影ギズモ）が扱う
+	std::vector<GameObject*> screenTargets_;
+
 	ColliderSystem colliderSystem_;
 	GizmoController gizmoController_;
-
-	// 固定パス（Resources/scene.json）へobjects_全体を保存/復元する。Loadはobjects_を
-	// 一度全部破棄してJSONの内容から丸ごと再構築するため、保存時と異なる数でも復元できる
-	void SaveScene(const std::string& path);
-	void LoadScene(const std::string& path);
 
 	void DrawGrid();
 	void DrawImGui();

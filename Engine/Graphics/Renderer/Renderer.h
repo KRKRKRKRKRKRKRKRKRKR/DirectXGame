@@ -39,6 +39,12 @@ public:
 	// テクスチャをファイルから読み込んでハンドルを返す（同じパスは二重ロードしない）
 	TextureHandle LoadTexture(const std::string& filePath);
 
+	// メモリ上のRGBA8ピクセル列からテクスチャを作成してハンドルを返す（フォント合成ビットマップ等）
+	TextureHandle CreateTextureFromPixels(uint32_t width, uint32_t height, const uint8_t* rgbaPixels);
+
+	// 既存テクスチャの中身だけを同サイズのピクセルで置き換える（HUD等、毎フレーム更新する用途）
+	bool UpdateTextureFromPixels(TextureHandle handle, uint32_t width, uint32_t height, const uint8_t* rgbaPixels);
+
 	// OBJ を読み込んでハンドルを返す
 	using ModelHandle = uint32_t;
 	ModelHandle LoadModel(const std::string& directoryPath, const std::string& filename);

@@ -44,6 +44,17 @@ public:
 	// ファイルからテクスチャを読み込んでハンドルを返す
 	TextureHandle Load(const std::string& filePath, DescriptorHeaps* heaps);
 
+	// メモリ上のRGBA8ピクセル列（width*height*4バイト、行間パディング無し）からテクスチャを作成する。
+	// フォントの合成ビットマップ等、ファイルを介さずに動的生成した画像をGPUへ上げる用途向け
+	TextureHandle CreateFromPixels(uint32_t width, uint32_t height, const uint8_t* rgbaPixels, DescriptorHeaps* heaps);
+
+	// 既存ハンドルのテクスチャの中身だけを同サイズのピクセルで置き換える（ハンドル/SRVスロットは
+	// そのまま維持し、新しいハンドルは発行しない）。HUD等、毎フレーム内容が変わるが解像度は
+	// 固定のテクスチャを更新する用途向け。widthHeightが元と異なる場合は失敗しfalseを返す
+	// （エンジンはEndFrame()で毎フレームGPU完了を待ってからコマンドリストをリセットする完全同期
+	// モデルのため、同じCommandList上でのin-place更新は前フレームの描画と競合しない）
+	bool UpdatePixels(TextureHandle handle, uint32_t width, uint32_t height, const uint8_t* rgbaPixels);
+
 	// 深度ステンシルバッファの初期化（エンジン内部用）
 	void InitializeDepthStencil(int32_t width, int32_t height, DescriptorHeaps* heaps);
 

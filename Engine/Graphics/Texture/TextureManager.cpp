@@ -31,6 +31,59 @@ TextureHandle TextureManager::Load(const std::string& filePath, DescriptorHeaps*
 	return handle;
 }
 
+TextureHandle TextureManager::CreateFromPixels(uint32_t width, uint32_t height, const uint8_t* rgbaPixels, DescriptorHeaps* heaps) {
+	DirectX::ScratchImage image{};
+	HRESULT hr = image.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1);
+	assert(SUCCEEDED(hr));
+
+	const DirectX::Image* dstImage = image.GetImage(0, 0, 0);
+	const uint8_t* src = rgbaPixels;
+	uint8_t* dst = dstImage->pixels;
+	const size_t srcRowBytes = static_cast<size_t>(width) * 4;
+	for (uint32_t y = 0; y < height; ++y) {
+		memcpy(dst + y * dstImage->rowPitch, src + y * srcRowBytes, srcRowBytes);
+	}
+
+	const DirectX::TexMetadata& metadata = image.GetMetadata();
+	ComPtr<ID3D12Resource> resource = CreateTextureResource(metadata);
+	ComPtr<ID3D12Resource> intermediate = UploadTextureData(resource, image);
+
+	TextureHandle handle = RegisterTexture(resource, metadata, intermediate, heaps);
+	Logger::Log(std::format("TextureManager: Created texture from pixels ({}x{}) -> handle {}\n", width, height, handle));
+	return handle;
+}
+
+bool TextureManager::UpdatePixels(TextureHandle handle, uint32_t width, uint32_t height, const uint8_t* rgbaPixels) {
+	auto it = textures_.find(handle);
+	if (it == textures_.end()) return false;
+
+	TextureResource& texRes = it->second;
+	if (texRes.metadata.width != width || texRes.metadata.height != height) return false;
+
+	DirectX::ScratchImage image{};
+	HRESULT hr = image.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, width, height, 1, 1);
+	assert(SUCCEEDED(hr));
+
+	const DirectX::Image* dstImage = image.GetImage(0, 0, 0);
+	const size_t srcRowBytes = static_cast<size_t>(width) * 4;
+	for (uint32_t y = 0; y < height; ++y) {
+		memcpy(dstImage->pixels + y * dstImage->rowPitch, rgbaPixels + y * srcRowBytes, srcRowBytes);
+	}
+
+	// 前フレームの描画でGENERIC_READ状態になっているはずなので、上書きのためCOPY_DESTへ戻す。
+	// UploadTextureData側が最後にCOPY_DEST→GENERIC_READへの遷移まで行ってくれる
+	D3D12_RESOURCE_BARRIER toCopyDest{};
+	toCopyDest.Type                   = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	toCopyDest.Transition.pResource   = texRes.resource.Get();
+	toCopyDest.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	toCopyDest.Transition.StateBefore = D3D12_RESOURCE_STATE_GENERIC_READ;
+	toCopyDest.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+	commandList_->ResourceBarrier(1, &toCopyDest);
+
+	texRes.intermediateResource = UploadTextureData(texRes.resource, image);
+	return true;
+}
+
 TextureHandle TextureManager::RegisterTexture(
 	ComPtr<ID3D12Resource> resource,
 	const DirectX::TexMetadata& metadata,

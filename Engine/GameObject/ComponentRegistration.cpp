@@ -40,6 +40,20 @@ void RegisterEngineComponents() {
 			obj.AddComponent<SpriteRenderComponent>(is3D)->FromJson(data);
 		});
 
+	// TextRenderComponent：txtFilePath/fontFilePath/fontSize/lineSpacingを読んでからLoad()し直す。
+	// dynamicText（Camera座標表示等）の場合はtxtFilePathを使わないためLoadDynamic()を呼ぶ
+	// （実際の文字列は呼び出し元が毎フレームSetText()で与える必要がある）
+	ComponentRegistry::Register<TextRenderComponent>("TextRender",
+		[](GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {
+			TextRenderComponent* c = obj.AddComponent<TextRenderComponent>();
+			c->FromJson(data);
+			if (c->dynamicText) {
+				c->LoadDynamic(ctx.renderer);
+			} else {
+				c->Load(ctx.renderer);
+			}
+		});
+
 	// TextureSelectorComponent：同じGameObjectに既に復元済みのRenderComponentBaseと、
 	// ComponentLoadContext.textures（名前→現在のindex変換用）が必要
 	ComponentRegistry::Register<TextureSelectorComponent>("TextureSelector",

@@ -16,75 +16,6 @@
                         ],
                         "lighting": true
                     },
-                    "type": "CubeRender"
-                },
-                {
-                    "data": {
-                        "textureName": "t.png"
-                    },
-                    "type": "TextureSelector"
-                },
-                {
-                    "data": {
-                        "collidesWith": [
-                            true,
-                            true,
-                            true,
-                            true,
-                            true
-                        ],
-                        "halfSize": [
-                            1.0,
-                            100.0,
-                            1.0
-                        ],
-                        "isStatic": true,
-                        "isTrigger": false,
-                        "layer": "Environment",
-                        "offset": [
-                            0.0,
-                            -0.9900000095367432,
-                            0.0
-                        ]
-                    },
-                    "type": "OBBCollider"
-                }
-            ],
-            "name": "Floor",
-            "transform": {
-                "rotation": [
-                    0.0,
-                    0.0,
-                    0.0
-                ],
-                "scale": [
-                    100.0,
-                    0.009999999776482582,
-                    100.0
-                ],
-                "translation": [
-                    0.0,
-                    -0.5,
-                    0.0
-                ]
-            }
-        },
-        {
-            "components": [
-                {
-                    "data": {
-                        "alphaTest": false,
-                        "alphaThreshold": 0.5,
-                        "blendMode": "None",
-                        "blendStrength": 1.0,
-                        "color": [
-                            1.0,
-                            1.0,
-                            1.0,
-                            1.0
-                        ],
-                        "lighting": true
-                    },
                     "type": "TriangleRender"
                 },
                 {
@@ -119,7 +50,7 @@
             "transform": {
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
@@ -129,7 +60,7 @@
                 ],
                 "translation": [
                     0.0,
-                    -1.8707740306854248,
+                    1.0,
                     0.0
                 ]
             }
@@ -196,7 +127,7 @@
             "transform": {
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
@@ -206,7 +137,7 @@
                 ],
                 "translation": [
                     -3.0,
-                    1.8619961738586426,
+                    1.0,
                     0.0
                 ]
             }
@@ -261,7 +192,7 @@
             "transform": {
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
@@ -270,7 +201,7 @@
                     1.0
                 ],
                 "translation": [
-                    1.8485441207885742,
+                    3.0,
                     1.0,
                     0.0
                 ]
@@ -329,7 +260,7 @@
             "transform": {
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
@@ -339,7 +270,7 @@
                 ],
                 "translation": [
                     5.0,
-                    3.316375494003296,
+                    0.0,
                     0.0
                 ]
             }
@@ -472,7 +403,7 @@
             "transform": {
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
@@ -483,7 +414,7 @@
                 "translation": [
                     0.0,
                     3.0,
-                    -1.584989309310913
+                    0.0
                 ]
             }
         },

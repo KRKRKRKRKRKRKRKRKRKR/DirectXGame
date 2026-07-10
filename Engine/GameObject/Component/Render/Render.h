@@ -7,6 +7,7 @@
 #include "TriangleRenderComponent.h"
 #include "ModelRenderComponent.h"
 #include "SpriteRenderComponent.h"
+#include "TextRenderComponent.h"
 #include "RenderComponentFactory.h"
 #include "TextureEntry.h"
 #include "TextureSelectorComponent.h"
