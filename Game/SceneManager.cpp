@@ -22,7 +22,7 @@ void SceneManager::Render(float deltaTime) {
 
 void SceneManager::ChangeScene(SceneType next) {
 	currentScene_ = CreateScene(next);
-	currentScene_->Initialize(renderer_, camera_);
+	currentScene_->Initialize(renderer_, camera_, GetAssetFolderName(next));
 }
 
 std::unique_ptr<IScene> SceneManager::CreateScene(SceneType type) {
@@ -32,5 +32,15 @@ std::unique_ptr<IScene> SceneManager::CreateScene(SceneType type) {
 		case SceneType::kPlay:     return std::make_unique<PlayScene>();
 		case SceneType::kGameOver: return std::make_unique<GameOverScene>();
 		default:                   return nullptr; // kNoneでここに来ることは想定しない
+	}
+}
+
+std::string SceneManager::GetAssetFolderName(SceneType type) {
+	switch (type) {
+		case SceneType::kTitle:    return "Title";
+		case SceneType::kSelect:   return "Select";
+		case SceneType::kPlay:     return "Play";
+		case SceneType::kGameOver: return "GameOver";
+		default:                   return "Unknown"; // kNoneでここに来ることは想定しない
 	}
 }

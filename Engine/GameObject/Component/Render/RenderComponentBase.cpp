@@ -6,6 +6,10 @@
 // BlendMode選択コンボ。表示名の並びは BlendMode.h のenum定義順と対応させること。
 // DrawImGuiとToJson/FromJsonの両方から使うためファイルスコープに置く
 static const char* kBlendModeNames[] = { "None", "Normal (Alpha)", "Add", "Subtract", "Multiply", "Screen" };
+// 要素数だけはコンパイル時に検証できる（順序の対応まではチェックできないため、追加時は
+// 配列とenumの両方を必ず同じ位置に増やすこと）
+static_assert(sizeof(kBlendModeNames) / sizeof(kBlendModeNames[0]) == static_cast<size_t>(BlendMode::kCount),
+	"kBlendModeNames must have exactly BlendMode::kCount entries, in the same order as the enum");
 
 void RenderComponentBase::DrawImGui(const char* namePrefix) {
 	std::string lightingLabel = std::string(namePrefix) + " Lighting";

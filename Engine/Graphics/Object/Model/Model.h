@@ -63,7 +63,11 @@ private:
 		MaterialData                   material;
 	};
 
-	// ---- スキニング/アニメーション用メタデータ（Step1: 読み込み・ログ確認のみ。GPU適用は未実装）----
+	// ---- スキニング/アニメーション用メタデータ ----
+	// 読み込み(LoadSkeletonAndAnimation)・バインドポーズ計算(WriteBindPoseBoneMatrices)・
+	// 毎フレームのキーフレーム補間とGPUへのボーン行列書き込み(UpdateAnimation)まで実装済み
+	// （Model_SkeletalAnimation.cppに集約）。Renderer::UpdateModelAnimation→
+	// ModelRenderComponent::Draw経由で呼び出される
 
 	// ノード階層（Assimpの aiNode をフラット化したもの。DFS順で親が必ず子より前に来る）
 	struct NodeData {
@@ -134,10 +138,12 @@ private:
 	void CreateVertexResource (ID3D12Device* device, const ModelData& modelData);
 	void CreateBoneMatrixResource(ID3D12Device* device, DescriptorHeaps* heaps, uint32_t boneMatrixHeapIndex);
 
-	// Step2疎通確認: 全ボーン行列を単位行列で埋める
+	// 全ボーン行列を単位行列で初期化する。WriteBindPoseBoneMatricesが実際の値で
+	// 上書きする前の初期状態、またはボーンを持たないモデルでバッファ自体は
+	// 確保されている場合の既定値として使う
 	void WriteIdentityBoneMatrices();
 
-	// Step3: ノード階層からバインドポーズのボーン行列を計算して書き込む
+	// ノード階層からバインドポーズのボーン行列を計算して書き込む
 	void WriteBindPoseBoneMatrices();
 
 	// Step4: 指定時刻(tick)でのノードのローカル変換を計算する。

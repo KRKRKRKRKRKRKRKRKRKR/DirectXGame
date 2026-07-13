@@ -135,6 +135,11 @@ public:
 	int GetClientWidth() const { return windowWidth_; }
 	int GetClientHeight() const { return windowHeight_; }
 
+	// DrawSprite2Dが使う固定デザイン解像度。GizmoController等、Sprite2Dの見た目・ピッキングを
+	// 一致させたい呼び出し元はGetClientWidth/Heightではなくこちらを使う
+	static float GetUiDesignWidth()  { return kUiDesignWidth; }
+	static float GetUiDesignHeight() { return kUiDesignHeight; }
+
 private:
 	// Triangle/Cube/Sphereの3種で共通のコマンド情報。ソートキー・バッチ判定・
 	// SetPipelineCommands呼び出しに使うフィールドをまとめて持つ
@@ -215,6 +220,13 @@ private:
 	uint32_t currentLineIndex_ = 0;
 	int windowWidth_ = 0;
 	int windowHeight_ = 0;
+
+	// Sprite2D（TextRenderComponent/SpriteRenderComponentの2D側）の座標・サイズはこの解像度を
+	// 基準にデザインされている（main.cppの起動時ウィンドウサイズと一致）。DrawSprite2Dの正射影を
+	// 常にこの固定サイズにすることで、実ウィンドウが拡大/縮小されてもUI全体が同じ相対サイズ・
+	// 相対位置のまま拡縮される（ウィンドウの実ピクセル数に合わせてUIのpx値も変えずに済む）
+	static constexpr float kUiDesignWidth  = 1280.0f;
+	static constexpr float kUiDesignHeight = 720.0f;
 
 	Matrix4x4 view_{};
 	Matrix4x4 projection_{};

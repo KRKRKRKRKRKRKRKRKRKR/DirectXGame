@@ -1,9 +1,12 @@
 #include "TextRenderComponent.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include "../../../../Math/JsonUtil.h"
+#include "../../../Utils/StringUtils.h"
+#include "../../../Utils/Logger.h"
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <format>
 
 namespace {
 
@@ -95,19 +98,34 @@ bool TextRenderComponent::Load(Renderer* renderer) {
 	bitmapHeight_ = 0;
 	textureHandle = kTextureNone;
 
-	std::ifstream txtFile(txtFilePath, std::ios::binary);
-	if (!txtFile.is_open()) return false;
+	// txtFilePathはUTF-8前提（Resources/Text/{name}.txtの{name}はImGuiのInputText由来）。
+	// std::string版のifstreamコンストラクタに直接渡すと実行時ロケールでパスが解釈され、
+	// 日本語ファイル名が正しく開けなくなるため、wstringへ変換してから渡す
+	std::ifstream txtFile(StringUtils::ConvertString(txtFilePath), std::ios::binary);
+	if (!txtFile.is_open()) {
+		Logger::Log(std::format("TextRenderComponent::Load: failed to open txt file '{}'\n", txtFilePath));
+		return false;
+	}
 	std::ostringstream ss;
 	ss << txtFile.rdbuf();
 	std::vector<char32_t> text = Utf8Decode(ss.str());
-	if (text.empty()) return false;
+	if (text.empty()) {
+		Logger::Log(std::format("TextRenderComponent::Load: '{}' is empty after UTF-8 decode\n", txtFilePath));
+		return false;
+	}
 
-	if (!builder_.LoadFont(fontFilePath)) return false;
+	if (!builder_.LoadFont(fontFilePath)) {
+		Logger::Log(std::format("TextRenderComponent::Load: failed to load font '{}'\n", fontFilePath));
+		return false;
+	}
 
 	// superSample倍だけ大きく焼いておくことで、箱(Transform.scale)をsuperSample倍まで
 	// 拡大してもビットマップの実解像度を超えずぼやけない
 	TextBitmap bitmap;
-	if (!builder_.Build(text, fontSize * superSample, lineSpacing, bitmap)) return false;
+	if (!builder_.Build(text, fontSize * superSample, lineSpacing, bitmap)) {
+		Logger::Log(std::format("TextRenderComponent::Load: failed to build text bitmap for '{}'\n", txtFilePath));
+		return false;
+	}
 
 	textureHandle = renderer->CreateTextureFromPixels(bitmap.width, bitmap.height, bitmap.rgbaPixels.data());
 	bitmapWidth_ = bitmap.width;
@@ -120,12 +138,18 @@ bool TextRenderComponent::LoadDynamic(Renderer* renderer) {
 	dynamicText = true;
 	textureHandle = kTextureNone;
 
-	if (!builder_.LoadFont(fontFilePath)) return false;
+	if (!builder_.LoadFont(fontFilePath)) {
+		Logger::Log(std::format("TextRenderComponent::LoadDynamic: failed to load font '{}'\n", fontFilePath));
+		return false;
+	}
 
 	// 最初は空文字列で固定サイズのテクスチャを1回だけ確保する。以降はSetText()が
 	// このテクスチャの中身だけを書き換える（ハンドルは変わらない）
 	TextBitmap bitmap;
-	if (!builder_.BuildFixed({}, fontSize * superSample, lineSpacing, canvasWidth, canvasHeight, bitmap)) return false;
+	if (!builder_.BuildFixed({}, fontSize * superSample, lineSpacing, canvasWidth, canvasHeight, bitmap)) {
+		Logger::Log(std::format("TextRenderComponent::LoadDynamic: BuildFixed failed (canvas {}x{})\n", canvasWidth, canvasHeight));
+		return false;
+	}
 
 	textureHandle = renderer->CreateTextureFromPixels(bitmap.width, bitmap.height, bitmap.rgbaPixels.data());
 	bitmapWidth_ = bitmap.width;
@@ -162,12 +186,13 @@ void TextRenderComponent::DrawImGui(const char* namePrefix) {
 	RenderComponentBase::DrawImGui(namePrefix);
 
 	// fontSize/lineSpacingは合成ビットマップに焼き込み済みの値なので、変更しただけでは見た目に
-	// 反映されない。値を編集した後は必ず「Reload Text」でLoad()を呼び直す必要がある
+	// 反映されない。静的テキストは値を編集した後「Reload Text」でLoad()を呼び直す必要がある
 	// （毎フレーム自動リロードするとTextureManagerのハンドルを再生成のたびに消費し続けて
 	// kMaxTextureCountに達してしまうため、明示的なボタン操作にしている）。
+	// dynamicTextはUpdateDynamicText()が毎フレームSetText()（=BuildFixedで焼き直し）を呼ぶため、
+	// 値を変えるだけで次のフレームから自動的に反映される（Reloadボタンは不要）。
 	// 箱の大きさ（画面上に見える大きさ）はTransform.scale側（Gizmo/Objectsパネルで操作）が
-	// 担当し、fontSizeはあくまで文字のラスタライズ解像度（＝くっきり度）。箱サイズはReloadしても
-	// 変わらない
+	// 担当し、fontSizeはあくまで文字のラスタライズ解像度（＝くっきり度）。箱サイズは変わらない
 	std::string fontSizeLabel = std::string(namePrefix) + " Font Size";
 	std::string lineSpacingLabel = std::string(namePrefix) + " Line Spacing";
 	std::string superSampleLabel = std::string(namePrefix) + " Supersample (blur margin)";

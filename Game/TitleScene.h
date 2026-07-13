@@ -1,15 +1,10 @@
 #pragma once
-#include "IScene.h"
+#include "SceneBase.h"
 
-// タイトル画面。ENTERキーでSelectへ遷移する（内容は今後作り込む前提の最小スタブ）
-class TitleScene : public IScene {
-public:
-	void Initialize(Renderer* renderer, Camera* camera) override;
-	void Render(float deltaTime) override;
-	SceneType GetNextScene() const override { return nextScene_; }
-
-private:
-	Renderer* renderer_ = nullptr;
-	Camera* camera_ = nullptr;
-	SceneType nextScene_ = SceneType::kNone;
+// タイトル画面。GameObjectエディタ機能一式はSceneBaseが提供する（PlaySceneと同じく
+// GameObjectの作成・削除・Gizmo編集・Save/Loadが可能）。ENTERキーでSelectへ遷移する
+// 部分だけがTitleScene固有
+class TitleScene : public SceneBase {
+protected:
+	void HandleSceneTransitionInput() override;
 };

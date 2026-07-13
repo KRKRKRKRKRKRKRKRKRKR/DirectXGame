@@ -6,6 +6,10 @@
 // 表示名の並びはCollisionLayer.hのenum定義順と対応させること。DrawImGuiとToJson/FromJsonの
 // 両方から使うためファイルスコープに置く
 static const char* kCollisionLayerNames[] = { "Default", "Player", "Obstacle", "Item", "Environment" };
+// 要素数だけはコンパイル時に検証できる（順序の対応まではチェックできないため、追加時は
+// 配列とenumの両方を必ず同じ位置に増やすこと）
+static_assert(sizeof(kCollisionLayerNames) / sizeof(kCollisionLayerNames[0]) == static_cast<size_t>(CollisionLayer::kCount),
+	"kCollisionLayerNames must have exactly CollisionLayer::kCount entries, in the same order as the enum");
 
 void ColliderComponentBase::DrawImGui(const char* namePrefix) {
 	std::string layerLabel = std::string(namePrefix) + " Collider Layer";

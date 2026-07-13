@@ -15,6 +15,10 @@ void ImGuiManager::Initialize(HWND hwnd, DirectXManager* dx) {
 		srvHeap->GetGPUDescriptorHandleForHeapStart());
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+	// デフォルトのProggyCleanフォントはASCIIのみのため、日本語文字はグリフが無く"?"化する。
+	// 日本語グリフ範囲込みでTTFを読み込み、ImGui::InputText等でも日本語入力・表示ができるようにする
+	io.Fonts->AddFontFromFileTTF("Resources/Font/font.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
 	io.Fonts->Build();
 }
 

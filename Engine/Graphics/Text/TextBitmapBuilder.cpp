@@ -19,10 +19,17 @@ struct TextBitmapBuilder::Impl {
 
 namespace {
 
+// キャンバス端まで文字がぴったり詰まっていると、Samplerが D3D12_TEXTURE_ADDRESS_MODE_WRAP の
+// ため、UV=1.0付近をバイリニアフィルタでサンプリングした際に反対端（UV=0付近）のピクセルと
+// 混ざり、文字の一部が逆側の端ににじんで見える。文字列の周囲に余白を持たせることでこれを防ぐ
+constexpr int kGlyphPaddingPx = 2;
+
 // キャンバスサイズ（out.width/out.height）が既に決まっている前提で、各文字をラスタライズして
-// キャンバスへ書き込む（Build/BuildFixed共通の2パス目）。キャンバス外にはみ出た分はクリップする
+// キャンバスへ書き込む（Build/BuildFixed共通の2パス目）。キャンバス外にはみ出た分はクリップする。
+// padding分だけ描画開始位置をキャンバス内側にずらす（kGlyphPaddingPx、呼び出し側でキャンバス
+// サイズにも同じ分を足しておく必要がある）
 void RenderGlyphsInto(const stbtt_fontinfo& font, const std::vector<char32_t>& text,
-	float scale, float lineAdvance, float baselineFirst, TextBitmap& out) {
+	float scale, float lineAdvance, float baselineFirst, TextBitmap& out, int paddingX = 0, int paddingY = 0) {
 	std::vector<unsigned char> glyphBuffer;
 	float cursorX = 0.0f;
 	float cursorY = baselineFirst;
@@ -45,8 +52,8 @@ void RenderGlyphsInto(const stbtt_fontinfo& font, const std::vector<char32_t>& t
 			glyphBuffer.assign(static_cast<size_t>(glyphWidth) * glyphHeight, 0);
 			stbtt_MakeCodepointBitmap(&font, glyphBuffer.data(), glyphWidth, glyphHeight, glyphWidth, scale, scale, static_cast<int>(cp));
 
-			int destX = static_cast<int>(cursorX) + ix0;
-			int destY = static_cast<int>(cursorY) + iy0;
+			int destX = static_cast<int>(cursorX) + ix0 + paddingX;
+			int destY = static_cast<int>(cursorY) + iy0 + paddingY;
 			for (int y = 0; y < glyphHeight; ++y) {
 				int py = destY + y;
 				if (py < 0 || py >= static_cast<int>(out.height)) continue;
@@ -116,15 +123,15 @@ bool TextBitmapBuilder::Build(const std::vector<char32_t>& text, float pixelHeig
 	}
 	maxWidth = std::max(maxWidth, cursorX);
 
-	auto width  = static_cast<uint32_t>(std::ceil(maxWidth));
-	auto height = static_cast<uint32_t>(std::ceil(lineAdvance * static_cast<float>(lineCount - 1) + static_cast<float>(ascent - descent) * scale));
-	if (width == 0 || height == 0) return false;
+	auto width  = static_cast<uint32_t>(std::ceil(maxWidth))  + kGlyphPaddingPx * 2;
+	auto height = static_cast<uint32_t>(std::ceil(lineAdvance * static_cast<float>(lineCount - 1) + static_cast<float>(ascent - descent) * scale)) + kGlyphPaddingPx * 2;
+	if (width <= static_cast<uint32_t>(kGlyphPaddingPx * 2) || height <= static_cast<uint32_t>(kGlyphPaddingPx * 2)) return false;
 
 	out.width  = width;
 	out.height = height;
 	out.rgbaPixels.assign(static_cast<size_t>(width) * height * 4, 0);
 
-	RenderGlyphsInto(font, text, scale, lineAdvance, baselineFirst, out);
+	RenderGlyphsInto(font, text, scale, lineAdvance, baselineFirst, out, kGlyphPaddingPx, kGlyphPaddingPx);
 	return true;
 }
 
@@ -144,6 +151,9 @@ bool TextBitmapBuilder::BuildFixed(const std::vector<char32_t>& text, float pixe
 	out.height = canvasHeight;
 	out.rgbaPixels.assign(static_cast<size_t>(canvasWidth) * canvasHeight * 4, 0);
 
-	RenderGlyphsInto(font, text, scale, lineAdvance, baselineFirst, out);
+	// 左上にkGlyphPaddingPx分の余白を持たせ、文字がキャンバス左端に張り付かないようにする
+	// （WRAPサンプラーによる端のにじみ対策。右/下端は呼び出し側のcanvasWidth/Heightに
+	// 十分な余裕がある前提で、ここでは開始位置のみ調整する）
+	RenderGlyphsInto(font, text, scale, lineAdvance, baselineFirst, out, kGlyphPaddingPx, kGlyphPaddingPx);
 	return true;
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "SceneType.h"
+#include <string>
 
 class Renderer;
 class Camera;
@@ -12,7 +13,10 @@ class IScene {
 public:
 	virtual ~IScene() = default;
 
-	virtual void Initialize(Renderer* renderer, Camera* camera) = 0;
+	// assetFolderはSceneManagerがSceneTypeから決めるシーン専用の素材フォルダ名（例: "Play"）。
+	// PlayScene等はResources/{assetFolder}/にUI/Object用のJSONを保存・復元することで、
+	// シーンごとに別々の素材セットを切り替えられるようにする
+	virtual void Initialize(Renderer* renderer, Camera* camera, const std::string& assetFolder) = 0;
 	virtual void Render(float deltaTime) = 0;
 
 	// 遷移したい場合は次のSceneTypeを返す。デフォルトは「遷移しない」

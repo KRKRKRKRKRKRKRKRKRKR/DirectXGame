@@ -11,7 +11,11 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 void Game::Update(float deltaTime) {
 	deltaTime_ = deltaTime;
-	camera_->HandleInput(deltaTime);
+	// ImGuiのテキスト入力欄（Content等）にフォーカスがある間はWASD/Shift/Space等を
+	// カメラ操作として拾わないようにする（入力中に文字を打つとカメラが動いてしまうのを防ぐ）
+	if (!ImGui::GetIO().WantTextInput) {
+		camera_->HandleInput(deltaTime);
+	}
 
 	// 0.5秒ごとに直近フレームの平均FPS/フレーム時間を計算し直す（毎フレーム表示は変動が激しく読みづらいため）
 	fpsSampleTimer_ += deltaTime;

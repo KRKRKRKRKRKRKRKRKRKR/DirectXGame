@@ -274,8 +274,10 @@ void Renderer::DrawSprite3D(const Transform& transform, const Vector4& color, Te
 
 void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform, BlendMode blendMode, float blendStrength,
 	bool enableAlphaTest, float alphaThreshold) {
-	Matrix4x4 ortho  = MatrixMath::MakeOrthographicMatrix(
-		static_cast<float>(windowWidth_), static_cast<float>(windowHeight_));
+	// 正射影の範囲を実ウィンドウサイズではなく固定のデザイン解像度(kUiDesignWidth/Height)にすることで、
+	// ビューポート自体は画面全体を覆ったまま、UI座標系だけがウィンドウの拡大縮小に対して自動的に
+	// 引き伸ばされる（=translation/scaleのpx値を変えずにウィンドウ全体に対する相対サイズが保たれる）
+	Matrix4x4 ortho  = MatrixMath::MakeOrthographicMatrix(kUiDesignWidth, kUiDesignHeight);
 	Matrix4x4 world  = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
 	Matrix4x4 wvp    = world * ortho;
 	sprite2DCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold, std::nullopt, uvTransform });

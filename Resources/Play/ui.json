@@ -1,0 +1,100 @@
+{
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "canvasHeight": 64,
+                        "canvasWidth": 512,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "dynamicText": true,
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 20.0,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "superSample": 2.0,
+                        "txtFilePath": ""
+                    },
+                    "type": "TextRender"
+                }
+            ],
+            "excludeFromGizmoList": true,
+            "name": "Camera Coord",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    256.0,
+                    32.0,
+                    1.0
+                ],
+                "translation": [
+                    10.0,
+                    10.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "canvasHeight": 64,
+                        "canvasWidth": 512,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "dynamicText": true,
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 20.0,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "superSample": 2.0,
+                        "txtFilePath": ""
+                    },
+                    "type": "TextRender"
+                }
+            ],
+            "excludeFromGizmoList": true,
+            "name": "Camera Coord",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    256.0,
+                    32.0,
+                    1.0
+                ],
+                "translation": [
+                    10.0,
+                    10.0,
+                    0.0
+                ]
+            }
+        }
+    ]
+}

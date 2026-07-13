@@ -19,4 +19,8 @@ private:
 
 	void ChangeScene(SceneType next);
 	std::unique_ptr<IScene> CreateScene(SceneType type);
+
+	// SceneTypeごとの素材フォルダ名（Resources/{フォルダ名}/）。シーン間で名前が衝突しないよう
+	// SceneType名とそのまま対応させている
+	static std::string GetAssetFolderName(SceneType type);
 };

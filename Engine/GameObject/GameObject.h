@@ -35,10 +35,6 @@ public:
 	// 候補の一覧）に含めない。Sprite2D（スクリーン空間UI）やBGM（3D位置を持たない）用
 	bool excludeFromGizmoList = false;
 
-	// trueにすると、PlayScene::RebuildDerivedListsが"Objects"パネル表示一覧に含めない。
-	// BGM用（Transform等、意味のある編集項目が無いため）
-	bool excludeFromObjectPanel = false;
-
 	// TransformComponentが実際に持つTransformへの参照を返す（既存の.transformアクセスの代替）
 	Transform& GetTransform() { return transformComponent_->transform; }
 

@@ -29,7 +29,7 @@ public:
 	// 3D版と違い、ワールド空間へのレイキャストではなく画面px座標そのままでAABBヒット判定する
 	// （回転は判定に反映しない簡易版）。ギズモ操作もRenderer::DrawSprite2Dと同じ
 	// 「world * 正射影(0,0)-(width,height)」空間で行うことで見た目とギズモを一致させる
-	void UpdatePicking2D(const std::vector<GameObject*>& targets2D);
+	void UpdatePicking2D(const std::vector<GameObject*>& targets2D, Renderer* renderer);
 	void UpdateGizmo2D(const std::vector<GameObject*>& targets2D, Renderer* renderer);
 
 	// "Gizmo"ウィンドウの中身のうちTargetコンボ・Edit Collider・Translate/Rotate/Scaleを
@@ -43,33 +43,65 @@ public:
 	// 現在選択中のオブジェクトを返す（未選択、またはtargetsの範囲外ならnullptr）。
 	// Delete機能等、選択中オブジェクトそのものが必要な呼び出し元向け
 	GameObject* GetSelected(const std::vector<GameObject*>& targets) const {
-		if (gizmoTargetIndex_ < 0 || gizmoTargetIndex_ >= static_cast<int>(targets.size())) return nullptr;
-		return targets[gizmoTargetIndex_];
+		if (selection3D_.targetIndex < 0 || selection3D_.targetIndex >= static_cast<int>(targets.size())) return nullptr;
+		return targets[selection3D_.targetIndex];
 	}
 
 	GameObject* GetSelected2D(const std::vector<GameObject*>& targets2D) const {
-		if (gizmoTargetIndex2D_ < 0 || gizmoTargetIndex2D_ >= static_cast<int>(targets2D.size())) return nullptr;
-		return targets2D[gizmoTargetIndex2D_];
+		if (selection2D_.targetIndex < 0 || selection2D_.targetIndex >= static_cast<int>(targets2D.size())) return nullptr;
+		return targets2D[selection2D_.targetIndex];
+	}
+
+	// 3D/2Dはそれぞれ独立した選択状態を持つため、両方同時に選択中の場合は「最後に選んだ方」を
+	// 優先したい。Objectsパネル等、1つだけ選んで詳細を出したい呼び出し元向け
+	GameObject* GetSelectedPreferLatest(const std::vector<GameObject*>& targets, const std::vector<GameObject*>& targets2D) const {
+		GameObject* sel3D = GetSelected(targets);
+		GameObject* sel2D = GetSelected2D(targets2D);
+		if (lastSelectedIs2D_ && sel2D) return sel2D;
+		if (!lastSelectedIs2D_ && sel3D) return sel3D;
+		return sel2D ? sel2D : sel3D;
 	}
 
 	// オブジェクトの生成・削除・ロード等でtargetsの中身/順序が変わった直後に呼ぶ。
 	// 古いインデックスが別のオブジェクトを指す/範囲外になるのを防ぐ
 	void ResetSelection() {
-		gizmoTargetIndex_ = -1;
-		gizmoTargetIndex2D_ = -1;
+		selection3D_.targetIndex = -1;
+		selection2D_.targetIndex = -1;
 		editCollider_ = false;
+		lastSelectedIs2D_ = false;
 	}
 
 private:
 	Transform* GetGizmoTargetTransform(const std::vector<GameObject*>& targets);
 
+	// 3D/2Dそれぞれが持つ「選択中インデックス＋前フレームのマウス押下状態」をまとめた1組。
+	// 3D版と2D版は同じフレームで両方判定されるため、前フレーム状態を共有すると片方が読んだ
+	// 時点でもう片方のエッジ検出が壊れる。そのため3D用/2D用で別々のインスタンスを持つ
+	// （ロジック自体はUpdatePicking/UpdatePicking2Dに残したまま、状態の置き場所だけをまとめている）。
+	// IsPickingTriggeredの引数型として使うため、メンバ関数宣言より前に定義しておく必要がある
+	struct SelectionState {
+		int  targetIndex = -1;         // targets内で現在選択中のインデックス。-1は「何も選んでいない」
+		bool prevMouseLeftPressed = false; // 左クリックの立ち上がり（トリガー）検知用の前フレーム状態
+	};
+
+	// UpdatePicking/UpdatePicking2D共通のクリック立ち上がり検知。selectionのprevMouseLeftPressed
+	// を更新したうえで、「今回クリックが立ち上がったか」かつ「pushId側のギズモを操作中でないか」
+	// かつ「ImGuiパネル上でないか」をまとめて判定する。呼び出し元はtrueが返った場合のみ
+	// 実際のピッキング処理（レイキャスト/AABB判定）を行う
+	static bool IsPickingTriggered(SelectionState& selection, const char* pushId);
+
+	// UpdateGizmo/UpdateGizmo2D共通の後始末：ImGuizmo::Manipulateがtrueを返した後の
+	// DecomposeMatrixToComponents→Transformへの書き戻し（度数法→ラジアン変換込み）
+	static void ApplyDecomposedMatrix(const Matrix4x4& world, Transform* target);
+
 	ImGuizmo::OPERATION gizmoOperation_ = ImGuizmo::TRANSLATE;
 
-	// targets内で現在選択中のインデックス。-1は「何も選んでいない」
-	int gizmoTargetIndex_ = -1;
+	SelectionState selection3D_;
+	SelectionState selection2D_;
 
-	// 2D版の選択インデックス（3D側とは独立。同時にそれぞれ1つずつ選択状態を持てる）
-	int gizmoTargetIndex2D_ = -1;
+	// 3D/2Dのうち最後に選択操作されたのはどちらか（GetSelectedPreferLatestが使う）。
+	// falseの初期値は「3D優先」（既存の挙動を壊さないデフォルト）
+	bool lastSelectedIs2D_ = false;
 
 	// "Edit Collider"チェックボックス。オンの間、ギズモの対象は選択中GameObjectのTransformではなく、
 	// そのGameObjectが持つCollider（オフセット+サイズ）に切り替わる
@@ -78,12 +110,4 @@ private:
 	// Collider編集を仲介する一時バッファ。translationはワールド座標に変換したコライダー中心、
 	// scaleはSphereなら{radius,radius,radius}、Boxならhalfsize*2を格納する。rotationは使わない
 	Transform colliderGizmoScratch_;
-
-	// マウスピッキング：3Dビュー上で左クリックした瞬間を検知するための前フレーム状態。
-	// InputDeviceは左クリックの「押されているか」のみでトリガー版を持たないため、ここで保持する
-	bool prevMouseLeftPressed_ = false;
-
-	// 2D版の前フレーム状態。3D版と同じフレームで両方判定するため、状態を共有すると
-	// 片方が読んだ時点でもう片方のエッジ検出が壊れる（毎フレーム両方1回ずつ呼ばれる前提で分離）
-	bool prevMouseLeftPressed2D_ = false;
 };

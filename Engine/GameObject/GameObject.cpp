@@ -5,11 +5,13 @@
 
 void GameObject::ToJson(nlohmann::json& out) const {
 	out["name"] = name;
+	out["excludeFromGizmoList"] = excludeFromGizmoList;
 
 	const Transform& t = transformComponent_->transform;
 	out["transform"]["translation"] = Vector3ToJson(t.translation);
 	out["transform"]["rotation"]    = Vector3ToJson(t.rotation);
 	out["transform"]["scale"]       = Vector3ToJson(t.scale);
+	out["transform"]["is2D"]        = transformComponent_->is2D;
 
 	nlohmann::json comps = nlohmann::json::array();
 	components_.ForEach([&](IComponent* c) {
@@ -25,6 +27,7 @@ void GameObject::ToJson(nlohmann::json& out) const {
 
 void GameObject::FromJson(const nlohmann::json& in, const ComponentLoadContext& ctx) {
 	name = in.value("name", name);
+	excludeFromGizmoList = in.value("excludeFromGizmoList", false);
 
 	components_.Clear();
 	transformComponent_ = components_.AddComponent<TransformComponent>();
@@ -33,6 +36,7 @@ void GameObject::FromJson(const nlohmann::json& in, const ComponentLoadContext& 
 		if (t.contains("translation")) transformComponent_->transform.translation = Vector3FromJson(t["translation"]);
 		if (t.contains("rotation"))    transformComponent_->transform.rotation    = Vector3FromJson(t["rotation"]);
 		if (t.contains("scale"))       transformComponent_->transform.scale       = Vector3FromJson(t["scale"]);
+		transformComponent_->is2D = t.value("is2D", false);
 	}
 
 	if (in.contains("components")) {

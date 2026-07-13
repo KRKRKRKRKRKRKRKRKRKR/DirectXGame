@@ -16,9 +16,19 @@ void DescriptorHeaps::Initialize(ID3D12Device* device) {
 }
 
 uint32_t DescriptorHeaps::AllocateSRVIndex(uint32_t count) {
+	// assertはDebugビルドでのみ効くため、ReleaseビルドでkSrvHeapCapacityを超えた場合も
+	// ヒープ範囲外のindexを返して呼び出し元がそのままGPU/CPUディスクリプタハンドル計算に
+	// 使ってしまう（未定義動作）のを防ぐ。上限超過時はログを残し、最後の有効indexを
+	// 使い回す（新規テクスチャ/モデルの見た目が壊れるだけで済ませ、メモリ破壊は避ける）
+	if (nextSrvAllocIndex_ + count > kSrvHeapCapacity) {
+		Logger::Log("DescriptorHeaps::AllocateSRVIndex: SRV heap index exhausted, reusing last valid index\n");
+		assert(false && "DescriptorHeaps: SRV heap index exhausted");
+		// countがヒープ容量自体を超える異常値でもアンダーフローしないようクランプする
+		return (count <= kSrvHeapCapacity) ? (kSrvHeapCapacity - count) : 0;
+	}
+
 	uint32_t allocated = nextSrvAllocIndex_;
 	nextSrvAllocIndex_ += count;
-	assert(nextSrvAllocIndex_ <= kSrvHeapCapacity && "DescriptorHeaps: SRV heap index exhausted");
 	return allocated;
 }
 

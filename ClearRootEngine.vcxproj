@@ -176,6 +176,8 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\Graphics\Text\TextBitmapBuilder.cpp" />
     <ClCompile Include="Engine\InputDevice\InputDevice.cpp" />
     <ClCompile Include="Game\Game.cpp" />
+    <ClCompile Include="Game\SceneBase.cpp" />
+    <ClCompile Include="Game\SceneObjectStore.cpp" />
     <ClCompile Include="Game\PlayScene.cpp" />
     <ClCompile Include="Game\SceneManager.cpp" />
     <ClCompile Include="Game\TitleScene.cpp" />
@@ -270,6 +272,8 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\InputDevice\InputDevice.h" />
     <ClInclude Include="Game\Game.h" />
+    <ClInclude Include="Game\SceneBase.h" />
+    <ClInclude Include="Game\SceneObjectStore.h" />
     <ClInclude Include="Game\PlayScene.h" />
     <ClInclude Include="Game\SceneType.h" />
     <ClInclude Include="Game\IScene.h" />
