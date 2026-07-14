@@ -44,6 +44,11 @@ public:
 	template<typename T>
 	T* GetComponent() { return components_.GetComponent<T>(); }
 
+	// 型Tのコンポーネントを1個破棄する。TransformComponentは常にコンストラクタで
+	// 自動アタッチされる必須コンポーネントのため、呼び出し側で対象から除外すること
+	template<typename T>
+	bool RemoveComponent() { return components_.RemoveComponent<T>(); }
+
 	void Update(float deltaTime) { components_.Update(deltaTime, transformComponent_->transform); }
 
 	// 自分の名前を見出しとして表示した後、自分が持つ全コンポーネントに、自分のnameを渡して

@@ -6,3 +6,4 @@
 #include "SphereColliderComponent.h"
 #include "OBBColliderComponent.h"
 #include "GravityComponent.h"
+#include "PlayerControllerComponent.h"

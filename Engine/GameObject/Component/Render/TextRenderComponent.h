@@ -90,4 +90,7 @@ private:
 	uint32_t bitmapHeight_ = 0;
 	Renderer* renderer_ = nullptr; // DrawImGuiの再読込ボタンからLoad()を呼び直すために保持
 	TextProvider textProvider_; // 未設定時は空（std::functionのbool変換でチェックする）
+
+	// TODO(debug): テキスト非表示バグ調査用の一時カウンタ。原因特定後に削除する
+	mutable int debugDrawCounter_ = 0;
 };

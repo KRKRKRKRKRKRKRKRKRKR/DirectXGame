@@ -25,6 +25,21 @@ public:
 		return nullptr;
 	}
 
+	// 型Tに一致する最初の1個を破棄する（Add Componentメニューからの取り消し用）。
+	// 見つかった場合はtrueを返す。TextureSelectorComponent/MirrorComponent等、他コンポーネントへの
+	// 生ポインタを持つものが依存先を指している状態で依存先だけを消すとダングリングポインタになるため、
+	// 呼び出し側（SceneBase::DrawAddComponentMenu）が依存関係を見て削除順を制御する
+	template<typename T>
+	bool RemoveComponent() {
+		for (auto it = components_.begin(); it != components_.end(); ++it) {
+			if (dynamic_cast<T*>(it->get())) {
+				components_.erase(it);
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void Update(float deltaTime, Transform& transform) {
 		for (auto& c : components_) c->Update(deltaTime, transform);
 	}

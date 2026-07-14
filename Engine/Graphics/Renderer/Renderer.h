@@ -104,9 +104,10 @@ public:
 	void DrawLine(const Vector3& start, const Vector3& end, const Vector4& color, const Matrix4x4& view, const Matrix4x4& projection);
 	void FlushLines();
 	void DrawGridBatch(const Matrix4x4& view, const Matrix4x4& projection);
-	// 3Dスプライト（カメラ付き WVP）
+	// 3Dスプライト（カメラ付き WVP）。FlushSprites3D() で実際に描画される
 	void DrawSprite3D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
 		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
+	void FlushSprites3D();
 	// 2DスプライトUI（ピクセル座標、奥行きなし）。FlushSprites2D() で最後に描画される
 	void DrawSprite2D(const Transform& transform, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = false, const UVTransform& uvTransform = {}, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
 		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
@@ -170,6 +171,9 @@ private:
 	struct Sprite2DCommand : DrawCommandBase {
 		UVTransform uvTransform;
 	};
+	struct Sprite3DCommand : DrawCommandBase {
+		UVTransform uvTransform;
+	};
 	struct ModelCommand : DrawCommandBase {
 		ModelHandle handle;
 	};
@@ -213,6 +217,7 @@ private:
 	std::vector<CubeCommand>      cubeCommands_;
 	std::vector<LineCommand>      lineCommands_;
 	std::vector<SphereCommand>    sphereCommands_;
+	std::vector<Sprite3DCommand>  sprite3DCommands_;
 	std::vector<Sprite2DCommand>  sprite2DCommands_;
 	std::vector<ModelCommand>     modelCommands_;
 
@@ -253,6 +258,8 @@ private:
 	uint32_t nextSphereInstanceOffset_   = 0;
 	uint32_t nextTriangleInstanceOffset_ = 0;
 	uint32_t nextModelInstanceOffset_    = 0;
+	uint32_t nextSprite3DInstanceOffset_ = 0;
+	uint32_t nextSprite2DInstanceOffset_ = 0;
 };
 
 // Triangle/Cube/Sphereで共通のFlush処理。ソートキー・バッチ判定はDrawCommandBaseの

@@ -79,6 +79,13 @@ protected:
 	// Gizmoパネルで選択中のオブジェクトをobjects_から削除する
 	void DeleteSelectedObject();
 
+	// "Objects"パネルの"Add Component"セクション。selectedに対して、ComponentRegistryの
+	// Simple系（引数なしで安全に追加できる型）はコンボ+Addボタンで一覧から、依存のある型
+	// （Model/Sprite/TextureSelector/Mirror/AudioSource）は個別の入力欄+ボタンで追加する。
+	// Cube等の完成形をArchetypeから1発生成する既存フローとは別に、空のGameObjectへ
+	// 後から機能を積み上げていく生成スタイルを提供する
+	void DrawAddComponentMenu(GameObject& selected);
+
 	// objects_の保存/復元自体はSceneObjectStoreに委譲する（ファイルパス組み立て・
 	// is2D振り分け・SceneSerializer呼び出しはそちらの責務）。ここではLoad後に必要な
 	// Rebind/RebuildDerivedLists/ResetSelectionの後始末だけを行う

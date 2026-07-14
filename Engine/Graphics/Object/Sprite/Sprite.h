@@ -5,18 +5,24 @@
 #include "../../Texture/TextureManager.h"
 #include "../../DescriptorHeaps/DescriptorHeaps.h"
 #include "../../Pipeline/BlendMode.h"
+#include "../../ResourceFactory/InstancedWvpColorBuffer.h"
 #include "../../../../Math/MathTypes.h"
 
 class Pipeline;
 
 class Sprite : public IDrawable {
 public:
+    // maxInstanceCountはSprite2D/Sprite3Dそれぞれ独立に確保する枚数。同一フレーム内で
+    // 複数枚描画する場合、index別スロットに書き込まないと全描画が最後の1枚と同じ値を
+    // 参照してしまう（Cube/Sphere/Triangleと同じInstancedWvpColorBufferパターンで解決）
+    static constexpr uint32_t kMaxInstanceCount = 512;
+
     void Initialize(ID3D12Device* device, TextureManager* textureManager,
         ID3D12RootSignature* rootSignature, Pipeline* pipeline,
         DescriptorHeaps* heaps, uint32_t wvpHeapIndex, uint32_t colorHeapIndex);
 
-    void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world);
-    void SetColor(const Vector4& color);
+    void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
+    void SetColor(const Vector4& color, uint32_t index);
     void SetUVTransform(const UVTransform& uvTransform);
     void SetFlipV(bool flip);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
@@ -37,13 +43,7 @@ private:
     ComPtr<ID3D12Resource> indexResource_;
     D3D12_INDEX_BUFFER_VIEW indexBufferView_{};
 
-    ComPtr<ID3D12Resource> wvpResource_;
-    TransformationMatrix* wvpMappedData_ = nullptr;
-    D3D12_GPU_DESCRIPTOR_HANDLE wvpSrvHandle_{};
-
-    ComPtr<ID3D12Resource> colorResource_;
-    Vector4* colorMappedData_ = nullptr;
-    D3D12_GPU_DESCRIPTOR_HANDLE colorSrvHandle_{};
+    InstancedWvpColorBuffer wvpColorBuffer_;
 
     ID3D12RootSignature* rootSignature_ = nullptr;
     Pipeline* pipeline_ = nullptr;
@@ -55,6 +55,4 @@ private:
     void CreateVertexResource(ID3D12Device* device);
     void CreateIndexResource(ID3D12Device* device);
     void WriteVertexData();
-    void CreateWvpResource(ID3D12Device* device);
-    void CreateColorResource(ID3D12Device* device);
 };

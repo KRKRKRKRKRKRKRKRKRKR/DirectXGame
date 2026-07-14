@@ -9,6 +9,7 @@
 void RegisterEngineComponents() {
 	// 単純パターン：デフォルト構築でき、他コンポーネントや外部リソースに依存しない
 	ComponentRegistry::RegisterSimple<GravityComponent>("Gravity");
+	ComponentRegistry::RegisterSimple<PlayerControllerComponent>("PlayerController");
 	ComponentRegistry::RegisterSimple<SphereColliderComponent>("SphereCollider");
 	ComponentRegistry::RegisterSimple<OBBColliderComponent>("OBBCollider");
 	ComponentRegistry::RegisterSimple<CubeRenderComponent>("CubeRender");

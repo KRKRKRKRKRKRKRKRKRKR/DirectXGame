@@ -85,6 +85,7 @@
     <ClCompile Include="Engine\GameObject\Component\Physics\SphereColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\OBBColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GravityComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\PlayerControllerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\DirectionalLightComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\PointLightComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\SpotLightComponent.cpp" />
@@ -211,6 +212,7 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\CollisionLayer.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ColliderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\PlayerControllerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\Physics.h" />
     <ClInclude Include="Engine\GameObject\Component\Lighting\ILightComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Lighting\DirectionalLightComponent.h" />

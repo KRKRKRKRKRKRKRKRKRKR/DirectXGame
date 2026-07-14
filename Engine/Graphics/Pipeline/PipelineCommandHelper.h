@@ -23,10 +23,6 @@ namespace PipelineCommandHelper {
 		commandList->SetGraphicsRootSignature(rootSignature);
 		commandList->SetPipelineState(pipelineState);
 
-		// D3D12_BLEND_(INV_)BLEND_FACTOR が参照する定数。kNormal/kAdd/kSubtractのみ効果がある
-		const float blendFactor[4] = { blendStrength, blendStrength, blendStrength, blendStrength };
-		commandList->OMSetBlendFactor(blendFactor);
-
 		commandList->SetGraphicsRootDescriptorTable(0, textureSrvHandle); // t0: テクスチャ
 		commandList->SetGraphicsRootDescriptorTable(1, wvpSrvHandle);     // t1: WVP
 		commandList->SetGraphicsRootDescriptorTable(2, colorSrvHandle);   // t2: 色

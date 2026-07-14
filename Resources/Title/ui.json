@@ -42,8 +42,104 @@
                     2.5399997234344482
                 ],
                 "translation": [
-                    186.0,
-                    148.99998474121094,
+                    103.0,
+                    87.81981658935547,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "canvasHeight": 48,
+                        "canvasWidth": 512,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "dynamicText": false,
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 32.0,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "superSample": 2.0,
+                        "txtFilePath": "Resources/Title/Text/wwwwwww.txt"
+                    },
+                    "type": "TextRender"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "wwwwwww",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    248.0,
+                    34.0,
+                    1.0
+                ],
+                "translation": [
+                    170.48500061035156,
+                    164.99981689453125,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "canvasHeight": 48,
+                        "canvasWidth": 512,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "dynamicText": false,
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 32.0,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "superSample": 2.0,
+                        "txtFilePath": "Resources/Title/Text/egegeg.txt"
+                    },
+                    "type": "TextRender"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "egegeg",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    95.5,
+                    34.0,
+                    1.0
+                ],
+                "translation": [
+                    94.23500061035156,
+                    130.99981689453125,
                     0.0
                 ]
             }

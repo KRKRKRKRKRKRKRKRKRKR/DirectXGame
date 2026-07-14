@@ -84,6 +84,8 @@ void Renderer::ResetFrameIndex() {
 	nextSphereInstanceOffset_   = 0;
 	nextTriangleInstanceOffset_ = 0;
 	nextModelInstanceOffset_    = 0;
+	nextSprite3DInstanceOffset_ = 0;
+	nextSprite2DInstanceOffset_ = 0;
 }
 
 void Renderer::InitializeGridLines() {
@@ -266,10 +268,7 @@ void Renderer::DrawSprite3D(const Transform& transform, const Vector4& color, Te
 	bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(transform.scale, transform.rotation, transform.translation);
 	Matrix4x4 wvp   = world * view_ * projection_;
-	sprite3D_->SetWvpMatrix(wvp, world);
-	sprite3D_->SetColor(color);
-	sprite3D_->SetUVTransform(uvTransform);
-	IssueDrawCommand(sprite3D_.get(), texture, blendMode, blendStrength, enableAlphaTest, alphaThreshold, useLighting, 0u);
+	sprite3DCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold, std::nullopt, uvTransform });
 }
 
 void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, TextureHandle texture, bool useLighting, const UVTransform& uvTransform, BlendMode blendMode, float blendStrength,
@@ -283,15 +282,39 @@ void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, Te
 	sprite2DCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold, std::nullopt, uvTransform });
 }
 
+void Renderer::FlushSprites3D() {
+	if (sprite3DCommands_.empty()) return;
+
+	// Cube/Sphere等と同じインスタンス配列パターン：indexごとに独立したスロットへWVP/色を書き込む。
+	// UVTransformは頂点バッファ（全インスタンス共有）に焼き込む都合上、コマンドごとに
+	// SetUVTransform→即IssueDrawCommandする（バッチ化はしない。順序はwvpColorBuffer_書き込み後で問題ない）
+	uint32_t base = nextSprite3DInstanceOffset_;
+	for (int i = 0; i < (int)sprite3DCommands_.size(); i++) {
+		auto& cmd = sprite3DCommands_[i];
+		uint32_t idx = base + static_cast<uint32_t>(i);
+		sprite3D_->SetWvpMatrix(cmd.wvp, cmd.world, idx);
+		sprite3D_->SetColor(cmd.color, idx);
+		sprite3D_->SetUVTransform(cmd.uvTransform);
+		IssueDrawCommand(sprite3D_.get(), cmd.texture, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, idx);
+	}
+	nextSprite3DInstanceOffset_ = base + static_cast<uint32_t>(sprite3DCommands_.size());
+
+	sprite3DCommands_.clear();
+}
+
 void Renderer::FlushSprites2D() {
 	if (sprite2DCommands_.empty()) return;
 
-	for (auto& cmd : sprite2DCommands_) {
-		sprite2D_->SetWvpMatrix(cmd.wvp, cmd.world);
-		sprite2D_->SetColor(cmd.color);
+	uint32_t base = nextSprite2DInstanceOffset_;
+	for (int i = 0; i < (int)sprite2DCommands_.size(); i++) {
+		auto& cmd = sprite2DCommands_[i];
+		uint32_t idx = base + static_cast<uint32_t>(i);
+		sprite2D_->SetWvpMatrix(cmd.wvp, cmd.world, idx);
+		sprite2D_->SetColor(cmd.color, idx);
 		sprite2D_->SetUVTransform(cmd.uvTransform);
-		IssueDrawCommand(sprite2D_.get(), cmd.texture, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, 0u);
+		IssueDrawCommand(sprite2D_.get(), cmd.texture, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, idx);
 	}
+	nextSprite2DInstanceOffset_ = base + static_cast<uint32_t>(sprite2DCommands_.size());
 
 	sprite2DCommands_.clear();
 }
@@ -304,6 +327,7 @@ void Renderer::FlushAll() {
 	FlushModels();
 	FlushLines();
 	FlushSpheres();
+	FlushSprites3D();
 	FlushSprites2D(); // 2DスプライトはDepth無効で最後に描画 → 常に最前面
 }
 

@@ -18,25 +18,16 @@ void Sprite::Initialize(ID3D12Device* device, TextureManager* textureManager,
 	CreateVertexResource(device);
 	CreateIndexResource(device);
 	WriteVertexData();
-	CreateWvpResource(device);
-	CreateColorResource(device);
 
-	auto wvpSrv   = heaps->CreateStructuredBufferSRV(device, wvpResource_.Get(),   1, sizeof(TransformationMatrix), wvpHeapIndex);
-	auto colorSrv = heaps->CreateStructuredBufferSRV(device, colorResource_.Get(), 1, sizeof(Vector4),   colorHeapIndex);
-	wvpSrvHandle_   = wvpSrv.gpuHandle;
-	colorSrvHandle_ = colorSrv.gpuHandle;
+	wvpColorBuffer_.Initialize(device, heaps, kMaxInstanceCount, wvpHeapIndex, colorHeapIndex);
 }
 
-void Sprite::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world) {
-	if (wvpMappedData_) {
-		wvpMappedData_->WVP   = wvpMatrix;
-		wvpMappedData_->World = world;
-		wvpMappedData_->WorldInverseTranspose = MatrixMath::Transpose(MatrixMath::Inverse(world));
-	}
+void Sprite::SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index) {
+	wvpColorBuffer_.SetWvpMatrix(wvpMatrix, world, index);
 }
 
-void Sprite::SetColor(const Vector4& color) {
-	if (colorMappedData_) *colorMappedData_ = color;
+void Sprite::SetColor(const Vector4& color, uint32_t index) {
+	wvpColorBuffer_.SetColor(color, index);
 }
 
 void Sprite::SetUVTransform(const UVTransform& uvTransform) {
@@ -71,7 +62,7 @@ void Sprite::SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
 	TextureManager* textureManager, TextureHandle texture, BlendMode blendMode, float blendStrength,
 	bool enableAlphaTest, float alphaThreshold) {
 	PipelineCommandHelper::ApplyCommon(commandList, rootSignature_, pipeline_->GetPipelineState(blendMode, enableAlphaTest),
-		textureManager->GetSrvGpuHandle(texture), wvpSrvHandle_, colorSrvHandle_,
+		textureManager->GetSrvGpuHandle(texture), wvpColorBuffer_.GetWvpSrvHandle(), wvpColorBuffer_.GetColorSrvHandle(),
 		blendMode, blendStrength, enableAlphaTest, alphaThreshold);
 }
 
@@ -80,11 +71,10 @@ ID3D12PipelineState* Sprite::GetPipelineState() const {
 }
 
 void Sprite::Draw(ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstance) {
-	(void)instanceCount; (void)startInstance;
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList->IASetIndexBuffer(&indexBufferView_);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->DrawIndexedInstanced(kIndexCount, 1, 0, 0, 0);
+	commandList->DrawIndexedInstanced(kIndexCount, instanceCount, 0, 0, startInstance);
 }
 
 void Sprite::CreateVertexResource(ID3D12Device* device) {
@@ -126,21 +116,4 @@ void Sprite::WriteVertexData() {
 void Sprite::SetFlipV(bool flip) {
 	flipV_ = flip;
 	WriteVertexData();
-}
-
-void Sprite::CreateWvpResource(ID3D12Device* device) {
-	wvpResource_ = ResourceFactory::CreateBufferResource(device, sizeof(TransformationMatrix));
-	assert(wvpResource_);
-	HRESULT hr = wvpResource_->Map(0, nullptr, reinterpret_cast<void**>(&wvpMappedData_));
-	assert(SUCCEEDED(hr) && wvpMappedData_);
-	wvpMappedData_->WVP   = MatrixMath::Identity();
-	wvpMappedData_->World = MatrixMath::Identity();
-}
-
-void Sprite::CreateColorResource(ID3D12Device* device) {
-	colorResource_ = ResourceFactory::CreateBufferResource(device, sizeof(Vector4));
-	assert(colorResource_);
-	HRESULT hr = colorResource_->Map(0, nullptr, reinterpret_cast<void**>(&colorMappedData_));
-	assert(SUCCEEDED(hr) && colorMappedData_);
-	*colorMappedData_ = Vector4(1.0f, 1.0f, 1.0f, 1.0f);
 }

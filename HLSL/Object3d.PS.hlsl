@@ -200,6 +200,13 @@ PixelShaderOutput main(VertexShaderOutput input)
     {
         output.color.rgb = lerp(float3(0.0f, 0.0f, 0.0f), output.color.rgb, gBlendStrength);
     }
+    else
+    {
+        // kNormal/kAdd/kSubtract: BlendStateがSrcAlpha/InvSrcAlphaでper-pixelアルファを実際に使うため、
+        // テクスチャのアルファ（文字の輪郭など画素ごとの透明度）はそのまま活かしつつ、
+        // gBlendStrengthは「全体の濃さ」の追加乗算として効かせる
+        output.color.a *= gBlendStrength;
+    }
 
     return output;
 }

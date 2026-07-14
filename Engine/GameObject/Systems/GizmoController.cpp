@@ -1,12 +1,14 @@
 #include "GizmoController.h"
 #include "../GameObject.h"
 #include "../Component/Physics/ColliderComponentBase.h"
+#include "../Component/Render/RenderComponentBase.h"
 #include "../../../Math/Collision.h"
 #include "../../../Math/MatrixMath.h"
 #include "../../../Math/TransformMath.h"
 #include "../../Graphics/Renderer/Renderer.h"
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 
 bool GizmoController::IsPickingTriggered(SelectionState& selection, const char* pushId) {
 	bool leftPressed = ImGui::IsMouseDown(ImGuiMouseButton_Left);
@@ -100,10 +102,29 @@ void GizmoController::UpdatePicking(const std::vector<GameObject*>& targets, Ren
 	// 何にも当たらなかった場合は現在の選択状態を維持する
 }
 
+void GizmoController::DrawEmptyObjectMarker(const Transform& t, Renderer* renderer,
+	const Matrix4x4& view, const Matrix4x4& proj) {
+	// RenderComponentBase/ColliderComponentBaseのどちらも持たない「見た目が一切ない」
+	// GameObjectは、選択してもどこにあるか画面上で分からないため、Gizmoハンドルの土台として
+	// 3軸に短い線を引いた十字マーカーを常に描画する（Colliderのワイヤーフレームと同じ発想）
+	constexpr float kMarkerLength = 0.5f;
+	constexpr Vector4 kMarkerColor = { 1.0f, 1.0f, 0.2f, 1.0f }; // 黄色
+	Vector3 c = t.translation;
+	renderer->DrawLine(c - Vector3{ kMarkerLength, 0, 0 }, c + Vector3{ kMarkerLength, 0, 0 }, kMarkerColor, view, proj);
+	renderer->DrawLine(c - Vector3{ 0, kMarkerLength, 0 }, c + Vector3{ 0, kMarkerLength, 0 }, kMarkerColor, view, proj);
+	renderer->DrawLine(c - Vector3{ 0, 0, kMarkerLength }, c + Vector3{ 0, 0, kMarkerLength }, kMarkerColor, view, proj);
+}
+
 void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Renderer* renderer,
 	const Matrix4x4& view, const Matrix4x4& proj) {
 	Transform* target = GetGizmoTargetTransform(targets);
 	if (!target) return;
+
+	GameObject* markerTargetObj = (selection3D_.targetIndex >= 0 && selection3D_.targetIndex < static_cast<int>(targets.size()))
+		? targets[selection3D_.targetIndex] : nullptr;
+	if (markerTargetObj && !markerTargetObj->GetComponent<RenderComponentBase>() && !markerTargetObj->GetComponent<ColliderComponentBase>()) {
+		DrawEmptyObjectMarker(markerTargetObj->GetTransform(), renderer, view, proj);
+	}
 
 	// Collider編集モードの場合、操作開始前に現在のoffset/radius(またはhalfSize)を
 	// colliderGizmoScratch_へ反映する（ドラッグ中は再計算しない）
@@ -143,6 +164,13 @@ void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Rende
 }
 
 void GizmoController::UpdatePicking2D(const std::vector<GameObject*>& targets2D, Renderer* renderer) {
+	// ドラッグ中（矩形選択の進行中）は、クリックの立ち上がり判定より先に継続処理する。
+	// マウスを離すまでは毎フレームここでプレビュー描画・最終的な確定処理を行う
+	if (isRectSelecting_) {
+		UpdateRectSelect2D(targets2D, renderer);
+		return;
+	}
+
 	if (!IsPickingTriggered(selection2D_, "GizmoController2D")) return;
 
 	// Transform.translation/scaleはRenderer::kUiDesignWidth/Height基準のデザイン座標系（Sprite2Dの
@@ -158,8 +186,10 @@ void GizmoController::UpdatePicking2D(const std::vector<GameObject*>& targets2D,
 	for (int i = static_cast<int>(targets2D.size()) - 1; i >= 0; --i) {
 		if (targets2D[i]->excludeFromPicking) continue;
 		const Transform& t = targets2D[i]->GetTransform();
-		float left = t.translation.x, top = t.translation.y;
-		float right = left + t.scale.x, bottom = top + t.scale.y;
+		// Sprite頂点は-0.5〜0.5（中心原点）なので、translationはSpriteの中心。
+		// 左端/右端/上端/下端はtranslation±scale/2で求める
+		float left = t.translation.x - t.scale.x * 0.5f, top = t.translation.y - t.scale.y * 0.5f;
+		float right = t.translation.x + t.scale.x * 0.5f, bottom = t.translation.y + t.scale.y * 0.5f;
 		if (mousePos.x >= left && mousePos.x <= right && mousePos.y >= top && mousePos.y <= bottom) {
 			hitIndex = i;
 			break;
@@ -169,13 +199,99 @@ void GizmoController::UpdatePicking2D(const std::vector<GameObject*>& targets2D,
 	if (hitIndex >= 0) {
 		selection2D_.targetIndex = hitIndex;
 		lastSelectedIs2D_ = true;
+		multiSelected2D_.clear(); // 単一クリックで選び直したら矩形選択の結果は破棄する
+	} else {
+		// 何もない場所をクリックした＝矩形選択の開始。開始位置は実ウィンドウpxのまま保持する
+		// （プレビュー描画がImGuiのフォアグラウンド描画リストで実px系を使うため）
+		isRectSelecting_ = true;
+		rectSelectStartPos_ = mousePosRaw;
 	}
-	// 何にも当たらなかった場合は現在の選択状態を維持する
+}
+
+void GizmoController::UpdateRectSelect2D(const std::vector<GameObject*>& targets2D, Renderer* renderer) {
+	ImVec2 currentPos = ImGui::GetMousePos();
+
+	// プレビュー矩形を描画する（実ウィンドウpxそのまま。開始位置と現在位置のどちらが
+	// 右下か分からないので min/max で正規化する）
+	ImVec2 rectMin{ (std::min)(rectSelectStartPos_.x, currentPos.x), (std::min)(rectSelectStartPos_.y, currentPos.y) };
+	ImVec2 rectMax{ (std::max)(rectSelectStartPos_.x, currentPos.x), (std::max)(rectSelectStartPos_.y, currentPos.y) };
+
+	ImDrawList* drawList = ImGui::GetForegroundDrawList();
+	constexpr ImU32 kRectFillColor   = IM_COL32(80, 140, 255, 40);
+	constexpr ImU32 kRectBorderColor = IM_COL32(80, 140, 255, 220);
+	drawList->AddRectFilled(rectMin, rectMax, kRectFillColor);
+	drawList->AddRect(rectMin, rectMax, kRectBorderColor, 0.0f, 0, 1.5f);
+
+	// マウスを離した瞬間に確定する。それ以外のフレームはプレビューだけして終わる
+	if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
+	isRectSelecting_ = false;
+
+	// 矩形（実ウィンドウpx）をデザイン座標系へ変換してから、各オブジェクトのAABBと交差判定する
+	float scaleX = Renderer::GetUiDesignWidth()  / static_cast<float>(renderer->GetClientWidth());
+	float scaleY = Renderer::GetUiDesignHeight() / static_cast<float>(renderer->GetClientHeight());
+	float selLeft   = rectMin.x * scaleX;
+	float selTop    = rectMin.y * scaleY;
+	float selRight  = rectMax.x * scaleX;
+	float selBottom = rectMax.y * scaleY;
+
+	multiSelected2D_.clear();
+	for (auto* obj : targets2D) {
+		if (obj->excludeFromPicking) continue;
+		const Transform& t = obj->GetTransform();
+		// Sprite頂点は-0.5〜0.5（中心原点）なので、translationはSpriteの中心。
+		// 左端/右端/上端/下端はtranslation±scale/2で求める
+		float left = t.translation.x - t.scale.x * 0.5f, top = t.translation.y - t.scale.y * 0.5f;
+		float right = t.translation.x + t.scale.x * 0.5f, bottom = t.translation.y + t.scale.y * 0.5f;
+		// AABB同士の交差判定（矩形が完全に包含していなくても、一部でも重なれば選択対象にする。
+		// PowerPoint等のドラッグ選択も同じく「かすっただけ」で選ばれる挙動のため）
+		bool intersects = left <= selRight && right >= selLeft && top <= selBottom && bottom >= selTop;
+		if (intersects) multiSelected2D_.push_back(obj);
+	}
+
+	if (!multiSelected2D_.empty()) {
+		lastSelectedIs2D_ = true;
+		// 単一選択（Gizmoでのドラッグ編集対象）は矩形内の最後の1つに合わせておく。
+		// こうすることでGizmoハンドルが矩形内のどれかに表示され、複数選択後も
+		// そのままドラッグ編集に移れる
+		auto it = std::find(targets2D.begin(), targets2D.end(), multiSelected2D_.back());
+		if (it != targets2D.end()) {
+			selection2D_.targetIndex = static_cast<int>(it - targets2D.begin());
+		}
+	}
+	// 矩形に何も入らなかった場合は選択状態を変えない（PowerPoint等と同じく空振りは無視）
+}
+
+void GizmoController::DrawSelectionRect2D(const Transform& t, Renderer* renderer) {
+	// デザイン座標系（Sprite2Dの見た目と同じ基準）→実ウィンドウpxへ変換してから描画する
+	// （SnapAndDrawGuidesと同じ変換）
+	float toRealX = static_cast<float>(renderer->GetClientWidth())  / Renderer::GetUiDesignWidth();
+	float toRealY = static_cast<float>(renderer->GetClientHeight()) / Renderer::GetUiDesignHeight();
+
+	// Sprite頂点は-0.5〜0.5（中心原点）のクアッドなので、実際の描画範囲はtranslationを中心に
+	// ±scale/2広がる。translationを左上として扱うと右下にscale分ズレるため中心基準で計算する
+	float halfW = t.scale.x * 0.5f;
+	float halfH = t.scale.y * 0.5f;
+	ImVec2 rectMin{ (t.translation.x - halfW) * toRealX, (t.translation.y - halfH) * toRealY };
+	ImVec2 rectMax{ (t.translation.x + halfW) * toRealX, (t.translation.y + halfH) * toRealY };
+
+	constexpr ImU32 kSelectionRectColor = IM_COL32(255, 220, 0, 220); // 黄色。透過テキストの見た目の範囲を明示する
+	ImGui::GetForegroundDrawList()->AddRect(rectMin, rectMax, kSelectionRectColor, 0.0f, 0, 1.5f);
 }
 
 void GizmoController::UpdateGizmo2D(const std::vector<GameObject*>& targets2D, Renderer* renderer) {
+	// 矩形選択で複数選ばれている場合は、そのすべてに範囲矩形を出す（Gizmoハンドル自体は
+	// selection2D_.targetIndexの1つだけに表示される、既存の単一編集の挙動と共存させる）
+	for (auto* obj : multiSelected2D_) {
+		DrawSelectionRect2D(obj->GetTransform(), renderer);
+	}
+
 	if (selection2D_.targetIndex < 0 || selection2D_.targetIndex >= static_cast<int>(targets2D.size())) return;
 	Transform* target = &targets2D[selection2D_.targetIndex]->GetTransform();
+
+	// 単一選択時（矩形選択の複数選択に含まれていない場合のみ、二重描画を避ける）
+	if (std::find(multiSelected2D_.begin(), multiSelected2D_.end(), targets2D[selection2D_.targetIndex]) == multiSelected2D_.end()) {
+		DrawSelectionRect2D(*target, renderer);
+	}
 
 	ImGuizmo::SetOrthographic(true);
 	// SetRectは実際に描画・マウス判定される画面領域なので実ウィンドウpxのまま指定する
@@ -191,10 +307,115 @@ void GizmoController::UpdateGizmo2D(const std::vector<GameObject*>& targets2D, R
 
 	// 3D版(UpdateGizmo)と同じフレームで呼ばれるため、IDを分離してImGuizmoの内部状態を独立させる
 	ImGuizmo::PushID("GizmoController2D");
-	if (ImGuizmo::Manipulate(&identityView._11, &ortho._11, gizmoOperation_, ImGuizmo::WORLD, &world._11)) {
+	bool changed = ImGuizmo::Manipulate(&identityView._11, &ortho._11, gizmoOperation_, ImGuizmo::WORLD, &world._11);
+	if (changed) {
 		ApplyDecomposedMatrix(world, target);
 	}
+
+	// TRANSLATE操作中（ドラッグ中）だけスマートガイドを判定・描画する。Scale/Rotate中は
+	// 端/中心の一致という考え方自体が馴染まないため対象外にする
+	if (gizmoOperation_ == ImGuizmo::TRANSLATE && ImGuizmo::IsUsing()) {
+		SnapAndDrawGuides(target, targets2D[selection2D_.targetIndex], targets2D, renderer);
+	}
 	ImGuizmo::PopID();
+}
+
+void GizmoController::SnapAndDrawGuides(Transform* dragged, GameObject* draggedObj,
+	const std::vector<GameObject*>& targets2D, Renderer* renderer) {
+	// Sprite頂点は-0.5〜0.5（中心原点）のクアッドなので、translationはSpriteの中心。
+	// 左端/右端はtranslation±scale/2で求める（translationを左上とすると右方向にscale分ズレる）
+	// ドラッグ中オブジェクトの左/右/水平中心・上/下/垂直中心（デザイン座標系）
+	float dLeft   = dragged->translation.x - dragged->scale.x * 0.5f;
+	float dRight  = dragged->translation.x + dragged->scale.x * 0.5f;
+	float dHCenter= dragged->translation.x;
+	float dTop    = dragged->translation.y - dragged->scale.y * 0.5f;
+	float dBottom = dragged->translation.y + dragged->scale.y * 0.5f;
+	float dVCenter= dragged->translation.y;
+
+	// 見つかった中で最も近い一致だけを採用する（複数候補があると線がちらついて見づらいため）
+	bool  foundX = false, foundY = false;
+	float bestXDist = kSnapThresholdPx, bestYDist = kSnapThresholdPx;
+	float snapX = 0.0f, snapY = 0.0f;   // ガイド線を引くデザイン座標系のx/y位置
+	float snapDeltaX = 0.0f, snapDeltaY = 0.0f; // dragged->translationへ加算する補正量
+
+	auto considerX = [&](float draggedValue, float otherValue) {
+		float dist = std::fabs(draggedValue - otherValue);
+		if (dist < bestXDist) {
+			bestXDist = dist;
+			foundX = true;
+			snapX = otherValue;
+			snapDeltaX = otherValue - draggedValue;
+		}
+	};
+	auto considerY = [&](float draggedValue, float otherValue) {
+		float dist = std::fabs(draggedValue - otherValue);
+		if (dist < bestYDist) {
+			bestYDist = dist;
+			foundY = true;
+			snapY = otherValue;
+			snapDeltaY = otherValue - draggedValue;
+		}
+	};
+
+	for (auto* other : targets2D) {
+		if (other == draggedObj) continue;
+		const Transform& t = other->GetTransform();
+		float oLeft    = t.translation.x - t.scale.x * 0.5f;
+		float oRight   = t.translation.x + t.scale.x * 0.5f;
+		float oHCenter = t.translation.x;
+		float oTop     = t.translation.y - t.scale.y * 0.5f;
+		float oBottom  = t.translation.y + t.scale.y * 0.5f;
+		float oVCenter = t.translation.y;
+
+		// 左/右端同士だけでなく「左端と右端」等の組み合わせも見る（PowerPointと同じく、
+		// 一方の右端ともう一方の左端が接する配置も揃えたいケースがあるため）
+		considerX(dLeft, oLeft);   considerX(dLeft, oRight);   considerX(dLeft, oHCenter);
+		considerX(dRight, oLeft);  considerX(dRight, oRight);  considerX(dRight, oHCenter);
+		considerX(dHCenter, oHCenter);
+
+		considerY(dTop, oTop);       considerY(dTop, oBottom);       considerY(dTop, oVCenter);
+		considerY(dBottom, oTop);    considerY(dBottom, oBottom);    considerY(dBottom, oVCenter);
+		considerY(dVCenter, oVCenter);
+	}
+
+	if (foundX) dragged->translation.x += snapDeltaX;
+	if (foundY) dragged->translation.y += snapDeltaY;
+
+	if (!foundX && !foundY) return;
+
+	// デザイン座標→実ウィンドウpxへ変換してからフォアグラウンド描画リストに直接線を引く
+	// （UpdatePicking2Dの逆変換：こちらはデザイン→実pxなのでGetClientWidth/Heightを掛ける）
+	float toRealX = static_cast<float>(renderer->GetClientWidth())  / Renderer::GetUiDesignWidth();
+	float toRealY = static_cast<float>(renderer->GetClientHeight()) / Renderer::GetUiDesignHeight();
+
+	ImDrawList* drawList = ImGui::GetForegroundDrawList();
+	constexpr ImU32 kGuideColor = IM_COL32(255, 0, 90, 255); // ピンク〜赤の点線ガイド
+	constexpr float kDashLen = 6.0f, kGapLen = 4.0f;
+
+	auto drawDashedLine = [&](ImVec2 p0, ImVec2 p1) {
+		ImVec2 diff{ p1.x - p0.x, p1.y - p0.y };
+		float length = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+		if (length < 0.001f) return;
+		ImVec2 dir{ diff.x / length, diff.y / length };
+		float travelled = 0.0f;
+		while (travelled < length) {
+			float segEnd = (std::min)(travelled + kDashLen, length);
+			ImVec2 a{ p0.x + dir.x * travelled, p0.y + dir.y * travelled };
+			ImVec2 b{ p0.x + dir.x * segEnd,    p0.y + dir.y * segEnd };
+			drawList->AddLine(a, b, kGuideColor, 1.5f);
+			travelled = segEnd + kGapLen;
+		}
+	};
+
+	// ガイド線は画面全体を縦/横に貫通させる（PowerPoint等と同じく、揃った軸を画面端まで示す）
+	if (foundX) {
+		float px = snapX * toRealX;
+		drawDashedLine(ImVec2(px, 0.0f), ImVec2(px, static_cast<float>(renderer->GetClientHeight())));
+	}
+	if (foundY) {
+		float py = snapY * toRealY;
+		drawDashedLine(ImVec2(0.0f, py), ImVec2(static_cast<float>(renderer->GetClientWidth()), py));
+	}
 }
 
 void GizmoController::DrawImGui2D(const std::vector<GameObject*>& targets2D) {

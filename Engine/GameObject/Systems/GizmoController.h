@@ -28,8 +28,15 @@ public:
 	// スクリーン空間オブジェクト（ピクセル座標、Transform.translationが画面px）向け。
 	// 3D版と違い、ワールド空間へのレイキャストではなく画面px座標そのままでAABBヒット判定する
 	// （回転は判定に反映しない簡易版）。ギズモ操作もRenderer::DrawSprite2Dと同じ
-	// 「world * 正射影(0,0)-(width,height)」空間で行うことで見た目とギズモを一致させる
+	// 「world * 正射影(0,0)-(width,height)」空間で行うことで見た目とギズモを一致させる。
+	// 何もない場所を左クリックしてドラッグした場合は矩形選択（ラバーバンド選択）を開始し、
+	// 離した時点で矩形と交差する全オブジェクトをmultiSelected2D_へ登録する（小さいオブジェクトが
+	// クリックだけでは当てづらい問題への対処。既存の単一クリック選択とは共存する）
 	void UpdatePicking2D(const std::vector<GameObject*>& targets2D, Renderer* renderer);
+
+	// ドラッグ中はPowerPoint等の「スマートガイド」と同じく、他の2Dオブジェクトと端/中心が
+	// 一定距離まで近づくと自動的にスナップし、一致した軸に赤い点線ガイドを描画する
+	// （SnapAndDrawGuides参照）
 	void UpdateGizmo2D(const std::vector<GameObject*>& targets2D, Renderer* renderer);
 
 	// "Gizmo"ウィンドウの中身のうちTargetコンボ・Edit Collider・Translate/Rotate/Scaleを
@@ -62,6 +69,10 @@ public:
 		return sel2D ? sel2D : sel3D;
 	}
 
+	// 矩形選択（ラバーバンド選択）で選ばれている2Dオブジェクトの一覧。空なら矩形選択は
+	// 使われていない状態。Delete Selected等、複数まとめて操作したい呼び出し元向け
+	const std::vector<GameObject*>& GetMultiSelected2D() const { return multiSelected2D_; }
+
 	// オブジェクトの生成・削除・ロード等でtargetsの中身/順序が変わった直後に呼ぶ。
 	// 古いインデックスが別のオブジェクトを指す/範囲外になるのを防ぐ
 	void ResetSelection() {
@@ -69,6 +80,7 @@ public:
 		selection2D_.targetIndex = -1;
 		editCollider_ = false;
 		lastSelectedIs2D_ = false;
+		multiSelected2D_.clear();
 	}
 
 private:
@@ -94,10 +106,44 @@ private:
 	// DecomposeMatrixToComponents→Transformへの書き戻し（度数法→ラジアン変換込み）
 	static void ApplyDecomposedMatrix(const Matrix4x4& world, Transform* target);
 
+	// PowerPoint/Keynote等の「スマートガイド」相当。draggedをtargets2D内の他オブジェクトと比較し、
+	// 左端/右端/水平中心・上端/下端/垂直中心のうちkSnapThresholdPx以内で一致する軸があれば
+	// dragged->translationをスナップしたうえで、一致した軸に赤い点線ガイドをImGuiのフォアグラウンド
+	// 描画リストへ直接描画する。デザイン座標系（Renderer::kUiDesignWidth/Height基準）で計算し、
+	// 描画直前だけ実ウィンドウpxへ変換する（UpdatePicking2Dと同じ理由）
+	void SnapAndDrawGuides(Transform* dragged, GameObject* draggedObj,
+		const std::vector<GameObject*>& targets2D, Renderer* renderer);
+
+	// スナップが発動する許容距離（デザイン座標系のpx単位）
+	static constexpr float kSnapThresholdPx = 6.0f;
+
+	// 矩形選択のドラッグ開始判定・進行中のプレビュー描画・確定時のヒット判定をまとめる。
+	// UpdatePicking2Dから、既存の「何かをクリックしたら単一選択」の判定に加えて呼ばれる
+	void UpdateRectSelect2D(const std::vector<GameObject*>& targets2D, Renderer* renderer);
+
+	// 選択中の2DオブジェクトのTransform（translation〜translation+scale、デザイン座標系）を
+	// 実ウィンドウpxへ変換して黄色い矩形で縁取る。テキストは背景が透過しているため見た目上の
+	// クアッド全体がどこまで広がっているか分かりづらく、選択中は常にこの矩形で範囲を明示する
+	void DrawSelectionRect2D(const Transform& t, Renderer* renderer);
+
+	// RenderComponentBase/ColliderComponentBaseのどちらも持たない「見た目が一切ない」
+	// GameObject（Create Emptyで作った直後等）を選択中、その位置に黄色い十字マーカーを描画する。
+	// 見た目がないと選択後もどこにあるか画面上で分からずGizmoハンドルも見失うため
+	void DrawEmptyObjectMarker(const Transform& t, Renderer* renderer, const Matrix4x4& view, const Matrix4x4& proj);
+
 	ImGuizmo::OPERATION gizmoOperation_ = ImGuizmo::TRANSLATE;
 
 	SelectionState selection3D_;
 	SelectionState selection2D_;
+
+	// 矩形選択で選ばれている2Dオブジェクトの一覧（GetMultiSelected2D経由で公開）
+	std::vector<GameObject*> multiSelected2D_;
+
+	// 矩形選択がドラッグ中かどうか、および開始位置（実ウィンドウpx、ImGuiのマウス座標系）。
+	// 「何もない場所を左クリックした」瞬間に true になり、ボタンを離すまで毎フレーム
+	// 現在のマウス位置とstartPosでプレビュー矩形を描画する
+	bool isRectSelecting_ = false;
+	ImVec2 rectSelectStartPos_{};
 
 	// 3D/2Dのうち最後に選択操作されたのはどちらか（GetSelectedPreferLatestが使う）。
 	// falseの初期値は「3D優先」（既存の挙動を壊さないデフォルト）

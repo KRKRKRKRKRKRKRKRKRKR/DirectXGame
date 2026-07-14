@@ -52,27 +52,27 @@ void PipelineBase::BlendState(BlendMode blendMode) {
 		break;
 
 	case BlendMode::kNormal:
-		// 通常のアルファブレンド： Src*s + Dest*(1-s)
-		// s は per-pixelのアルファ値ではなく、描画直前に commandList->OMSetBlendFactor() で
-		// 指定する「定数」。D3D12_BLEND_(INV_)BLEND_FACTOR がその定数を参照する
+		// 通常のアルファブレンド： Src*a + Dest*(1-a)
+		// a は PSが出力するper-pixelのアルファ値（テクスチャのカバレッジ×gBlendStrength、
+		// PS側でgBlendStrengthを乗算済み）。文字の輪郭など画素ごとの透明度がそのまま活きる
 		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
-		rt.DestBlend = D3D12_BLEND_INV_BLEND_FACTOR;
+		rt.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+		rt.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
 		rt.BlendOp = D3D12_BLEND_OP_ADD;
 		break;
 
 	case BlendMode::kAdd:
-		// 加算： Src*s + Dest*1
+		// 加算： Src*a + Dest*1
 		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
+		rt.SrcBlend = D3D12_BLEND_SRC_ALPHA;
 		rt.DestBlend = D3D12_BLEND_ONE;
 		rt.BlendOp = D3D12_BLEND_OP_ADD;
 		break;
 
 	case BlendMode::kSubtract:
-		// 減算： Dest*1 - Src*s
+		// 減算： Dest*1 - Src*a
 		rt.BlendEnable = TRUE;
-		rt.SrcBlend = D3D12_BLEND_BLEND_FACTOR;
+		rt.SrcBlend = D3D12_BLEND_SRC_ALPHA;
 		rt.DestBlend = D3D12_BLEND_ONE;
 		rt.BlendOp = D3D12_BLEND_OP_REV_SUBTRACT;
 		break;

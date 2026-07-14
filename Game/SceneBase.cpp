@@ -9,11 +9,13 @@
 #include "../Engine/GameObject/ComponentRegistry.h"
 #include "../Engine/GameObject/ObjectArchetypes.h"
 #include "../Engine/Utils/StringUtils.h"
+#include "../Engine/Utils/Logger.h"
 #include <cmath>
 #include <algorithm>
 #include <cfloat>
 #include <cstdio>
 #include <fstream>
+#include <format>
 
 GameObject& SceneBase::CreateObject(const std::string& name) {
 	auto obj = std::make_unique<GameObject>();
@@ -72,12 +74,31 @@ GameObject& SceneBase::CreateStaticTextObject(const std::string& name, const std
 	file << content;
 	file.close();
 
+	// TODO(debug): テキスト非表示バグ調査用の一時ログ。原因特定後に削除する
+	Logger::Log(std::format("CreateStaticTextObject: name='{}' objects_.size()={} before create\n", name, objects_.size()));
+
+	// 同名の既存GameObject（静的テキスト）があれば、新規に重複したオブジェクトを作らず、
+	// そのTextRenderComponentを読み直すだけにする（位置・箱サイズ等は現状のまま維持し、
+	// 内容だけ更新される。以前は毎回新規生成していたため、同名で作り直すたびに古いオブジェクトが
+	// 別の位置に残り続け、「テキストが消えたように見える」不具合の原因になっていた）
+	for (auto& existing : objects_) {
+		if (existing->name != name) continue;
+		auto* text = existing->GetComponent<TextRenderComponent>();
+		if (!text || text->dynamicText) continue; // dynamicText（HUD）は対象外、静的テキストのみ更新する
+		text->fontSize = fontSize;
+		bool ok = text->Load(renderer_);
+		Logger::Log(std::format("CreateStaticTextObject: UPDATED existing '{}', Load()={}\n", name, ok));
+		return *existing;
+	}
+
 	GameObject& obj = CreateObject(name);
 	// 2Dスクリーン空間UIだがGizmoで自由に配置したいため、excludeFromGizmoListはfalseのまま
 	// （is2D==trueなのでUpdatePicking2D/UpdateGizmo2D側の対象になる）
 	obj.GetTransform().translation = { 10.0f, 10.0f, 0.0f };
 
-	TextRenderComponent::CreateStatic(obj, renderer_, txtPath, "Resources/Font/font.ttf", fontSize);
+	TextRenderComponent* text = TextRenderComponent::CreateStatic(obj, renderer_, txtPath, "Resources/Font/font.ttf", fontSize);
+	Logger::Log(std::format("CreateStaticTextObject: CREATED new '{}', textureHandle={}, objects_.size()={} after\n",
+		name, text->textureHandle, objects_.size()));
 
 	RebuildDerivedLists();
 	return obj;
@@ -97,12 +118,24 @@ void SceneBase::LoadScene() {
 }
 
 void SceneBase::DeleteSelectedObject() {
-	GameObject* selected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
-	if (!selected) return;
+	// 矩形選択（複数選択）中はそちらを優先して一括削除する。矩形選択していなければ
+	// 従来通りGizmoで選択中の1オブジェクトだけを消す
+	const std::vector<GameObject*>& multiSelected = gizmoController_.GetMultiSelected2D();
+	if (!multiSelected.empty()) {
+		objects_.erase(
+			std::remove_if(objects_.begin(), objects_.end(),
+				[&multiSelected](const std::unique_ptr<GameObject>& obj) {
+					return std::find(multiSelected.begin(), multiSelected.end(), obj.get()) != multiSelected.end();
+				}),
+			objects_.end());
+	} else {
+		GameObject* selected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
+		if (!selected) return;
 
-	auto it = std::find_if(objects_.begin(), objects_.end(),
-		[selected](const std::unique_ptr<GameObject>& obj) { return obj.get() == selected; });
-	if (it != objects_.end()) objects_.erase(it);
+		auto it = std::find_if(objects_.begin(), objects_.end(),
+			[selected](const std::unique_ptr<GameObject>& obj) { return obj.get() == selected; });
+		if (it != objects_.end()) objects_.erase(it);
+	}
 
 	RebuildDerivedLists();
 	gizmoController_.ResetSelection();
@@ -142,6 +175,12 @@ void SceneBase::Initialize(Renderer* renderer, Camera* camera, const std::string
 	hudDefinitions_ = BuildHudDefinitions();
 
 	OnInitialize(); // シーン固有の初期HUD等はここで生成する
+
+	// Resources/{assetFolder_}/ui.json・scene.jsonが既に存在するなら、起動直後に自動で読み込む。
+	// LoadScene()はファイルが無ければ何もせず終わる（SceneSerializer::Loadがfalseを返すだけ）ため、
+	// 初回起動（保存済みファイルがまだ無い）でも安全に呼べる。存在する場合はOnInitialize()で
+	// 作った内容（Camera Coord等）もLoadの結果で上書きされる
+	LoadScene();
 
 	RebuildDerivedLists();
 }
@@ -288,6 +327,175 @@ void SceneBase::DrawGrid() {
 	renderer_->DrawGridBatch(viewMatrix, projMatrix);
 }
 
+void SceneBase::DrawAddComponentMenu(GameObject& selected) {
+	if (!ImGui::CollapsingHeader("Add Component")) return;
+
+	ComponentLoadContext ctx{ renderer_, &textures_ };
+
+	// ---- Simple系：ComponentRegistry::RegisterSimpleで登録済みの型を一覧化し、
+	// 選んでAddボタンを押すだけで既定値のコンポーネントを追加できる ----
+	const std::vector<std::string>& simpleNames = ComponentRegistry::GetSimpleTypeNames();
+	static int simpleIndex = 0;
+	std::vector<const char*> simpleNamesRaw;
+	for (auto& n : simpleNames) simpleNamesRaw.push_back(n.c_str());
+	if (!simpleNamesRaw.empty()) {
+		if (simpleIndex >= static_cast<int>(simpleNamesRaw.size())) simpleIndex = 0;
+		ImGui::Combo("Component", &simpleIndex, simpleNamesRaw.data(), static_cast<int>(simpleNamesRaw.size()));
+		ImGui::SameLine();
+		if (ImGui::Button("Add##SimpleComponent")) {
+			ComponentRegistry::Create(simpleNames[simpleIndex], selected, ctx, nlohmann::json::object());
+		}
+		ImGui::SameLine();
+		// コンボで選択中の型をこのGameObjectから取り除く。付いていない型を選んだ状態で押しても
+		// ComponentRegistry::RemoveByTypeName側がfalseを返すだけで何も起きない
+		if (ImGui::Button("Remove##SimpleComponent")) {
+			ComponentRegistry::RemoveByTypeName(simpleNames[simpleIndex], selected);
+		}
+	}
+
+	ImGui::Separator();
+
+	// ---- 依存あり系：コンストラクタ引数や兄弟コンポーネントが要るため個別UIを用意する ----
+
+	// ModelRender：directoryPath/filenameを指定してLoadModelを呼び直す必要がある
+	if (ImGui::TreeNode("Model Render")) {
+		static char modelDirBuf[256] = "Resources";
+		static char modelFileBuf[256] = "";
+		static bool modelHasAnimation = false;
+		ImGui::InputText("Directory", modelDirBuf, sizeof(modelDirBuf));
+		ImGui::InputText("Filename", modelFileBuf, sizeof(modelFileBuf));
+		ImGui::Checkbox("Has Animation", &modelHasAnimation);
+		bool canAdd = modelFileBuf[0] != '\0';
+		if (!canAdd) ImGui::BeginDisabled();
+		if (ImGui::Button("Add##ModelRender")) {
+			nlohmann::json data;
+			data["directoryPath"] = std::string(modelDirBuf);
+			data["filename"] = std::string(modelFileBuf);
+			data["hasAnimation"] = modelHasAnimation;
+			ComponentRegistry::Create("ModelRender", selected, ctx, data);
+			modelFileBuf[0] = '\0';
+		}
+		if (!canAdd) ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("Remove##ModelRender")) {
+			// TextureSelectorComponentがこのModelRenderComponentへの生ポインタを持っている場合、
+			// 先にTextureSelector側を消してもらわないとダングリングポインタになるため注意書きだけ出す
+			if (selected.GetComponent<TextureSelectorComponent>()) {
+				Logger::Log("DrawAddComponentMenu: ModelRenderを消す前にTexture Selectorを先に削除してください\n");
+			} else {
+				selected.RemoveComponent<ModelRenderComponent>();
+			}
+		}
+		ImGui::TreePop();
+	}
+
+	// SpriteRender：is3Dのみコンストラクタ引数。テクスチャ自体はTextureSelectorComponentを
+	// 別途追加して選ぶ運用（RenderComponentBase::textureHandleは初期値kTextureNoneのまま）。
+	// is3D=false（2D UI）を選んだ場合はTransformComponent::is2Dも合わせてtrueにし、
+	// TextRenderComponent::CreateStatic等と同じくスクリーン空間ピクセル座標として扱えるようにする
+	if (ImGui::TreeNode("Sprite Render")) {
+		static bool spriteIs3D = true;
+		ImGui::Checkbox("Is 3D", &spriteIs3D);
+		if (ImGui::Button("Add##SpriteRender")) {
+			nlohmann::json data;
+			data["is3D"] = spriteIs3D;
+			ComponentRegistry::Create("SpriteRender", selected, ctx, data);
+			if (!spriteIs3D) {
+				TransformComponent* transform = selected.GetComponent<TransformComponent>();
+				transform->is2D = true;
+				transform->translationSpeed = 1.0f; transform->translationMin = 0.0f; transform->translationMax = 1920.0f;
+				transform->scaleSpeed = 1.0f; transform->scaleMin = 1.0f; transform->scaleMax = 1920.0f;
+				RebuildDerivedLists(); // is2Dが変わったのでscreenTargets_に反映させる
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Remove##SpriteRender")) {
+			// TextureSelectorComponentがこのSpriteRenderComponentへの生ポインタを持っている場合、
+			// 先にTextureSelector側を消してもらわないとダングリングポインタになるため注意書きだけ出す
+			if (selected.GetComponent<TextureSelectorComponent>()) {
+				Logger::Log("DrawAddComponentMenu: SpriteRenderを消す前にTexture Selectorを先に削除してください\n");
+			} else {
+				selected.RemoveComponent<SpriteRenderComponent>();
+			}
+		}
+		ImGui::TreePop();
+	}
+
+	// TextureSelector：同じGameObjectに既にRenderComponentBase系（CubeRender/SphereRender/
+	// SpriteRender等）が付いていることが前提。無ければ追加できないようにする
+	if (ImGui::TreeNode("Texture Selector")) {
+		bool hasRenderComponent = selected.GetComponent<RenderComponentBase>() != nullptr;
+		if (!hasRenderComponent) {
+			ImGui::TextDisabled("(先にCube/Sphere/Sprite Render等を追加してください)");
+		} else if (textures_.empty()) {
+			ImGui::TextDisabled("(利用可能なテクスチャがありません)");
+		} else {
+			if (ImGui::Button("Add##TextureSelector")) {
+				nlohmann::json data;
+				data["textureName"] = textures_[0].name;
+				ComponentRegistry::Create("TextureSelector", selected, ctx, data);
+			}
+		}
+		if (selected.GetComponent<TextureSelectorComponent>()) {
+			ImGui::SameLine();
+			if (ImGui::Button("Remove##TextureSelector")) {
+				selected.RemoveComponent<TextureSelectorComponent>();
+			}
+		}
+		ImGui::TreePop();
+	}
+
+	// Mirror：同じGameObjectに既にCubeRenderComponentが付いていることが前提
+	if (ImGui::TreeNode("Mirror")) {
+		bool hasCubeRender = selected.GetComponent<CubeRenderComponent>() != nullptr;
+		if (!hasCubeRender) {
+			ImGui::TextDisabled("(先にCube Renderを追加してください)");
+		} else if (ImGui::Button("Add##Mirror")) {
+			ComponentRegistry::Create("Mirror", selected, ctx, nlohmann::json::object());
+		}
+		if (selected.GetComponent<MirrorComponent>()) {
+			ImGui::SameLine();
+			if (ImGui::Button("Remove##Mirror")) {
+				selected.RemoveComponent<MirrorComponent>();
+			}
+		}
+		ImGui::TreePop();
+	}
+
+	// AudioSource：filePath/registeredName/type/loopを指定してSound::Loadを呼び直す必要がある
+	if (ImGui::TreeNode("Audio Source")) {
+		static char audioPathBuf[256] = "";
+		static char audioNameBuf[128] = "";
+		static int  audioTypeIndex = 0; // 0=BGM, 1=SE
+		static bool audioLoop = true;
+		const char* typeNames[] = { "BGM", "SE" };
+		ImGui::InputText("File Path", audioPathBuf, sizeof(audioPathBuf));
+		ImGui::InputText("Registered Name", audioNameBuf, sizeof(audioNameBuf));
+		ImGui::Combo("Sound Type", &audioTypeIndex, typeNames, 2);
+		ImGui::Checkbox("Loop", &audioLoop);
+		bool canAdd = audioPathBuf[0] != '\0' && audioNameBuf[0] != '\0';
+		if (!canAdd) ImGui::BeginDisabled();
+		if (ImGui::Button("Add##AudioSource")) {
+			nlohmann::json data;
+			data["filePath"] = std::string(audioPathBuf);
+			data["registeredName"] = std::string(audioNameBuf);
+			data["soundType"] = audioTypeIndex;
+			data["loop"] = audioLoop;
+			ComponentRegistry::Create("AudioSource", selected, ctx, data);
+			audioPathBuf[0] = '\0';
+			audioNameBuf[0] = '\0';
+		}
+		if (!canAdd) ImGui::EndDisabled();
+		if (selected.GetComponent<AudioSourceComponent>()) {
+			ImGui::SameLine();
+			if (ImGui::Button("Remove##AudioSource")) {
+				selected.RemoveComponent<AudioSourceComponent>();
+			}
+		}
+		ImGui::TreePop();
+	}
+}
+
 void SceneBase::DrawImGui() {
 	ImGui::Begin("Gizmo");
 
@@ -334,6 +542,15 @@ void SceneBase::DrawImGui() {
 		CreateObjectFromArchetype(archetypeNameList[archetypeIndex], createNameBuf);
 		createNameBuf[0] = '\0';
 	}
+	ImGui::SameLine();
+	// Archetype（完成形）を1発生成する上のCreateとは別に、TransformComponentのみの空オブジェクトを
+	// 生成する。中身はAdd Componentメニューから後付けで組み立てる運用向け
+	if (ImGui::Button("Create Empty")) {
+		std::string name = createNameBuf[0] != '\0' ? std::string(createNameBuf) : ("Empty " + std::to_string(objects_.size() + 1));
+		CreateObject(name);
+		createNameBuf[0] = '\0';
+		RebuildDerivedLists();
+	}
 	ImGui::Separator();
 
 	// "Create HUD"：hudDefinitions_（Initialize時に一度構築済み）に登録されているHUDを
@@ -367,6 +584,8 @@ void SceneBase::DrawImGui() {
 	// Gizmoで選択中のオブジェクトのみ詳細を表示する（3D/2Dのうち最後に選んだ方を優先）
 	GameObject* selected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
 	if (selected) {
+		DrawAddComponentMenu(*selected);
+		ImGui::Separator();
 		selected->DrawImGui();
 	} else {
 		ImGui::TextDisabled("(オブジェクト未選択)");
