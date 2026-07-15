@@ -28,6 +28,7 @@ public:
     long GetMouseY() const { return mouseState_.lY; }
     bool GetMouseLeftPressed() const { return (mouseState_.rgbButtons[0] & 0x80) != 0; }
 	bool GetMouseRightPressed() const { return (mouseState_.rgbButtons[1] & 0x80) != 0; }
+	bool GetMouseMiddlePressed() const { return (mouseState_.rgbButtons[2] & 0x80) != 0; }
     long GetMouseWheel() const { return mouseState_.lZ; }
 
 private:
@@ -70,6 +71,10 @@ namespace Input {
     inline bool IsMouseRightPressed() {
         return InputDevice::GetInstance().GetMouseRightPressed();
 	}
+
+    inline bool IsMouseMiddlePressed() {
+        return InputDevice::GetInstance().GetMouseMiddlePressed();
+    }
 
     inline long GetMouseWheel() {
         return InputDevice::GetInstance().GetMouseWheel();

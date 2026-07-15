@@ -5,6 +5,7 @@
 #include "../../Math/MathTypes.h"
 #include "../../Externals/imgui/imgui.h"
 #include <string>
+#include <vector>
 
 struct ComponentLoadContext;
 
@@ -51,13 +52,13 @@ public:
 
 	void Update(float deltaTime) { components_.Update(deltaTime, transformComponent_->transform); }
 
-	// 自分の名前を見出しとして表示した後、自分が持つ全コンポーネントに、自分のnameを渡して
-	// ImGuiを描画させる。GameObject自身はどんなコンポーネントが付いているか一切気にしない
-	// （Update()と同じ形）。TransformComponentもcomponents_の一員のため、ここでScale/Rotation/
-	// Translationも自動描画される。呼び出し側は名前表示を毎回書かずに済む
+	// 自分が持つ全コンポーネントをUnity風（コンポーネントごとの見出し・並び替え・右クリック
+	// メニュー付き）にImGui描画させる。GameObject自身はどんなコンポーネントが付いているか
+	// 一切気にしない（Update()と同じ形）。TransformComponentもcomponents_の一員のため、
+	// ここでScale/Rotation/Translationも自動描画される。名前の表示・編集はInspector側
+	// （SceneBase::DrawInspector）が別途行う
 	void DrawImGui() {
-		ImGui::Text("%s", name.c_str());
-		components_.DrawImGui(name.c_str());
+		components_.DrawImGui(*this);
 	}
 
 	// name・Transform・保持コンポーネント一式をJSONへ書き出す/読み込む。実装はComponentRegistry
@@ -66,7 +67,27 @@ public:
 	void ToJson(nlohmann::json& out) const;
 	void FromJson(const nlohmann::json& in, const ComponentLoadContext& ctx);
 
+	// 親子関係。parent_/children_は非所有の生ポインタ（実体の所有権はSceneBase::objects_の
+	// unique_ptrにある）。GetTransform()はあくまで親から見た相対値（ローカル）のまま変わらない
+	GameObject* GetParent() const { return parent_; }
+	const std::vector<GameObject*>& GetChildren() const { return children_; }
+
+	// newParentをnullptrにするとルート（親なし）に戻す。newParentが自分自身、または自分の
+	// 子孫（IsDescendantOfで判定）の場合は循環参照になるため何もしない
+	void SetParent(GameObject* newParent);
+
+	// thisがobjの子孫（子・孫…）かどうか。SetParentの循環防止に使う
+	bool IsDescendantOf(const GameObject* obj) const;
+
+	// 親をたどって合成したワールド行列/ワールド相当Transform。「実際に画面上どこにあるか」を
+	// 知りたい読み取り専用の呼び出し元（描画・ピッキング・ギズモの初期姿勢）はGetTransform()
+	// ではなくこちらを使う
+	Matrix4x4 GetWorldMatrix() const;
+	Transform GetWorldTransform() const;
+
 private:
 	TransformComponent* transformComponent_ = nullptr;
 	ComponentManager components_;
+	GameObject* parent_ = nullptr;
+	std::vector<GameObject*> children_;
 };

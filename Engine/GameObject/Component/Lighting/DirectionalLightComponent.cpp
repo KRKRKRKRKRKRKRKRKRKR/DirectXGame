@@ -28,10 +28,10 @@ void DirectionalLightComponent::DrawGizmoVisualization(Renderer* renderer, const
 }
 
 void DirectionalLightComponent::DrawImGui(const char* namePrefix) {
-	std::string enableLabel  = std::string(namePrefix) + " Enable";
-	std::string colorLabel   = std::string(namePrefix) + " Color";
-	std::string ambientLabel = std::string(namePrefix) + " Ambient";
-	std::string halfLambertLabel = std::string(namePrefix) + " Half Lambert Power";
+	std::string enableLabel  = std::string(namePrefix) + "有効化";
+	std::string colorLabel   = std::string(namePrefix) + "色";
+	std::string ambientLabel = std::string(namePrefix) + "環境光の強さ";
+	std::string halfLambertLabel = std::string(namePrefix) + "ハーフランバートの強さ";
 
 	ImGui::Checkbox(enableLabel.c_str(), &enabled);
 	ImGui::ColorEdit3(colorLabel.c_str(), &color.x);

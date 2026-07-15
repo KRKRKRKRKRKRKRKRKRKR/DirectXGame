@@ -395,15 +395,15 @@ void Renderer::EndMirrorPass() {
 }
 
 void Renderer::DrawImGui() {
-	ImGui::Begin("Mesh Settings");
+	ImGui::Begin("メッシュ設定##Mesh Settings");
 
-	if (ImGui::SliderFloat("Cube Smoothness", &cubeSmoothness_, 0.0f, 1.0f)) {
+	if (ImGui::SliderFloat("キューブの滑らかさ", &cubeSmoothness_, 0.0f, 1.0f)) {
 		SetCubeSmoothness(cubeSmoothness_);
 	}
-	if (ImGui::SliderFloat("Triangle Smoothness", &triangleSmoothness_, 0.0f, 1.0f)) {
+	if (ImGui::SliderFloat("三角形の滑らかさ", &triangleSmoothness_, 0.0f, 1.0f)) {
 		SetTriangleSmoothness(triangleSmoothness_);
 	}
-	if (ImGui::SliderInt("Sphere Subdivision", &sphereSubdivision_, 1, static_cast<int>(kSphereMaxSubdivision))) {
+	if (ImGui::SliderInt("球の分割数", &sphereSubdivision_, 1, static_cast<int>(kSphereMaxSubdivision))) {
 		SetSphereSubdivision(static_cast<uint32_t>(sphereSubdivision_));
 	}
 

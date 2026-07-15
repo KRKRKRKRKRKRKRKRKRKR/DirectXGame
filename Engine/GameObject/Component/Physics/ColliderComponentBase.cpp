@@ -4,39 +4,44 @@
 #include <string>
 
 // 表示名の並びはCollisionLayer.hのenum定義順と対応させること。DrawImGuiとToJson/FromJsonの
-// 両方から使うためファイルスコープに置く
+// 両方から使うためファイルスコープに置く。
+// kCollisionLayerNamesはJSON保存・FromJsonでの文字列照合キーのため英語のまま維持し、
+// UI表示だけkCollisionLayerDisplayNames（日本語、同じ並び順）を使う
 static const char* kCollisionLayerNames[] = { "Default", "Player", "Obstacle", "Item", "Environment" };
+static const char* kCollisionLayerDisplayNames[] = { "デフォルト", "プレイヤー", "障害物", "アイテム", "環境" };
 // 要素数だけはコンパイル時に検証できる（順序の対応まではチェックできないため、追加時は
 // 配列とenumの両方を必ず同じ位置に増やすこと）
 static_assert(sizeof(kCollisionLayerNames) / sizeof(kCollisionLayerNames[0]) == static_cast<size_t>(CollisionLayer::kCount),
 	"kCollisionLayerNames must have exactly CollisionLayer::kCount entries, in the same order as the enum");
+static_assert(sizeof(kCollisionLayerDisplayNames) / sizeof(kCollisionLayerDisplayNames[0]) == static_cast<size_t>(CollisionLayer::kCount),
+	"kCollisionLayerDisplayNames must have exactly CollisionLayer::kCount entries, in the same order as the enum");
 
 void ColliderComponentBase::DrawImGui(const char* namePrefix) {
-	std::string layerLabel = std::string(namePrefix) + " Collider Layer";
+	std::string layerLabel = std::string(namePrefix) + "コライダーレイヤー";
 	int current = static_cast<int>(layer);
-	if (ImGui::BeginCombo(layerLabel.c_str(), kCollisionLayerNames[current])) {
+	if (ImGui::BeginCombo(layerLabel.c_str(), kCollisionLayerDisplayNames[current])) {
 		for (int i = 0; i < static_cast<int>(CollisionLayer::kCount); i++) {
 			bool selected = (i == current);
-			if (ImGui::Selectable(kCollisionLayerNames[i], selected))
+			if (ImGui::Selectable(kCollisionLayerDisplayNames[i], selected))
 				layer = static_cast<CollisionLayer>(i);
 			if (selected) ImGui::SetItemDefaultFocus();
 		}
 		ImGui::EndCombo();
 	}
 
-	std::string triggerLabel = std::string(namePrefix) + " Collider Is Trigger";
+	std::string triggerLabel = std::string(namePrefix) + "トリガーにする";
 	ImGui::Checkbox(triggerLabel.c_str(), &isTrigger);
 
-	std::string staticLabel = std::string(namePrefix) + " Collider Is Static";
+	std::string staticLabel = std::string(namePrefix) + "静的（動かさない）";
 	ImGui::Checkbox(staticLabel.c_str(), &isStatic);
 
 	// 衝突対象レイヤーのチェックボックス群。「所属レイヤー」とは別概念で、
 	// 「このコライダーがどのレイヤーと衝突判定するか」を個別に選べるようにする。
 	// ShouldLayersCollideは両者が互いに相手を選んでいる場合のみtrueを返す
-	std::string treeLabel = std::string(namePrefix) + " Collides With";
+	std::string treeLabel = std::string(namePrefix) + "衝突対象レイヤー";
 	if (ImGui::TreeNode(treeLabel.c_str())) {
 		for (int i = 0; i < static_cast<int>(CollisionLayer::kCount); i++) {
-			ImGui::Checkbox(kCollisionLayerNames[i], &collidesWith[i]);
+			ImGui::Checkbox(kCollisionLayerDisplayNames[i], &collidesWith[i]);
 		}
 		ImGui::TreePop();
 	}

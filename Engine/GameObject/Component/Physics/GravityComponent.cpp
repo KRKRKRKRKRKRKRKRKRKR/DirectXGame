@@ -10,10 +10,10 @@ void GravityComponent::Update(float deltaTime, Transform& transform) {
 }
 
 void GravityComponent::DrawImGui(const char* namePrefix) {
-	std::string enableLabel  = std::string(namePrefix) + " Enable Gravity";
-	std::string gravityLabel = std::string(namePrefix) + " Gravity";
-	std::string maxFallSpeedLabel = std::string(namePrefix) + " Max Fall Speed";
-	std::string velocityLabel = std::string(namePrefix) + " Velocity Y";
+	std::string enableLabel  = std::string(namePrefix) + "重力を有効化";
+	std::string gravityLabel = std::string(namePrefix) + "重力の強さ";
+	std::string maxFallSpeedLabel = std::string(namePrefix) + "落下速度の上限";
+	std::string velocityLabel = std::string(namePrefix) + "現在の落下速度Y";
 	ImGui::Checkbox(enableLabel.c_str(), &enabled);
 	ImGui::SliderFloat(gravityLabel.c_str(), &gravity, 0.0f, 30.0f);
 	ImGui::SliderFloat(maxFallSpeedLabel.c_str(), &maxFallSpeed, 1.0f, 50.0f);

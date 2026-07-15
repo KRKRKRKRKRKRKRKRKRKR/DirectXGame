@@ -24,11 +24,11 @@ void PointLightComponent::DrawGizmoVisualization(Renderer* renderer, const Trans
 }
 
 void PointLightComponent::DrawImGui(const char* namePrefix) {
-	std::string enableLabel    = std::string(namePrefix) + " Enable";
-	std::string colorLabel     = std::string(namePrefix) + " Color";
-	std::string intensityLabel = std::string(namePrefix) + " Intensity";
-	std::string radiusLabel    = std::string(namePrefix) + " Radius";
-	std::string decayLabel     = std::string(namePrefix) + " Decay";
+	std::string enableLabel    = std::string(namePrefix) + "有効化";
+	std::string colorLabel     = std::string(namePrefix) + "色";
+	std::string intensityLabel = std::string(namePrefix) + "強さ";
+	std::string radiusLabel    = std::string(namePrefix) + "半径";
+	std::string decayLabel     = std::string(namePrefix) + "減衰";
 
 	ImGui::Checkbox(enableLabel.c_str(), &enabled);
 	ImGui::ColorEdit3(colorLabel.c_str(), &color.x);

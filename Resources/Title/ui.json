@@ -29,6 +29,7 @@
             ],
             "excludeFromGizmoList": false,
             "name": "TitleText",
+            "parentIndex": 3,
             "transform": {
                 "is2D": true,
                 "rotation": [
@@ -77,6 +78,7 @@
             ],
             "excludeFromGizmoList": false,
             "name": "wwwwwww",
+            "parentIndex": 3,
             "transform": {
                 "is2D": true,
                 "rotation": [
@@ -125,6 +127,7 @@
             ],
             "excludeFromGizmoList": false,
             "name": "egegeg",
+            "parentIndex": 3,
             "transform": {
                 "is2D": true,
                 "rotation": [
@@ -140,6 +143,30 @@
                 "translation": [
                     94.23500061035156,
                     130.99981689453125,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [],
+            "excludeFromGizmoList": false,
+            "name": "UIフォルダ ",
+            "parentIndex": -1,
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    1.3183135986328125,
+                    4.28143310546875,
                     0.0
                 ]
             }

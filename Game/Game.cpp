@@ -11,9 +11,10 @@ void Game::Initialize(Renderer* renderer, Camera* camera) {
 
 void Game::Update(float deltaTime) {
 	deltaTime_ = deltaTime;
-	// ImGuiのテキスト入力欄（Content等）にフォーカスがある間はWASD/Shift/Space等を
-	// カメラ操作として拾わないようにする（入力中に文字を打つとカメラが動いてしまうのを防ぐ）
-	if (!ImGui::GetIO().WantTextInput) {
+	// ImGuiパネル上でのマウス操作（クリック・ドラッグ・ホイールスクロール等）中はカメラの
+	// Orbit/Look/Pan/Dollyとして拾わないようにする（Hierarchyのスクロールでカメラが前後に
+	// 動いてしまう、パネルのドラッグでカメラが回転してしまう等を防ぐ）
+	if (!ImGui::GetIO().WantCaptureMouse) {
 		camera_->HandleInput(deltaTime);
 	}
 
@@ -36,15 +37,16 @@ void Game::Render() {
 
 void Game::DrawImGui() {
 	ImGui::Begin("FPS");
-	ImGui::Text("FPS: %.1f (0.5s avg)", fpsDisplayValue_);
-	ImGui::Text("frameTime: %.3f ms (0.5s avg)", frameTimeDisplayMs_);
-	ImGui::Text("Instantaneous FPS: %.1f", 1.0f / deltaTime_);
+	ImGui::Text("FPS: %.1f（0.5秒平均）", fpsDisplayValue_);
+	ImGui::Text("フレーム時間: %.3f ms（0.5秒平均）", frameTimeDisplayMs_);
+	ImGui::Text("瞬間FPS: %.1f", 1.0f / deltaTime_);
 	ImGui::End();
 
-	ImGui::Begin("Camera");
-	ImGui::Text("move wasd");
-	ImGui::Text("rotate mouse rightbutton + move mouse");
-	ImGui::Text("zoom mouse wheel or up/down arrow");
+	ImGui::Begin("カメラ##Camera");
+	ImGui::Text("視点回転: 右ボタン + マウス移動");
+	ImGui::Text("周回: Alt + 左ボタン + マウス移動");
+	ImGui::Text("平行移動: 中ボタン + マウス移動");
+	ImGui::Text("前後移動: マウスホイール");
 	ImGui::Text("pos.x = %.1f", camera_->GetCameraData().position.x);
 	ImGui::Text("pos.y = %.1f", camera_->GetCameraData().position.y);
 	ImGui::Text("pos.z= %.1f", camera_->GetCameraData().position.z);

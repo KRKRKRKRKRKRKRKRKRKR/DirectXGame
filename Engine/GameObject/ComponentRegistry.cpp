@@ -20,6 +20,16 @@ std::unordered_map<std::string, ComponentRegistry::RemoverFunc>& ComponentRegist
 	return removers;
 }
 
+std::unordered_map<std::string, std::string>& ComponentRegistry::DisplayNames() {
+	static std::unordered_map<std::string, std::string> displayNames;
+	return displayNames;
+}
+
+std::string ComponentRegistry::GetDisplayName(const std::string& typeName) {
+	auto it = DisplayNames().find(typeName);
+	return (it != DisplayNames().end()) ? it->second : typeName;
+}
+
 void ComponentRegistry::Create(const std::string& typeName, GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {
 	auto it = Creators().find(typeName);
 	if (it == Creators().end()) return; // 未登録の型名は無視する

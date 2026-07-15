@@ -103,28 +103,28 @@ void AudioManager::DrawSoundSection(SoundType sectionType) {
         // 再生状態インジケーター
         bool playing = entry.sound->IsPlaying();
         if (playing) {
-            ImGui::TextColored({ 0.2f, 1.0f, 0.2f, 1.0f }, "play");
+            ImGui::TextColored({ 0.2f, 1.0f, 0.2f, 1.0f }, "再生中");
         } else {
-            ImGui::TextColored({ 0.6f, 0.6f, 0.6f, 1.0f }, "stop");
+            ImGui::TextColored({ 0.6f, 0.6f, 0.6f, 1.0f }, "停止中");
         }
         ImGui::SameLine();
         ImGui::Text("%s", entry.name.c_str());
 
         // Play / Stop ボタン
-        if (ImGui::Button("Play")) {
+        if (ImGui::Button("再生")) {
             entry.sound->Play(entry.loop, sectionType);
             entry.sound->SetVolume(entry.volume);
         }
         ImGui::SameLine();
-        if (ImGui::Button("Stop")) {
+        if (ImGui::Button("停止")) {
             entry.sound->Stop();
         }
         ImGui::SameLine();
-        ImGui::Checkbox("Loop", &entry.loop);
+        ImGui::Checkbox("ループ", &entry.loop);
 
         // 個別音量（再生中のみ即時反映。停止中は次の Play 時に適用）
         ImGui::SetNextItemWidth(160.0f);
-        if (ImGui::SliderFloat("Volume##sound", &entry.volume, 0.0f, 1.0f)) {
+        if (ImGui::SliderFloat("音量##sound", &entry.volume, 0.0f, 1.0f)) {
             entry.sound->SetVolume(entry.volume);
         }
 
@@ -133,16 +133,16 @@ void AudioManager::DrawSoundSection(SoundType sectionType) {
 }
 
 void AudioManager::DrawImGui() {
-    ImGui::Begin("Audio");
+    ImGui::Begin("オーディオ##Audio");
 
     // ---- Master ----
-    ImGui::Text("Master");
-    if (ImGui::Button("Play##master")) {
+    ImGui::Text("マスター");
+    if (ImGui::Button("再生##master")) {
         if (xAudio2_) xAudio2_->StartEngine();
         masterPlaying_ = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("Stop##master")) {
+    if (ImGui::Button("停止##master")) {
         if (xAudio2_) xAudio2_->StopEngine();
         masterPlaying_ = false;
     }
@@ -150,14 +150,14 @@ void AudioManager::DrawImGui() {
     ImGui::SameLine();
     ImGui::TextColored(
         masterPlaying_ ? ImVec4{ 0.2f, 1.0f, 0.2f, 1.0f } : ImVec4{ 0.6f, 0.6f, 0.6f, 1.0f },
-        masterPlaying_ ? "play" : "stop");
+        masterPlaying_ ? "再生中" : "停止中");
     ImGui::SetNextItemWidth(200.0f);
     if (ImGui::SliderFloat("##master", &masterVolume_, 0.0f, 1.0f)) {
         if (!muteMaster_ && masterVoice_) masterVoice_->SetVolume(masterVolume_);
     }
 
     ImGui::SameLine();
-    if (ImGui::Checkbox("Mute##master", &muteMaster_)) {
+    if (ImGui::Checkbox("ミュート##master", &muteMaster_)) {
         if (masterVoice_) masterVoice_->SetVolume(muteMaster_ ? 0.0f : masterVolume_);
     }
 
@@ -166,11 +166,11 @@ void AudioManager::DrawImGui() {
     // ---- BGM ----
     if (ImGui::CollapsingHeader("BGM", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::SetNextItemWidth(200.0f);
-        if (ImGui::SliderFloat("Volume##bgm", &bgmVolume_, 0.0f, 1.0f)) {
+        if (ImGui::SliderFloat("音量##bgm", &bgmVolume_, 0.0f, 1.0f)) {
             if (!muteBGM_ && bgmSubmix_) bgmSubmix_->SetVolume(bgmVolume_);
         }
         ImGui::SameLine();
-        if (ImGui::Checkbox("Mute##bgm", &muteBGM_)) {
+        if (ImGui::Checkbox("ミュート##bgm", &muteBGM_)) {
             if (bgmSubmix_) bgmSubmix_->SetVolume(muteBGM_ ? 0.0f : bgmVolume_);
         }
         DrawSoundSection(SoundType::BGM);
@@ -181,11 +181,11 @@ void AudioManager::DrawImGui() {
     // ---- SE ----
     if (ImGui::CollapsingHeader("SE", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::SetNextItemWidth(200.0f);
-        if (ImGui::SliderFloat("Volume##se", &seVolume_, 0.0f, 1.0f)) {
+        if (ImGui::SliderFloat("音量##se", &seVolume_, 0.0f, 1.0f)) {
             if (!muteSE_ && seSubmix_) seSubmix_->SetVolume(seVolume_);
         }
         ImGui::SameLine();
-        if (ImGui::Checkbox("Mute##se", &muteSE_)) {
+        if (ImGui::Checkbox("ミュート##se", &muteSE_)) {
             if (seSubmix_) seSubmix_->SetVolume(muteSE_ ? 0.0f : seVolume_);
         }
         DrawSoundSection(SoundType::SE);

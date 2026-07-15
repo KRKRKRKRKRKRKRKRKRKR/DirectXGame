@@ -17,7 +17,9 @@ public:
 	// Collision::*Penetrationで押し戻し量を求め、Transform.translationを半分ずつ動かして分離する
 	// （isTriggerがどちらかtrueなら押し戻さず検知のみ。isPlaying=falseの間は検知・色分けのみ行い
 	// 押し戻しはしない）。判定・押し戻し後の位置でワイヤーフレームを緑（重なりなし）/黄（Trigger
-	// 込みの重なり）/赤（Solid同士の重なり）に色分けして描画する
+	// 込みの重なり）/赤（Solid同士の重なり）に色分けして描画する。
+	// drawDebug=falseにすると重なり判定・押し戻し（=物理挙動）は行うがワイヤーフレーム描画だけ
+	// 省略する（Gameビュー表示中、デバッグ表示なしで物理だけは正しく動かし続けるため）
 	void ResolveAndDraw(const std::vector<GameObject*>& targets, bool isPlaying,
-		Renderer* renderer, const Matrix4x4& view, const Matrix4x4& proj);
+		Renderer* renderer, const Matrix4x4& view, const Matrix4x4& proj, bool drawDebug = true);
 };

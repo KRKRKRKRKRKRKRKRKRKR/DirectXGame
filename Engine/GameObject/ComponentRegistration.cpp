@@ -5,19 +5,24 @@
 #include "Component/Physics/Physics.h"
 #include "Component/Lighting/Lighting.h"
 #include "Component/Audio/Audio.h"
+#include "Component/Camera/Camera.h"
+#include "../Utils/Logger.h"
 
 void RegisterEngineComponents() {
 	// 単純パターン：デフォルト構築でき、他コンポーネントや外部リソースに依存しない
-	ComponentRegistry::RegisterSimple<GravityComponent>("Gravity");
-	ComponentRegistry::RegisterSimple<PlayerControllerComponent>("PlayerController");
-	ComponentRegistry::RegisterSimple<SphereColliderComponent>("SphereCollider");
-	ComponentRegistry::RegisterSimple<OBBColliderComponent>("OBBCollider");
-	ComponentRegistry::RegisterSimple<CubeRenderComponent>("CubeRender");
-	ComponentRegistry::RegisterSimple<SphereRenderComponent>("SphereRender");
-	ComponentRegistry::RegisterSimple<TriangleRenderComponent>("TriangleRender");
-	ComponentRegistry::RegisterSimple<DirectionalLightComponent>("DirectionalLight");
-	ComponentRegistry::RegisterSimple<PointLightComponent>("PointLight");
-	ComponentRegistry::RegisterSimple<SpotLightComponent>("SpotLight");
+	// （第2引数はInspector/Add Componentメニューでの表示名。第1引数のtypeName自体はJSON保存の
+	// キーとして使われるため変更しない）
+	ComponentRegistry::RegisterSimple<GravityComponent>("Gravity", "重力");
+	ComponentRegistry::RegisterSimple<PlayerControllerComponent>("PlayerController", "プレイヤー操作");
+	ComponentRegistry::RegisterSimple<SphereColliderComponent>("SphereCollider", "球コライダー");
+	ComponentRegistry::RegisterSimple<OBBColliderComponent>("OBBCollider", "直方体コライダー");
+	ComponentRegistry::RegisterSimple<CubeRenderComponent>("CubeRender", "キューブ描画");
+	ComponentRegistry::RegisterSimple<SphereRenderComponent>("SphereRender", "球描画");
+	ComponentRegistry::RegisterSimple<TriangleRenderComponent>("TriangleRender", "三角形描画");
+	ComponentRegistry::RegisterSimple<DirectionalLightComponent>("DirectionalLight", "平行光源");
+	ComponentRegistry::RegisterSimple<PointLightComponent>("PointLight", "点光源");
+	ComponentRegistry::RegisterSimple<SpotLightComponent>("SpotLight", "スポットライト");
+	ComponentRegistry::RegisterSimple<CameraComponent>("Camera", "カメラ");
 
 	// カスタムパターン：コンストラクタ引数が要る、または兄弟コンポーネント/外部リソースに依存する
 
@@ -32,14 +37,34 @@ void RegisterEngineComponents() {
 			c->directoryPath = dir;
 			c->filename = file;
 			c->FromJson(data); // RenderComponentBase共通フィールドを反映
-		});
+		},
+		[](GameObject& obj) {
+			// TextureSelectorComponentがこのModelRenderComponentへの生ポインタを持っている場合、
+			// 先にTextureSelector側を消してもらわないとダングリングポインタになるため拒否する
+			if (obj.GetComponent<TextureSelectorComponent>()) {
+				Logger::Log("ComponentRegistry: ModelRenderを消す前にTexture Selectorを先に削除してください\n");
+				return false;
+			}
+			return obj.RemoveComponent<ModelRenderComponent>();
+		},
+		"モデル描画");
 
 	// SpriteRenderComponent：is3Dはコンストラクタ引数のため先に読んでから生成する
 	ComponentRegistry::Register<SpriteRenderComponent>("SpriteRender",
 		[](GameObject& obj, const ComponentLoadContext&, const nlohmann::json& data) {
 			bool is3D = data.value("is3D", true);
 			obj.AddComponent<SpriteRenderComponent>(is3D)->FromJson(data);
-		});
+		},
+		[](GameObject& obj) {
+			// TextureSelectorComponentがこのSpriteRenderComponentへの生ポインタを持っている場合、
+			// 先にTextureSelector側を消してもらわないとダングリングポインタになるため拒否する
+			if (obj.GetComponent<TextureSelectorComponent>()) {
+				Logger::Log("ComponentRegistry: SpriteRenderを消す前にTexture Selectorを先に削除してください\n");
+				return false;
+			}
+			return obj.RemoveComponent<SpriteRenderComponent>();
+		},
+		"スプライト描画");
 
 	// TextRenderComponent：txtFilePath/fontFilePath/fontSize/lineSpacingを読んでからLoad()し直す。
 	// dynamicText（Camera座標表示等）の場合はtxtFilePathを使わないためLoadDynamic()を呼ぶ
@@ -53,7 +78,9 @@ void RegisterEngineComponents() {
 			} else {
 				c->Load(ctx.renderer);
 			}
-		});
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<TextRenderComponent>(); },
+		"テキスト描画");
 
 	// TextureSelectorComponent：同じGameObjectに既に復元済みのRenderComponentBaseと、
 	// ComponentLoadContext.textures（名前→現在のindex変換用）が必要
@@ -67,13 +94,17 @@ void RegisterEngineComponents() {
 				}
 			}
 			obj.AddComponent<TextureSelectorComponent>(obj.GetComponent<RenderComponentBase>(), ctx.textures, index);
-		});
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<TextureSelectorComponent>(); },
+		"テクスチャ選択");
 
 	// MirrorComponent：固有データなし。同じGameObjectの兄弟CubeRenderComponentに紐付けるだけ
 	ComponentRegistry::Register<MirrorComponent>("Mirror",
 		[](GameObject& obj, const ComponentLoadContext&, const nlohmann::json&) {
 			obj.AddComponent<MirrorComponent>(obj.GetComponent<CubeRenderComponent>());
-		});
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<MirrorComponent>(); },
+		"鏡");
 
 	// AudioSourceComponent：コンストラクタ引数一式をJSONから読んで呼び直す
 	ComponentRegistry::Register<AudioSourceComponent>("AudioSource",
@@ -83,5 +114,7 @@ void RegisterEngineComponents() {
 			SoundType type = static_cast<SoundType>(data.value("soundType", static_cast<int>(SoundType::BGM)));
 			bool loop = data.value("loop", true);
 			obj.AddComponent<AudioSourceComponent>(filePath, registeredName, type, loop);
-		});
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<AudioSourceComponent>(); },
+		"オーディオソース");
 }

@@ -27,43 +27,43 @@ void SceneLight::Upload() {
 }
 
 void SceneLight::DrawImGui() {
-    ImGui::Begin("Lighting");
+    ImGui::Begin("ライティング##Lighting");
 
-    ImGui::Text("Toon Shading");
+    ImGui::Text("トゥーンシェーディング");
     bool enableToon = data_.enableToon != 0;
-    if (ImGui::Checkbox("Enable Toon", &enableToon)) {
+    if (ImGui::Checkbox("トゥーンを有効化", &enableToon)) {
         SetEnableToon(enableToon);
     }
-    if (ImGui::SliderFloat("Toon Threshold", &data_.toonThreshold, 0.0f, 1.0f)) {
+    if (ImGui::SliderFloat("トゥーンのしきい値", &data_.toonThreshold, 0.0f, 1.0f)) {
         SetToonThreshold(data_.toonThreshold);
     }
 
     ImGui::Separator();
-    ImGui::Text("Specular (Blinn-Phong)");
+    ImGui::Text("スペキュラー（Blinn-Phong）");
     bool enableSpecular = data_.enableSpecular != 0;
-    if (ImGui::Checkbox("Enable Specular", &enableSpecular)) {
+    if (ImGui::Checkbox("スペキュラーを有効化", &enableSpecular)) {
         SetEnableSpecular(enableSpecular);
     }
-    if (ImGui::ColorEdit3("Specular Color", &data_.specularColor.x)) {
+    if (ImGui::ColorEdit3("スペキュラーの色", &data_.specularColor.x)) {
         SetSpecularColor(data_.specularColor);
     }
-    if (ImGui::SliderFloat("Shininess", &data_.shininess, 1.0f, 200.0f)) {
+    if (ImGui::SliderFloat("光沢度", &data_.shininess, 1.0f, 200.0f)) {
         SetShininess(data_.shininess);
     }
 
     ImGui::Separator();
-    ImGui::Text("Rim Light");
+    ImGui::Text("リムライト");
     bool enableRim = data_.enableRim != 0;
-    if (ImGui::Checkbox("Enable Rim", &enableRim)) {
+    if (ImGui::Checkbox("リムライトを有効化", &enableRim)) {
         SetEnableRim(enableRim);
     }
-    if (ImGui::ColorEdit3("Rim Color", &data_.rimColor.x)) {
+    if (ImGui::ColorEdit3("リムライトの色", &data_.rimColor.x)) {
         SetRimColor(data_.rimColor);
     }
-    if (ImGui::SliderFloat("Rim Power", &data_.rimPower, 0.1f, 8.0f)) {
+    if (ImGui::SliderFloat("リムの強さ（指数）", &data_.rimPower, 0.1f, 8.0f)) {
         SetRimPower(data_.rimPower);
     }
-    if (ImGui::SliderFloat("Rim Strength", &data_.rimStrength, 0.0f, 4.0f)) {
+    if (ImGui::SliderFloat("リムの強さ（係数）", &data_.rimStrength, 0.0f, 4.0f)) {
         SetRimStrength(data_.rimStrength);
     }
 

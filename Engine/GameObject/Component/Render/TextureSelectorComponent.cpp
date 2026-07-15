@@ -4,7 +4,7 @@
 #include <string>
 
 void TextureSelectorComponent::DrawImGui(const char* namePrefix) {
-	std::string label = std::string(namePrefix) + " Texture";
+	std::string label = std::string(namePrefix) + "テクスチャ";
 
 	if (ImGui::BeginCombo(label.c_str(), (*textures_)[index_].name.c_str())) {
 		for (int i = 0; i < static_cast<int>(textures_->size()); i++) {

@@ -14,6 +14,7 @@
 #include "../Engine/GameObject/Component/Physics/Physics.h"
 #include "../Engine/GameObject/Component/Lighting/Lighting.h"
 #include "../Engine/GameObject/Component/Audio/Audio.h"
+#include "../Engine/GameObject/Component/Camera/Camera.h"
 #include "../Engine/GameObject/ComponentLoadContext.h"
 #include "SceneObjectStore.h"
 #include <memory>
@@ -142,4 +143,10 @@ protected:
 
 	void DrawGrid();
 	void DrawImGui();
+	void DrawHierarchy();
+	void DrawInspector();
+
+	// Unityの Scene/Game タブ相当。falseはエディタ自由カメラ+Gizmo（Scene）、
+	// trueはシーン内カメラ視点でGizmoなし（Game）。ボタンでの切替はDrawImGui()内で行う
+	bool viewingGameCamera_ = false;
 };

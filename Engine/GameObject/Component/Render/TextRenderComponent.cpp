@@ -200,22 +200,22 @@ void TextRenderComponent::DrawImGui(const char* namePrefix) {
 	// 値を変えるだけで次のフレームから自動的に反映される（Reloadボタンは不要）。
 	// 箱の大きさ（画面上に見える大きさ）はTransform.scale側（Gizmo/Objectsパネルで操作）が
 	// 担当し、fontSizeはあくまで文字のラスタライズ解像度（＝くっきり度）。箱サイズは変わらない
-	std::string fontSizeLabel = std::string(namePrefix) + " Font Size";
-	std::string lineSpacingLabel = std::string(namePrefix) + " Line Spacing";
-	std::string superSampleLabel = std::string(namePrefix) + " Supersample (blur margin)";
+	std::string fontSizeLabel = std::string(namePrefix) + "フォントサイズ";
+	std::string lineSpacingLabel = std::string(namePrefix) + "行間";
+	std::string superSampleLabel = std::string(namePrefix) + "スーパーサンプリング（にじみ余白）";
 	ImGui::DragFloat(fontSizeLabel.c_str(), &fontSize, 1.0f, 8.0f, 256.0f);
 	ImGui::DragFloat(lineSpacingLabel.c_str(), &lineSpacing, 0.05f, 0.5f, 3.0f);
 	ImGui::DragFloat(superSampleLabel.c_str(), &superSample, 0.1f, 1.0f, 4.0f);
 
-	std::string source = dynamicText ? std::string("(dynamic, SetText()で更新)") : ("Text: " + txtFilePath);
-	std::string info = std::string(namePrefix) + " " + source + " / Font: " + fontFilePath +
-		" (baked " + std::to_string(bitmapWidth_) + "x" + std::to_string(bitmapHeight_) + "px, native " +
-		std::to_string(static_cast<int>(GetNativeWidth())) + "x" + std::to_string(static_cast<int>(GetNativeHeight())) + "px)";
+	std::string source = dynamicText ? std::string("（動的、SetText()で更新）") : ("テキスト: " + txtFilePath);
+	std::string info = std::string(namePrefix) + " " + source + " / フォント: " + fontFilePath +
+		" （焼き込み " + std::to_string(bitmapWidth_) + "x" + std::to_string(bitmapHeight_) + "px, 実寸 " +
+		std::to_string(static_cast<int>(GetNativeWidth())) + "x" + std::to_string(static_cast<int>(GetNativeHeight())) + "px）";
 	ImGui::Text("%s", info.c_str());
 
 	// dynamicTextは毎フレームSetText()が呼ばれる想定のため、Reloadボタン（静的txt読み込み用）は出さない
 	if (!dynamicText) {
-		std::string reloadLabel = std::string(namePrefix) + " Reload Text";
+		std::string reloadLabel = std::string(namePrefix) + "テキストを再読み込み";
 		if (renderer_ && ImGui::Button(reloadLabel.c_str())) {
 			Load(renderer_);
 		}

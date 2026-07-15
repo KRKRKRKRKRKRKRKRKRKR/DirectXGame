@@ -21,4 +21,8 @@ public:
 	void HandleInput(float deltaTime); //入力処理
 private:
 	CameraData cameraData_;
+
+	// 注視点（オービット中心）までの距離。Alt+左ドラッグのOrbitはこの距離を保ったまま
+	// position を再計算し、ホイールのDollyズームはこの距離自体を増減させる
+	float focusDistance_ = 10.0f;
 };

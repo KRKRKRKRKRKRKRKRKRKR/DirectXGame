@@ -152,19 +152,36 @@ nlohmann::json ObjectArchetypes::MakeSpotLightArchetype() {
 	return j;
 }
 
+nlohmann::json ObjectArchetypes::MakeCameraArchetype() {
+	nlohmann::json j;
+	j["transform"]["translation"] = Vector3ToJson({ 0.0f, 1.5f, -10.0f });
+	j["transform"]["rotation"]    = Vector3ToJson({ 0.0f, 0.0f, 0.0f }); // 恒等回転=+Z方向を向く（エンジンの前方軸と一致）
+	j["transform"]["scale"]       = Vector3ToJson({ 1.0f, 1.0f, 1.0f });
+	nlohmann::json comps = nlohmann::json::array();
+	nlohmann::json cam;
+	cam["type"] = "Camera";
+	cam["data"] = nlohmann::json::object();
+	comps.push_back(cam);
+	j["components"] = comps;
+	return j;
+}
+
 const std::vector<std::string>& ObjectArchetypes::GetNames() {
+	// ここで生成したGameObjectはJSONに残るのは各コンポーネントのtypeName（英語のまま）だけで、
+	// このArchetype名自体は保存されないため、GetJson側の分岐と揃えれば自由に日本語化してよい
 	static const std::vector<std::string> names = {
-		"Cube", "Sphere", "Triangle", "Directional Light", "Point Light", "Spot Light",
+		"キューブ", "球", "三角形", "平行光源", "点光源", "スポットライト", "カメラ",
 	};
 	return names;
 }
 
 nlohmann::json ObjectArchetypes::GetJson(const std::string& name) {
-	if (name == "Cube")              return MakeCubeArchetype();
-	if (name == "Sphere")            return MakeSphereArchetype();
-	if (name == "Triangle")          return MakeTriangleArchetype();
-	if (name == "Directional Light") return MakeDirectionalLightArchetype();
-	if (name == "Point Light")       return MakePointLightArchetype();
-	if (name == "Spot Light")        return MakeSpotLightArchetype();
+	if (name == "キューブ")   return MakeCubeArchetype();
+	if (name == "球")        return MakeSphereArchetype();
+	if (name == "三角形")     return MakeTriangleArchetype();
+	if (name == "平行光源")   return MakeDirectionalLightArchetype();
+	if (name == "点光源")     return MakePointLightArchetype();
+	if (name == "スポットライト") return MakeSpotLightArchetype();
+	if (name == "カメラ")     return MakeCameraArchetype();
 	return nlohmann::json::object();
 }

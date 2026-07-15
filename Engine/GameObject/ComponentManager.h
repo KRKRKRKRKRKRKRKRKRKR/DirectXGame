@@ -4,6 +4,8 @@
 #include <vector>
 #include <memory>
 
+class GameObject;
+
 // GameObjectが持つIComponent群の保持・追加・検索・一括更新/描画を担当する。
 // コンポーネントの種類が増えてきたため、GameObject本体からこの責務を切り出した
 // （ColliderSystem/GizmoControllerと同じ「役割ごとに専用クラスへ切り出す」パターン）
@@ -44,9 +46,20 @@ public:
 		for (auto& c : components_) c->Update(deltaTime, transform);
 	}
 
-	void DrawImGui(const char* namePrefix) {
-		for (auto& c : components_) c->DrawImGui(namePrefix);
-	}
+	// 保持コンポーネント数、およびindex指定での型消去アクセス（Inspectorの並び替えUI等、
+	// 型を気にせず順序だけ扱いたい呼び出し元向け）
+	size_t Count() const { return components_.size(); }
+	IComponent* At(size_t index) const { return components_[index].get(); }
+
+	// fromIndex番目のコンポーネントをtoIndexの位置へ移動する（Inspectorでのドラッグ並び替え用）。
+	// 範囲外や移動不要な場合は何もしない。実装はComponentManager.cpp
+	// （GameObject.h/ComponentRegistry.hを必要とするDrawImGuiと同じ理由で.cppへ切り出す）
+	void Move(size_t fromIndex, size_t toIndex);
+
+	// owner（自分自身が属するGameObject）ごとにコンポーネント一覧をUnity風に描画する
+	// （コンポーネントごとの見出し・アイコン代わりの色チップ・ドラッグ並び替え・右クリックの
+	// Remove/Move Up/Move Downメニュー込み）。実装はComponentManager.cpp
+	void DrawImGui(GameObject& owner);
 
 	// 保持している全コンポーネントへ生ポインタで触れるための走査（JSON保存等、GameObject側で
 	// 型を気にせず中身を見たい場合に使う。所有権はComponentManagerに残したまま）

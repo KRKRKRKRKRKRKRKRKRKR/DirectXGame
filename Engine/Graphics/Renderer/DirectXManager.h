@@ -37,6 +37,7 @@ public:
 	// ===== ゲッター =====
 	ID3D12Device* GetDevice() const { return device_.GetDevice(); }
 	ID3D12GraphicsCommandList* GetCommandList() const { return command_.GetCommandList(); }
+	ID3D12CommandQueue* GetCommandQueue() const { return command_.GetCommandQueue(); }
 	ID3D12DescriptorHeap* GetSRVDescriptorHeap() const { return swapChain_.GetDescriptorHeaps()->GetSRVDescriptorHeap(); }
 	DescriptorHeaps* GetDescriptorHeaps() const { return swapChain_.GetDescriptorHeaps(); }
 	D3D12_CPU_DESCRIPTOR_HANDLE GetDSVHandle() const { return swapChain_.GetDescriptorHeaps()->GetDSVHandle(); }

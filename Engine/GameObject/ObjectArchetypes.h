@@ -24,4 +24,5 @@ private:
 	static nlohmann::json MakeDirectionalLightArchetype();
 	static nlohmann::json MakePointLightArchetype();
 	static nlohmann::json MakeSpotLightArchetype();
+	static nlohmann::json MakeCameraArchetype();
 };

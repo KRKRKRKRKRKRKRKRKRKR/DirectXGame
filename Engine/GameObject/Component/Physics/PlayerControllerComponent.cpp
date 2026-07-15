@@ -21,8 +21,8 @@ void PlayerControllerComponent::Update(float deltaTime, Transform& transform) {
 }
 
 void PlayerControllerComponent::DrawImGui(const char* namePrefix) {
-	std::string enableLabel = std::string(namePrefix) + " Enable Player Controller";
-	std::string speedLabel  = std::string(namePrefix) + " Move Speed";
+	std::string enableLabel = std::string(namePrefix) + "プレイヤー操作を有効化";
+	std::string speedLabel  = std::string(namePrefix) + "移動速度";
 	ImGui::Checkbox(enableLabel.c_str(), &enabled);
 	ImGui::SliderFloat(speedLabel.c_str(), &moveSpeed, 0.0f, 20.0f);
 }

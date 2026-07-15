@@ -31,13 +31,13 @@ void SpotLightComponent::DrawGizmoVisualization(Renderer* renderer, const Transf
 }
 
 void SpotLightComponent::DrawImGui(const char* namePrefix) {
-	std::string enableLabel    = std::string(namePrefix) + " Enable";
-	std::string colorLabel     = std::string(namePrefix) + " Color";
-	std::string intensityLabel = std::string(namePrefix) + " Intensity";
-	std::string distanceLabel  = std::string(namePrefix) + " Distance";
-	std::string decayLabel     = std::string(namePrefix) + " Decay";
-	std::string cosAngleLabel  = std::string(namePrefix) + " Cos Angle (outer)";
-	std::string cosFalloffLabel = std::string(namePrefix) + " Cos Falloff Start (inner)";
+	std::string enableLabel    = std::string(namePrefix) + "有効化";
+	std::string colorLabel     = std::string(namePrefix) + "色";
+	std::string intensityLabel = std::string(namePrefix) + "強さ";
+	std::string distanceLabel  = std::string(namePrefix) + "届く距離";
+	std::string decayLabel     = std::string(namePrefix) + "減衰";
+	std::string cosAngleLabel  = std::string(namePrefix) + "照射角（外側）";
+	std::string cosFalloffLabel = std::string(namePrefix) + "減衰開始角（内側）";
 
 	ImGui::Checkbox(enableLabel.c_str(), &enabled);
 	ImGui::ColorEdit3(colorLabel.c_str(), &color.x);

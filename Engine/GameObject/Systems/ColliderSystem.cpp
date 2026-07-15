@@ -8,7 +8,7 @@
 #include "../../Graphics/Renderer/Renderer.h"
 
 void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, bool isPlaying,
-	Renderer* renderer, const Matrix4x4& view, const Matrix4x4& proj) {
+	Renderer* renderer, const Matrix4x4& view, const Matrix4x4& proj, bool drawDebug) {
 	constexpr Vector4 kNoOverlapColor      = { 0.2f, 1.0f, 0.2f, 1.0f }; // 緑：重なりなし
 	constexpr Vector4 kTriggerOverlapColor = { 1.0f, 0.9f, 0.2f, 1.0f }; // 黄：Trigger込みの重なり
 	constexpr Vector4 kSolidOverlapColor   = { 1.0f, 0.2f, 0.2f, 1.0f }; // 赤：Solid同士の重なり
@@ -107,6 +107,8 @@ void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, boo
 			}
 		}
 	}
+
+	if (!drawDebug) return; // Gameビュー表示中は判定・押し戻しのみ行い、ワイヤーフレーム描画は省略する
 
 	// 描画は各コンポーネント自身のDrawWireframeに委譲する（ColliderSystemは判定結果の色だけ渡す）。
 	// 1つのオブジェクトが複数と同時に重なる場合はSolid重なりを優先して赤にする

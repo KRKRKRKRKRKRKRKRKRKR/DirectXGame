@@ -2,6 +2,50 @@
 #include "ComponentRegistry.h"
 #include "ComponentLoadContext.h"
 #include "../../Math/JsonUtil.h"
+#include "../../Math/TransformMath.h"
+#include "../../Math/MatrixMath.h"
+#include "../../Externals/ImGuizmo/src/ImGuizmo.h"
+#include <algorithm>
+
+void GameObject::SetParent(GameObject* newParent) {
+	if (newParent == this) return;
+	if (newParent && newParent->IsDescendantOf(this)) return; // 循環参照防止
+	if (parent_ == newParent) return;
+
+	if (parent_) {
+		auto& siblings = parent_->children_;
+		siblings.erase(std::remove(siblings.begin(), siblings.end(), this), siblings.end());
+	}
+	parent_ = newParent;
+	if (parent_) parent_->children_.push_back(this);
+}
+
+bool GameObject::IsDescendantOf(const GameObject* obj) const {
+	for (const GameObject* p = parent_; p; p = p->parent_) {
+		if (p == obj) return true;
+	}
+	return false;
+}
+
+Matrix4x4 GameObject::GetWorldMatrix() const {
+	const Transform& t = transformComponent_->transform;
+	Matrix4x4 local = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
+	return parent_ ? local * parent_->GetWorldMatrix() : local;
+}
+
+Transform GameObject::GetWorldTransform() const {
+	Matrix4x4 world = GetWorldMatrix();
+	float t[3], r[3], s[3];
+	ImGuizmo::DecomposeMatrixToComponents(&world._11, t, r, s);
+	Transform result;
+	result.translation = { t[0], t[1], t[2] };
+	result.rotation = {
+		DirectX::XMConvertToRadians(r[0]),
+		DirectX::XMConvertToRadians(r[1]),
+		DirectX::XMConvertToRadians(r[2]) }; // ImGuizmoは度数法、Transform.rotationはラジアン
+	result.scale = { s[0], s[1], s[2] };
+	return result;
+}
 
 void GameObject::ToJson(nlohmann::json& out) const {
 	out["name"] = name;

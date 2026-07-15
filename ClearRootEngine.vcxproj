@@ -120,6 +120,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Systems\ColliderSystem.cpp" />
     <ClCompile Include="Engine\GameObject\Systems\GizmoController.cpp" />
     <ClCompile Include="Engine\GameObject\GameObject.cpp" />
+    <ClCompile Include="Engine\GameObject\ComponentManager.cpp" />
     <ClCompile Include="Engine\GameObject\ComponentRegistry.cpp" />
     <ClCompile Include="Engine\GameObject\ComponentRegistration.cpp" />
     <ClCompile Include="Engine\GameObject\SceneSerializer.cpp" />
@@ -144,6 +145,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Lighting\PointLightComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\SpotLightComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Audio\AudioSourceComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Camera\CameraComponent.cpp" />
     <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
@@ -238,6 +240,8 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Lighting\Lighting.h" />
     <ClInclude Include="Engine\GameObject\Component\Audio\AudioSourceComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Audio\Audio.h" />
+    <ClInclude Include="Engine\GameObject\Component\Camera\CameraComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Camera\Camera.h" />
     <ClInclude Include="Engine\Graphics\Lighting\SceneLight.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />

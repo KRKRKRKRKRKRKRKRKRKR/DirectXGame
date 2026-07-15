@@ -1,6 +1,7 @@
 #include "Camera.h"
 #include <DirectXMath.h>
 #include "../InputDevice/InputDevice.h" // Camera と InputDevice が同階層なのでそのまま
+#include "../../Math/VectorMath.h"
 void Camera::Initialize(const Vector3& position, const Vector3& rotation, float fov, float nearClip, float farClip) {
 	cameraData_.position = position;
 	cameraData_.rotation = rotation;
@@ -24,62 +25,61 @@ Matrix4x4 Camera::GetProjectionMatrix(float aspectRatio) const {
 }
 
 void Camera::HandleInput(float deltaTime) {
-	//右クリックが押されている間だけカメラを操作
-	if (Input::IsMouseRightPressed()) {
-		const float mouseSensitivity = 0.004f;
+	(void)deltaTime; // Unity Sceneビュー方式はマウス移動量そのものを使うためフレームレート非依存
 
-		long mouseX = Input::GetMouseMoveX();
-		long mouseY = Input::GetMouseMoveY();
+	const float rotateSensitivity = 0.004f;
+	const float panSensitivity = 0.005f;
+	// ホイールの生値はマウス移動量(数十程度)と桁が違い1ノッチ=約120のため、
+	// rotate/panと同じ感覚の係数を使うと1ノッチで数十〜百ユニット動いてしまう。桁を合わせて小さくする
+	const float dollySensitivity = 0.01f;
 
-		// マウスの移動量をカメラの回転に加算
-		cameraData_.rotation.y += static_cast<float>(mouseX) * mouseSensitivity;
-		cameraData_.rotation.x += static_cast<float>(mouseY) * mouseSensitivity;
+	long mouseX = Input::GetMouseMoveX();
+	long mouseY = Input::GetMouseMoveY();
 
-		// 上下の角度制限（クランプ）約88度、ジンバルロック防止
+	// マウス移動量をrotation.x/yへ反映し、上下約88度でクランプする
+	// （Look/Orbitの両方から使う共通処理。ジンバルロック防止）
+	auto applyRotationDelta = [&]() {
+		cameraData_.rotation.y += static_cast<float>(mouseX) * rotateSensitivity;
+		cameraData_.rotation.x += static_cast<float>(mouseY) * rotateSensitivity;
 		if (cameraData_.rotation.x > 1.55f)  cameraData_.rotation.x = 1.55f;
 		if (cameraData_.rotation.x < -1.55f) cameraData_.rotation.x = -1.55f;
+	};
 
-		long wheel = Input::GetMouseWheel();
-		if (wheel != 0) {
-			// ホイール感度の調整
-			const float zoomSensitivity = 0.1f;
+	bool altPressed = Input::IsPressed(DIK_LMENU) || Input::IsPressed(DIK_RMENU);
 
-			// 視野角（FOV）を変化させる場合（値を小さくするとズームイン、大きくするとズームアウト）
-			// ※ cameraData_.fov の初期値は一般的に 45度（約0.785f）など
-			cameraData_.fov -= static_cast<float>(wheel) * zoomSensitivity;
+	if (altPressed && Input::IsMouseLeftPressed()) {
+		// Orbit：注視点（focusDistance_だけ前方にある点）を中心に周回する。
+		// 回転前のforwardからpivotを求めておき、回転更新後の新しいforwardで
+		// pivotから逆算してpositionを求め直すことで、注視点を固定したまま回り込める
+		Vector3 forwardBefore = TransformMath::EulerRadiansToDirection(cameraData_.rotation);
+		Vector3 pivot = cameraData_.position + forwardBefore * focusDistance_;
 
-			// 視野角が狭くなりすぎたり（拡大しすぎ）、広くなりすぎたり（魚眼レンズ化）しないよう制限
-			// 約10度〜90度の範囲に制限する例
-			if (cameraData_.fov < 10.0f) cameraData_.fov = 10.0f;
-			if (cameraData_.fov > 90.0f) cameraData_.fov = 90.0f;
-		}
+		applyRotationDelta();
+
+		Vector3 forwardAfter = TransformMath::EulerRadiansToDirection(cameraData_.rotation);
+		cameraData_.position = pivot - forwardAfter * focusDistance_;
+	} else if (Input::IsMouseRightPressed()) {
+		// Look：その場で視点だけ回転する（位置は変えない）
+		applyRotationDelta();
 	}
 
-	// --- キーボードによる移動 ---
-	Vector3 localMove = { 0.0f, 0.0f, 0.0f };
+	if (Input::IsMouseMiddlePressed()) {
+		// Pan：画面に対して平行に移動する
+		Matrix4x4 rot = TransformMath::MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, cameraData_.rotation, { 0.0f, 0.0f, 0.0f });
+		Vector3 right = TransformMath::Transform({ 1.0f, 0.0f, 0.0f }, rot);
+		Vector3 up    = TransformMath::Transform({ 0.0f, 1.0f, 0.0f }, rot);
+		cameraData_.position = cameraData_.position
+			- right * (static_cast<float>(mouseX) * panSensitivity)
+			+ up    * (static_cast<float>(mouseY) * panSensitivity);
+	}
 
-	if (Input::IsPressed(DIK_W)) { localMove.z += 10.0f * deltaTime; }
-	if (Input::IsPressed(DIK_S)) { localMove.z -= 10.0f * deltaTime; }
-	if (Input::IsPressed(DIK_A)) { localMove.x -= 10.0f * deltaTime; }
-	if (Input::IsPressed(DIK_D)) { localMove.x += 10.0f * deltaTime; }
-
-	if (Input::IsPressed(DIK_SPACE)) { cameraData_.position.y += 10.0f * deltaTime; }
-	if (Input::IsPressed(DIK_LSHIFT)) { cameraData_.position.y -= 10.0f * deltaTime; }
-
-	if (Input::IsPressed(DIK_UPARROW)) { cameraData_.rotation.x -= 0.05f * deltaTime; }
-	if (Input::IsPressed(DIK_DOWNARROW)) { cameraData_.rotation.x += 0.05f * deltaTime; }
-	if (Input::IsPressed(DIK_LEFTARROW)) { cameraData_.rotation.y -= 0.05f * deltaTime; }
-	if (Input::IsPressed(DIK_RIGHTARROW)) { cameraData_.rotation.y += 0.05f * deltaTime; }
-
-	Matrix4x4 rotMatrix = TransformMath::MakeAffineMatrix(
-		{ 1.0f, 1.0f, 1.0f },
-		cameraData_.rotation,
-		{ 0.0f, 0.0f, 0.0f }
-	);
-
-	Vector3 worldMove = TransformMath::Transform(localMove, rotMatrix);
-
-	cameraData_.position.x += worldMove.x;
-	cameraData_.position.y += worldMove.y;
-	cameraData_.position.z += worldMove.z;
+	long wheel = Input::GetMouseWheel();
+	if (wheel != 0) {
+		// Dolly：注視点へ向かって前後に移動する（ボタン操作不要、常時有効）
+		Vector3 forward = TransformMath::EulerRadiansToDirection(cameraData_.rotation);
+		float amount = static_cast<float>(wheel) * dollySensitivity;
+		cameraData_.position = cameraData_.position + forward * amount;
+		focusDistance_ -= amount;
+		if (focusDistance_ < 0.5f) focusDistance_ = 0.5f;
+	}
 }

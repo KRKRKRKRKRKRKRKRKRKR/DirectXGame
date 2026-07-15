@@ -84,7 +84,7 @@ void GizmoController::UpdatePicking(const std::vector<GameObject*>& targets, Ren
 	float closestT = FLT_MAX;
 	for (int i = 0; i < static_cast<int>(targets.size()); i++) {
 		if (targets[i]->excludeFromPicking) continue;
-		const Transform& t = targets[i]->GetTransform();
+		Transform t = targets[i]->GetWorldTransform();
 		float maxScale = (std::max)({ t.scale.x, t.scale.y, t.scale.z });
 		float radius = targets[i]->pickingRadiusHint * maxScale;
 		Collision::Sphere sphere{ t.translation, radius };
@@ -98,8 +98,10 @@ void GizmoController::UpdatePicking(const std::vector<GameObject*>& targets, Ren
 	if (closestIndex >= 0) {
 		selection3D_.targetIndex = closestIndex;
 		lastSelectedIs2D_ = false;
+	} else {
+		// 何もない空間をクリックした場合は選択を解除する（Unityの Scene ビューと同じ操作感）
+		ResetSelection();
 	}
-	// 何にも当たらなかった場合は現在の選択状態を維持する
 }
 
 void GizmoController::DrawEmptyObjectMarker(const Transform& t, Renderer* renderer,
@@ -120,16 +122,14 @@ void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Rende
 	Transform* target = GetGizmoTargetTransform(targets);
 	if (!target) return;
 
-	GameObject* markerTargetObj = (selection3D_.targetIndex >= 0 && selection3D_.targetIndex < static_cast<int>(targets.size()))
+	GameObject* gizmoTargetObj = (selection3D_.targetIndex >= 0 && selection3D_.targetIndex < static_cast<int>(targets.size()))
 		? targets[selection3D_.targetIndex] : nullptr;
-	if (markerTargetObj && !markerTargetObj->GetComponent<RenderComponentBase>() && !markerTargetObj->GetComponent<ColliderComponentBase>()) {
-		DrawEmptyObjectMarker(markerTargetObj->GetTransform(), renderer, view, proj);
+	if (gizmoTargetObj && !gizmoTargetObj->GetComponent<RenderComponentBase>() && !gizmoTargetObj->GetComponent<ColliderComponentBase>()) {
+		DrawEmptyObjectMarker(gizmoTargetObj->GetWorldTransform(), renderer, view, proj);
 	}
 
 	// Collider編集モードの場合、操作開始前に現在のoffset/radius(またはhalfSize)を
 	// colliderGizmoScratch_へ反映する（ドラッグ中は再計算しない）
-	GameObject* gizmoTargetObj = (selection3D_.targetIndex >= 0 && selection3D_.targetIndex < static_cast<int>(targets.size()))
-		? targets[selection3D_.targetIndex] : nullptr;
 	if (editCollider_ && gizmoTargetObj && !ImGuizmo::IsUsing()) {
 		if (auto* collider = gizmoTargetObj->GetComponent<ColliderComponentBase>()) {
 			colliderGizmoScratch_ = collider->GetGizmoEditTransform(gizmoTargetObj->GetTransform());
@@ -139,7 +139,12 @@ void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Rende
 	ImGuizmo::SetOrthographic(false);
 	ImGuizmo::SetRect(0, 0, (float)renderer->GetClientWidth(), (float)renderer->GetClientHeight());
 
-	Matrix4x4 world = TransformMath::MakeAffineMatrix(target->scale, target->rotation, target->translation);
+	// 親を持つ場合はworldを親込みのGetWorldMatrix()にすることで、ギズモハンドルが画面上の
+	// 実際の位置に表示される（Collider編集中はスコープ外＝従来通りローカル基準のまま）
+	GameObject* parent3D = (!editCollider_ && gizmoTargetObj) ? gizmoTargetObj->GetParent() : nullptr;
+	Matrix4x4 world = (!editCollider_ && gizmoTargetObj)
+		? gizmoTargetObj->GetWorldMatrix()
+		: TransformMath::MakeAffineMatrix(target->scale, target->rotation, target->translation);
 
 	ImGuizmo::OPERATION operation = gizmoOperation_;
 	// Collider編集中はRotate操作を無効化する（Sphere/AABBに回転の意味がないため）
@@ -151,7 +156,13 @@ void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Rende
 	// ImGuizmoの内部状態（mbUsing等）が競合し、片方の操作がもう片方のTransformを壊す
 	ImGuizmo::PushID("GizmoController3D");
 	if (ImGuizmo::Manipulate(&view._11, &proj._11, operation, ImGuizmo::WORLD, &world._11)) {
-		ApplyDecomposedMatrix(world, target);
+		if (parent3D) {
+			// ドラッグ後のワールド行列から親のワールド行列を除いてローカルへ戻す
+			Matrix4x4 local = world * MatrixMath::Inverse(parent3D->GetWorldMatrix());
+			ApplyDecomposedMatrix(local, target);
+		} else {
+			ApplyDecomposedMatrix(world, target);
+		}
 
 		// Collider編集中の場合、ワールド座標系のtranslation/scaleをoffset/radius(またはhalfSize)へ変換して書き戻す
 		if (editCollider_ && gizmoTargetObj) {
@@ -185,7 +196,7 @@ void GizmoController::UpdatePicking2D(const std::vector<GameObject*>& targets2D,
 	// 後ろから探すことで、重なっている場合は最後に描画される＝一番手前に見えるものを優先する
 	for (int i = static_cast<int>(targets2D.size()) - 1; i >= 0; --i) {
 		if (targets2D[i]->excludeFromPicking) continue;
-		const Transform& t = targets2D[i]->GetTransform();
+		Transform t = targets2D[i]->GetWorldTransform();
 		// Sprite頂点は-0.5〜0.5（中心原点）なので、translationはSpriteの中心。
 		// 左端/右端/上端/下端はtranslation±scale/2で求める
 		float left = t.translation.x - t.scale.x * 0.5f, top = t.translation.y - t.scale.y * 0.5f;
@@ -237,7 +248,7 @@ void GizmoController::UpdateRectSelect2D(const std::vector<GameObject*>& targets
 	multiSelected2D_.clear();
 	for (auto* obj : targets2D) {
 		if (obj->excludeFromPicking) continue;
-		const Transform& t = obj->GetTransform();
+		Transform t = obj->GetWorldTransform();
 		// Sprite頂点は-0.5〜0.5（中心原点）なので、translationはSpriteの中心。
 		// 左端/右端/上端/下端はtranslation±scale/2で求める
 		float left = t.translation.x - t.scale.x * 0.5f, top = t.translation.y - t.scale.y * 0.5f;
@@ -257,8 +268,11 @@ void GizmoController::UpdateRectSelect2D(const std::vector<GameObject*>& targets
 		if (it != targets2D.end()) {
 			selection2D_.targetIndex = static_cast<int>(it - targets2D.begin());
 		}
+	} else {
+		// 矩形に何も入らなかった場合（ドラッグせず何もない場所をクリックしただけの場合を含む）は
+		// 選択を解除する（Unityの Scene ビューと同じ操作感）
+		ResetSelection();
 	}
-	// 矩形に何も入らなかった場合は選択状態を変えない（PowerPoint等と同じく空振りは無視）
 }
 
 void GizmoController::DrawSelectionRect2D(const Transform& t, Renderer* renderer) {
@@ -282,15 +296,16 @@ void GizmoController::UpdateGizmo2D(const std::vector<GameObject*>& targets2D, R
 	// 矩形選択で複数選ばれている場合は、そのすべてに範囲矩形を出す（Gizmoハンドル自体は
 	// selection2D_.targetIndexの1つだけに表示される、既存の単一編集の挙動と共存させる）
 	for (auto* obj : multiSelected2D_) {
-		DrawSelectionRect2D(obj->GetTransform(), renderer);
+		DrawSelectionRect2D(obj->GetWorldTransform(), renderer);
 	}
 
 	if (selection2D_.targetIndex < 0 || selection2D_.targetIndex >= static_cast<int>(targets2D.size())) return;
-	Transform* target = &targets2D[selection2D_.targetIndex]->GetTransform();
+	GameObject* targetObj = targets2D[selection2D_.targetIndex];
+	Transform* target = &targetObj->GetTransform();
 
 	// 単一選択時（矩形選択の複数選択に含まれていない場合のみ、二重描画を避ける）
-	if (std::find(multiSelected2D_.begin(), multiSelected2D_.end(), targets2D[selection2D_.targetIndex]) == multiSelected2D_.end()) {
-		DrawSelectionRect2D(*target, renderer);
+	if (std::find(multiSelected2D_.begin(), multiSelected2D_.end(), targetObj) == multiSelected2D_.end()) {
+		DrawSelectionRect2D(targetObj->GetWorldTransform(), renderer);
 	}
 
 	ImGuizmo::SetOrthographic(true);
@@ -300,22 +315,31 @@ void GizmoController::UpdateGizmo2D(const std::vector<GameObject*>& targets2D, R
 	// Renderer::DrawSprite2Dと全く同じ「world * 正射影(デザイン解像度)」空間で操作することで、
 	// 画面上の見た目とギズモの位置・大きさを一致させる（3Dカメラのview/projは使わない）。
 	// orthoをデザイン解像度にし、SetRectで実ウィンドウpxへマッピングさせることで、
-	// target(デザイン座標系のtranslation/scale)と実際の描画位置がウィンドウサイズによらず一致する
+	// target(デザイン座標系のtranslation/scale)と実際の描画位置がウィンドウサイズによらず一致する。
+	// 親を持つ場合はworldを親込みのGetWorldMatrix()にすることで、ギズモハンドルが画面上の
+	// 実際の位置に表示される
 	Matrix4x4 identityView = MatrixMath::Identity();
 	Matrix4x4 ortho = MatrixMath::MakeOrthographicMatrix(Renderer::GetUiDesignWidth(), Renderer::GetUiDesignHeight());
-	Matrix4x4 world = TransformMath::MakeAffineMatrix(target->scale, target->rotation, target->translation);
+	GameObject* parent2D = targetObj->GetParent();
+	Matrix4x4 world = targetObj->GetWorldMatrix();
 
 	// 3D版(UpdateGizmo)と同じフレームで呼ばれるため、IDを分離してImGuizmoの内部状態を独立させる
 	ImGuizmo::PushID("GizmoController2D");
 	bool changed = ImGuizmo::Manipulate(&identityView._11, &ortho._11, gizmoOperation_, ImGuizmo::WORLD, &world._11);
 	if (changed) {
-		ApplyDecomposedMatrix(world, target);
+		if (parent2D) {
+			// ドラッグ後のワールド行列から親のワールド行列を除いてローカルへ戻す
+			Matrix4x4 local = world * MatrixMath::Inverse(parent2D->GetWorldMatrix());
+			ApplyDecomposedMatrix(local, target);
+		} else {
+			ApplyDecomposedMatrix(world, target);
+		}
 	}
 
 	// TRANSLATE操作中（ドラッグ中）だけスマートガイドを判定・描画する。Scale/Rotate中は
 	// 端/中心の一致という考え方自体が馴染まないため対象外にする
 	if (gizmoOperation_ == ImGuizmo::TRANSLATE && ImGuizmo::IsUsing()) {
-		SnapAndDrawGuides(target, targets2D[selection2D_.targetIndex], targets2D, renderer);
+		SnapAndDrawGuides(target, targetObj, targets2D, renderer);
 	}
 	ImGuizmo::PopID();
 }
@@ -418,31 +442,27 @@ void GizmoController::SnapAndDrawGuides(Transform* dragged, GameObject* draggedO
 	}
 }
 
-void GizmoController::DrawImGui2D(const std::vector<GameObject*>& targets2D) {
-	std::vector<const char*> comboNames;
-	comboNames.push_back("None");
-	for (auto* obj : targets2D) comboNames.push_back(obj->name.c_str());
+void GizmoController::SetSelected(GameObject* obj, const std::vector<GameObject*>& targets) {
+	for (size_t i = 0; i < targets.size(); i++) {
+		if (targets[i] == obj) {
+			selection3D_.targetIndex = static_cast<int>(i);
+			lastSelectedIs2D_ = false;
+			return;
+		}
+	}
+}
 
-	int currentCombo = selection2D_.targetIndex + 1;
-	if (ImGui::Combo("Target (2D)", &currentCombo, comboNames.data(), static_cast<int>(comboNames.size()))) {
-		selection2D_.targetIndex = currentCombo - 1;
-		lastSelectedIs2D_ = true;
+void GizmoController::SetSelected2D(GameObject* obj, const std::vector<GameObject*>& targets2D) {
+	for (size_t i = 0; i < targets2D.size(); i++) {
+		if (targets2D[i] == obj) {
+			selection2D_.targetIndex = static_cast<int>(i);
+			lastSelectedIs2D_ = true;
+			return;
+		}
 	}
 }
 
 void GizmoController::DrawImGui(const std::vector<GameObject*>& targets) {
-	// コンボの選択肢：0="None", 1..N=targets[0..N-1]の名前
-	std::vector<const char*> comboNames;
-	comboNames.push_back("None");
-	for (auto* obj : targets) comboNames.push_back(obj->name.c_str());
-
-	int currentCombo = selection3D_.targetIndex + 1; // -1("None")+1=0, 0以上はそのまま+1
-
-	if (ImGui::Combo("Target", &currentCombo, comboNames.data(), static_cast<int>(comboNames.size()))) {
-		selection3D_.targetIndex = currentCombo - 1; // 0("None")-1=-1
-		lastSelectedIs2D_ = false;
-	}
-
 	// Collider編集モード：選択中オブジェクトがCollider（Sphere/Box）を持つ場合のみ有効化できる。
 	// オンの間、ギズモの対象はGameObject本体のTransformではなくColliderのオフセット/サイズになる
 	bool hasCollider = false;
@@ -451,17 +471,17 @@ void GizmoController::DrawImGui(const std::vector<GameObject*>& targets) {
 	}
 	if (!hasCollider) editCollider_ = false; // Colliderを持たないオブジェクト選択中は強制オフ
 	if (!hasCollider) ImGui::BeginDisabled();
-	ImGui::Checkbox("Edit Collider", &editCollider_);
+	ImGui::Checkbox("コライダーを編集", &editCollider_);
 	if (!hasCollider) ImGui::EndDisabled();
 
 	// Collider編集中はRotateに意味がないためグレーアウトする（Sphere/AABBに回転の概念がない）
 	bool disableRotate = editCollider_;
 
-	if (ImGui::RadioButton("Translate", gizmoOperation_ == ImGuizmo::TRANSLATE)) gizmoOperation_ = ImGuizmo::TRANSLATE;
+	if (ImGui::RadioButton("移動", gizmoOperation_ == ImGuizmo::TRANSLATE)) gizmoOperation_ = ImGuizmo::TRANSLATE;
 	ImGui::SameLine();
 	if (disableRotate) ImGui::BeginDisabled();
-	if (ImGui::RadioButton("Rotate", gizmoOperation_ == ImGuizmo::ROTATE)) gizmoOperation_ = ImGuizmo::ROTATE;
+	if (ImGui::RadioButton("回転", gizmoOperation_ == ImGuizmo::ROTATE)) gizmoOperation_ = ImGuizmo::ROTATE;
 	if (disableRotate) ImGui::EndDisabled();
 	ImGui::SameLine();
-	if (ImGui::RadioButton("Scale", gizmoOperation_ == ImGuizmo::SCALE)) gizmoOperation_ = ImGuizmo::SCALE;
+	if (ImGui::RadioButton("拡縮", gizmoOperation_ == ImGuizmo::SCALE)) gizmoOperation_ = ImGuizmo::SCALE;
 }

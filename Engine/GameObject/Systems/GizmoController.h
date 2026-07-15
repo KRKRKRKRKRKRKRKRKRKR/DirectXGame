@@ -39,13 +39,12 @@ public:
 	// （SnapAndDrawGuides参照）
 	void UpdateGizmo2D(const std::vector<GameObject*>& targets2D, Renderer* renderer);
 
-	// "Gizmo"ウィンドウの中身のうちTargetコンボ・Edit Collider・Translate/Rotate/Scaleを
-	// 描画する。ImGui::Begin/Endは呼ばない（呼び出し側が既にウィンドウを開いている前提。
-	// Play/Stopボタン等、他のUIと同じウィンドウに同居させるための「中身だけ描く」形）
+	// "Gizmo"ウィンドウの中身のうちEdit Collider・Translate/Rotate/Scaleを描画する。
+	// オブジェクト選択自体はHierarchyパネル（SceneBase::DrawHierarchy）に一本化したため、
+	// ここでは選択済みのtargets[selection3D_.targetIndex]がColliderを持つかの判定にのみ使う。
+	// ImGui::Begin/Endは呼ばない（呼び出し側が既にウィンドウを開いている前提。Play/Stopボタン等、
+	// 他のUIと同じウィンドウに同居させるための「中身だけ描く」形）
 	void DrawImGui(const std::vector<GameObject*>& targets);
-
-	// 2Dターゲット用のTargetコンボのみ描画する（Edit Collider/操作モードは3D側と共有）
-	void DrawImGui2D(const std::vector<GameObject*>& targets2D);
 
 	// 現在選択中のオブジェクトを返す（未選択、またはtargetsの範囲外ならnullptr）。
 	// Delete機能等、選択中オブジェクトそのものが必要な呼び出し元向け
@@ -58,6 +57,11 @@ public:
 		if (selection2D_.targetIndex < 0 || selection2D_.targetIndex >= static_cast<int>(targets2D.size())) return nullptr;
 		return targets2D[selection2D_.targetIndex];
 	}
+
+	// Hierarchyパネルのクリック選択用。targets内でobjを探し、見つかればそのインデックスを
+	// 選択状態（selection3D_/selection2D_）に反映する。見つからなければ何もしない
+	void SetSelected(GameObject* obj, const std::vector<GameObject*>& targets);
+	void SetSelected2D(GameObject* obj, const std::vector<GameObject*>& targets2D);
 
 	// 3D/2Dはそれぞれ独立した選択状態を持つため、両方同時に選択中の場合は「最後に選んだ方」を
 	// 優先したい。Objectsパネル等、1つだけ選んで詳細を出したい呼び出し元向け

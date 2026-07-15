@@ -52,6 +52,7 @@
             ],
             "excludeFromGizmoList": false,
             "name": "Cube 2",
+            "parentIndex": -1,
             "transform": {
                 "is2D": false,
                 "rotation": [
@@ -123,6 +124,7 @@
             ],
             "excludeFromGizmoList": false,
             "name": "Cube 10",
+            "parentIndex": -1,
             "transform": {
                 "is2D": false,
                 "rotation": [
