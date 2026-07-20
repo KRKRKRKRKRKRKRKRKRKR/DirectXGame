@@ -46,6 +46,12 @@ public:
 		for (auto& c : components_) c->Update(deltaTime, transform);
 	}
 
+	// 保持している全コンポーネントへOnTriggerEnterを伝える（ColliderSystem::ResolveAndDraw経由。
+	// Update/DrawImGuiと同じ「型を気にせず全部に呼ぶ」形）
+	void OnTriggerEnter(GameObject& other) {
+		for (auto& c : components_) c->OnTriggerEnter(other);
+	}
+
 	// 保持コンポーネント数、およびindex指定での型消去アクセス（Inspectorの並び替えUI等、
 	// 型を気にせず順序だけ扱いたい呼び出し元向け）
 	size_t Count() const { return components_.size(); }

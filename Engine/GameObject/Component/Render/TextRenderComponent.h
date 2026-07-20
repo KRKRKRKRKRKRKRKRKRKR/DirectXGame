@@ -84,6 +84,12 @@ public:
 	uint32_t canvasWidth = 512;
 	uint32_t canvasHeight = 48;
 
+	// dynamicText時、SceneBase::hudDefinitions_のどのエントリのTextProviderを使うかを示すキー。
+	// TextProvider自体はラムダのためJSONに保存できず、Load直後は空になるため、SceneBase::
+	// RebindDynamicTextProvidersがこのキーでhudDefinitions_を引いて付け直す（GameObject::nameは
+	// 自由に変更できてしまいキーとして不安定なため、専用フィールドとして分離してある）
+	std::string hudKey;
+
 private:
 	TextBitmapBuilder builder_; // dynamicTextはLoad()のたびにフォントファイルを読み直さないよう永続化する
 	uint32_t bitmapWidth_ = 0;

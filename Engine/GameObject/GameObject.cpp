@@ -20,6 +20,25 @@ void GameObject::SetParent(GameObject* newParent) {
 	if (parent_) parent_->children_.push_back(this);
 }
 
+void GameObject::ReparentAt(GameObject* dropped, size_t index) {
+	dropped->SetParent(this); // 循環参照チェック・旧親からの除去・children_末尾への追加はここで完結
+	if (dropped->GetParent() != this) return; // 循環参照等でSetParentが無視した場合は何もしない
+
+	auto it = std::find(children_.begin(), children_.end(), dropped);
+	if (it == children_.end()) return;
+	size_t from = static_cast<size_t>(it - children_.begin());
+
+	size_t to = index;
+	if (to > from) to--; // fromを消すと、それより後ろの目標indexは1つ前へ詰まるため補正
+	size_t maxTo = children_.size() - 1; // eraseの前に、eraseした後の有効な最大挿入位置を求めておく
+	if (to > maxTo) to = maxTo;
+	if (from == to) return;
+
+	GameObject* moved = children_[from];
+	children_.erase(children_.begin() + from);
+	children_.insert(children_.begin() + to, moved);
+}
+
 bool GameObject::IsDescendantOf(const GameObject* obj) const {
 	for (const GameObject* p = parent_; p; p = p->parent_) {
 		if (p == obj) return true;
@@ -49,6 +68,7 @@ Transform GameObject::GetWorldTransform() const {
 
 void GameObject::ToJson(nlohmann::json& out) const {
 	out["name"] = name;
+	out["tag"] = tag;
 	out["excludeFromGizmoList"] = excludeFromGizmoList;
 
 	const Transform& t = transformComponent_->transform;
@@ -71,6 +91,7 @@ void GameObject::ToJson(nlohmann::json& out) const {
 
 void GameObject::FromJson(const nlohmann::json& in, const ComponentLoadContext& ctx) {
 	name = in.value("name", name);
+	tag = in.value("tag", tag);
 	excludeFromGizmoList = in.value("excludeFromGizmoList", false);
 
 	components_.Clear();

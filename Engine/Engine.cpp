@@ -1,6 +1,8 @@
 #include "Engine.h"
 #include "../Debug/Debug.h"
 #include "Utils/Logger.h"
+#include "Utils/EditorState.h"
+#include "../Externals/imgui/imgui.h"
 
 void Engine::Initialize(const std::wstring& windowTitle, int width, int height) {
 	Debug::RegisterCrashHandler();
@@ -28,11 +30,37 @@ bool Engine::Update() {
 	if (!window_.ProcessMessage()) return false;
 	InputDevice::GetInstance().Update();
 	deltaTime_.Update();
+
+	// F11でエディタUIの表示/非表示を切り替える（Debugビルドのみ）。何かにテキスト入力中の
+	// 誤操作は無視する。Releaseビルドではこの分岐自体をコンパイルしないことで、
+	// 起動時に隠したエディタUIをプレイヤーがF11で復元できないようにする
+#ifndef NDEBUG
+	if (!ImGui::GetIO().WantCaptureKeyboard && Input::IsTriggered(DIK_F11)) {
+		EditorState::GetInstance().ToggleUiVisible();
+	}
+#endif
+
 	directX_.BeginFrame();
 	renderer_.ResetFrameIndex();
 	renderer_.SetCommandList(directX_.GetCommandList());
 	renderer_.SetBackBufferTarget(directX_.GetRTVHandle(), directX_.GetDSVHandle());
-	imgui_.BeginFrame();
+
+	bool uiVisible = EditorState::GetInstance().IsUiVisible();
+	imgui_.BeginFrame(uiVisible);
+
+	// ドック中央ノード（Sceneビュー）の実際の画面矩形を、3D描画のビューポート/シザーへ反映する。
+	// directX_.BeginFrame()が既にフルウィンドウのビューポートを設定済みだが、これより後に
+	// 呼ぶことでコマンドリスト上で上書きされ、以降の3D描画はこの矩形内だけに収まる。
+	// UI非表示時はドックスペース自体が無い＝中央ノードの矩形が取れないため、
+	// SetSceneViewportRectを呼ばずフルウィンドウのビューポートのままにする
+	if (uiVisible) {
+		float sceneX, sceneY, sceneWidth, sceneHeight;
+		imgui_.GetSceneViewportRect(sceneX, sceneY, sceneWidth, sceneHeight);
+		if (sceneWidth > 0.0f && sceneHeight > 0.0f) {
+			renderer_.SetSceneViewportRect(sceneX, sceneY, sceneWidth, sceneHeight);
+		}
+	}
+
 	return true;
 }
 

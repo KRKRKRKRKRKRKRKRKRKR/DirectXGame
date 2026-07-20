@@ -61,10 +61,10 @@ protected:
 	// 新しいGameObjectを生成してobjects_へ追加し、安定した参照を返す
 	GameObject& CreateObject(const std::string& name);
 
-	// "Objects"パネルの"Create"から選べるアーキタイプ名の一覧と、選ばれた名前からGameObjectを
-	// 1体生成する処理。中身はComponentRegistryが使うのと同じJSON形式のひな形をFromJsonに渡すだけ。
-	// customNameが空なら従来通り"アーキタイプ名 連番"を自動で付ける
-	GameObject& CreateObjectFromArchetype(const std::string& archetypeName, const std::string& customName = "");
+	// tagが一致する最初のGameObjectを返す（無ければnullptr）。Unityの
+	// GameObject.FindWithTag相当。「シーン内で最初に見つかったXを機械的に使う」だけでは
+	// 複数存在する場合に選べなかった箇所（メインカメラ・プレイヤー等）で使う
+	GameObject* FindObjectByTag(const std::string& tag);
 
 	// GameObject生成・スクリーン空間設定・TextRenderComponent::CreateDynamic呼び出し・
 	// SetTextProviderをまとめて行う（Camera座標HUD等、呼び出し側の引数を
@@ -72,13 +72,13 @@ protected:
 	GameObject& CreateDynamicTextObject(const std::string& name, const std::string& fontPath, float fontSize,
 		TextRenderComponent::TextProvider provider, uint32_t canvasWidth = 512, uint32_t canvasHeight = 32);
 
-	// 説明文等の固定表示テキスト用。ImGuiで打ち込んだ内容をResources/Text/{name}.txtへ書き出してから
-	// TextRenderComponent::CreateStaticでロードする（txtFilePathとしてJSONに保存されるため、
-	// Save/Load後もそのまま同じファイルを読み直すだけで復元できる＝dynamicTextと違い再バインド不要）
-	GameObject& CreateStaticTextObject(const std::string& name, const std::string& content, float fontSize = 32.0f);
-
 	// Gizmoパネルで選択中のオブジェクトをobjects_から削除する
 	void DeleteSelectedObject();
+
+	// rootsに含まれる各オブジェクトとその子孫すべてをobjects_から削除する（カスケード削除）。
+	// DeleteSelectedObject（選択中を消す）とHierarchyの右クリックメニュー「削除」
+	// （右クリックした特定のノードを消す）の両方から共通で使う
+	void DeleteObjects(const std::vector<GameObject*>& roots);
 
 	// "Objects"パネルの"Add Component"セクション。selectedに対して、ComponentRegistryの
 	// Simple系（引数なしで安全に追加できる型）はコンボ+Addボタンで一覧から、依存のある型
@@ -145,6 +145,41 @@ protected:
 	void DrawImGui();
 	void DrawHierarchy();
 	void DrawInspector();
+
+	// Unityの「Projectビュー」相当。ユーザーが追加したスクリプト（登録済みコンポーネント）・
+	// 画像・音声をアイコンの一覧として表示し、ドラッグ&ドロップでオブジェクトへ付与できるようにする
+	void DrawProjectPanel();
+
+	// プロジェクトパネルの画像/音声セクション1件分（Resources/配下から見つけたファイル）
+	struct ProjectAssetEntry { std::string path; std::string displayName; };
+
+	// Resources/配下を走査してprojectImages_/projectAudioClips_を作り直す。Initialize()で1回、
+	// 以降はプロジェクトパネルの「更新」ボタンから呼ばれる
+	void RescanProjectAssets();
+	std::vector<ProjectAssetEntry> projectImages_;
+	std::vector<ProjectAssetEntry> projectAudioClips_;
+
+	// pathの画像がtextures_（TextureSelectorComponentが参照する共有テクスチャ一覧）に
+	// 無ければLoadTexture+登録し、表示名（textures_内でのname）を返す
+	std::string EnsureTextureRegistered(const std::string& path);
+
+	// プロジェクトパネルからのドロップ受け入れ処理。画像はRenderComponentBaseを持つ相手にのみ
+	// TextureSelectorComponentを付与/差し替え、音声はAudioSourceComponentを付与する
+	void AttachTextureAsset(GameObject& obj, const std::string& path);
+	void AttachAudioAsset(GameObject& obj, const std::string& path);
+
+	// プロジェクトパネルの「+ 新規スクリプト」ボタンの実処理。baseNameから
+	// className="{baseName}Component"（既にComponent終わりなら付け足さない）、
+	// typeName=baseNameを決め、Game/Scripts/へひな形.h/.cppを生成し、.vcxproj/.vcxproj.filters
+	// へ自動登録したうえでエディタ（既定の関連付けアプリ）で開く。結果メッセージは
+	// lastScriptCreationMessage_へ入れ、DrawProjectPanel()が数フレーム表示する
+	void CreateNewScript(const std::string& baseName, const std::string& displayName, const std::string& category);
+	std::string lastScriptCreationMessage_;
+
+	// Hierarchyのドラッグ&ドロップ並べ替え用。droppedを親なし（ルート）にした上で、
+	// ルート表示対象（親なし・excludeFromGizmoList=falseのオブジェクト）の中でvisibleIndex番目
+	// （挿入後の位置、0=先頭）に来るよう、objects_内での実際の位置を調整する
+	void ReorderRootObject(GameObject* dropped, size_t visibleIndex);
 
 	// Unityの Scene/Game タブ相当。falseはエディタ自由カメラ+Gizmo（Scene）、
 	// trueはシーン内カメラ視点でGizmoなし（Game）。ボタンでの切替はDrawImGui()内で行う

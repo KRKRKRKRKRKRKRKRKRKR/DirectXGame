@@ -42,6 +42,10 @@ public:
 	// メモリ上のRGBA8ピクセル列からテクスチャを作成してハンドルを返す（フォント合成ビットマップ等）
 	TextureHandle CreateTextureFromPixels(uint32_t width, uint32_t height, const uint8_t* rgbaPixels);
 
+	// ImGui::Image()等、ImTextureIDとして直接キャストして使うためのGPUディスクリプタハンドルを返す
+	// （プロジェクトパネルの画像サムネイル表示用）
+	D3D12_GPU_DESCRIPTOR_HANDLE GetTextureSrvGpuHandle(TextureHandle handle) const { return textureManager_.GetSrvGpuHandle(handle); }
+
 	// 既存テクスチャの中身だけを同サイズのピクセルで置き換える（HUD等、毎フレーム更新する用途）
 	bool UpdateTextureFromPixels(TextureHandle handle, uint32_t width, uint32_t height, const uint8_t* rgbaPixels);
 
@@ -136,6 +140,18 @@ public:
 	int GetClientWidth() const { return windowWidth_; }
 	int GetClientHeight() const { return windowHeight_; }
 
+	// ドック中央ノード（Sceneビュー）の実際の画面矩形をD3D12のビューポート/シザーへ適用する。
+	// Engine::Update()がImGuiManager::BeginFrame()の直後、毎フレーム1回呼ぶ。3D描画がウィンドウ
+	// 全体ではなく、Hierarchy/Inspector/Project等のパネルに隠れない中央領域だけに収まるようにする
+	void SetSceneViewportRect(float x, float y, float width, float height);
+
+	// SetSceneViewportRectで設定した最新の矩形。アスペクト比計算（SceneBase::Render）や
+	// マウス座標変換（GizmoController）がGetClientWidth/Heightの代わりにこちらを使う
+	int GetSceneViewportWidth() const { return static_cast<int>(sceneViewportWidth_); }
+	int GetSceneViewportHeight() const { return static_cast<int>(sceneViewportHeight_); }
+	float GetSceneViewportOffsetX() const { return sceneViewportOffsetX_; }
+	float GetSceneViewportOffsetY() const { return sceneViewportOffsetY_; }
+
 	// DrawSprite2Dが使う固定デザイン解像度。GizmoController等、Sprite2Dの見た目・ピッキングを
 	// 一致させたい呼び出し元はGetClientWidth/Heightではなくこちらを使う
 	static float GetUiDesignWidth()  { return kUiDesignWidth; }
@@ -225,6 +241,13 @@ private:
 	uint32_t currentLineIndex_ = 0;
 	int windowWidth_ = 0;
 	int windowHeight_ = 0;
+
+	// SetSceneViewportRectで設定される、ドック中央ノード（Sceneビュー）の実際の画面矩形。
+	// 呼ばれるまでの保険としてInitialize()でフルウィンドウ値を入れておく
+	float sceneViewportOffsetX_ = 0.0f;
+	float sceneViewportOffsetY_ = 0.0f;
+	float sceneViewportWidth_ = 0.0f;
+	float sceneViewportHeight_ = 0.0f;
 
 	// Sprite2D（TextRenderComponent/SpriteRenderComponentの2D側）の座標・サイズはこの解像度を
 	// 基準にデザインされている（main.cppの起動時ウィンドウサイズと一致）。DrawSprite2Dの正射影を

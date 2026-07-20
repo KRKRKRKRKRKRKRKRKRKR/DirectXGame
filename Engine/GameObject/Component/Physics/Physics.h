@@ -7,3 +7,5 @@
 #include "OBBColliderComponent.h"
 #include "GravityComponent.h"
 #include "PlayerControllerComponent.h"
+#include "HealthComponent.h"
+#include "AutoRunComponent.h"

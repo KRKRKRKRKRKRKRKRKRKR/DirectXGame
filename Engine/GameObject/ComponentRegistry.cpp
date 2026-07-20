@@ -25,9 +25,19 @@ std::unordered_map<std::string, std::string>& ComponentRegistry::DisplayNames() 
 	return displayNames;
 }
 
+std::unordered_map<std::string, std::string>& ComponentRegistry::Categories() {
+	static std::unordered_map<std::string, std::string> categories;
+	return categories;
+}
+
 std::string ComponentRegistry::GetDisplayName(const std::string& typeName) {
 	auto it = DisplayNames().find(typeName);
 	return (it != DisplayNames().end()) ? it->second : typeName;
+}
+
+std::string ComponentRegistry::GetCategory(const std::string& typeName) {
+	auto it = Categories().find(typeName);
+	return (it != Categories().end()) ? it->second : "";
 }
 
 void ComponentRegistry::Create(const std::string& typeName, GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {

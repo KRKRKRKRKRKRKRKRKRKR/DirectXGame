@@ -2,8 +2,8 @@
 #include "SceneBase.h"
 
 // セレクト画面。GameObjectエディタ機能一式はSceneBaseが提供する（PlaySceneと同じく
-// GameObjectの作成・削除・Gizmo編集・Save/Loadが可能）。ENTERキーでPlayへ、ESCキーで
-// Titleへ戻る部分だけがSelectScene固有
+// GameObjectの作成・削除・Gizmo編集・Save/Loadが可能）。ESCキーでTitleへ戻る部分だけが
+// SelectScene固有（Playへの遷移はImGuiのシーン切替ボタンから行う）
 class SelectScene : public SceneBase {
 protected:
 	void HandleSceneTransitionInput() override;

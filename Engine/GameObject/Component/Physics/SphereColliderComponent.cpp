@@ -1,4 +1,5 @@
 #include "SphereColliderComponent.h"
+#include "../../ComponentRegistry.h"
 #include <cmath>
 
 namespace {
@@ -30,3 +31,5 @@ void SphereColliderComponent::DrawWireframe(Renderer* renderer, const Transform&
 	DrawWireCircle(renderer, sphere.center, sphere.radius, 1, 2, color, view, proj); // YZ
 	DrawWireCircle(renderer, sphere.center, sphere.radius, 0, 2, color, view, proj); // XZ
 }
+
+REGISTER_SIMPLE_COMPONENT(SphereColliderComponent, "SphereCollider", "球コライダー", "物理");

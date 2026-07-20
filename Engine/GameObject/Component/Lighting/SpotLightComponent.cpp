@@ -1,4 +1,5 @@
 #include "SpotLightComponent.h"
+#include "../../ComponentRegistry.h"
 #include "../../../Graphics/Renderer/Renderer.h"
 #include "../../../../Math/TransformMath.h"
 #include "../../../../Math/VectorMath.h"
@@ -47,3 +48,5 @@ void SpotLightComponent::DrawImGui(const char* namePrefix) {
 	ImGui::SliderFloat(cosAngleLabel.c_str(), &cosAngle, 0.0f, 0.999f);
 	ImGui::SliderFloat(cosFalloffLabel.c_str(), &cosFalloffStart, 0.0f, 0.999f);
 }
+
+REGISTER_SIMPLE_COMPONENT(SpotLightComponent, "SpotLight", "スポットライト", "ライティング");

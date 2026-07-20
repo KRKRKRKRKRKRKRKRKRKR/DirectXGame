@@ -22,11 +22,13 @@ public:
 	// デフォルト構築でき、他コンポーネントや外部リソースに依存しない「単純な」コンポーネント用。
 	// AddComponent<T>()した直後にFromJson(data)を呼ぶだけの定型処理を1行で登録できる。
 	// data={}（空JSON）で呼んでも安全に既定値のコンポーネントが付与されるため、
-	// Add Componentメニュー（SceneBase::DrawAddComponentMenu）はこちらのリストだけを一覧表示する。
-	// displayNameはInspector/Add ComponentメニューでのUI表示用（省略時はtypeNameがそのまま出る）。
-	// typeName自体（JSON保存・ComponentRegistry::Create/RemoveByTypeNameの照合キー）は変えない
+	// Add Componentメニュー（SceneBase::DrawAddComponentMenu）とプロジェクトパネル
+	// （SceneBase::DrawProjectPanel）はこちらのリストだけを一覧表示する。
+	// displayNameはInspector/Add ComponentメニューでのUI表示用。typeName自体（JSON保存・
+	// ComponentRegistry::Create/RemoveByTypeNameの照合キー）は変えない。
+	// categoryはAdd Componentメニュー/プロジェクトパネルでのグルーピング用（「形状」「物理」等）
 	template<typename T>
-	static void RegisterSimple(const std::string& typeName, const std::string& displayName = "") {
+	static void RegisterSimple(const std::string& typeName, const std::string& displayName, const std::string& category) {
 		Register<T>(typeName,
 			[](GameObject& obj, const ComponentLoadContext&, const nlohmann::json& data) {
 				obj.template AddComponent<T>()->FromJson(data);
@@ -34,6 +36,7 @@ public:
 			[](GameObject& obj) { return obj.template RemoveComponent<T>(); },
 			displayName);
 		SimpleTypeNames().push_back(typeName);
+		Categories()[typeName] = category;
 	}
 
 	// コンストラクタ引数が要る、または兄弟コンポーネント/外部リソースに依存するコンポーネント用。
@@ -70,10 +73,28 @@ public:
 	// RegisterSimpleで登録された型名の一覧（登録順）。Add Componentメニューのコンボに使う
 	static const std::vector<std::string>& GetSimpleTypeNames() { return SimpleTypeNames(); }
 
+	// typeNameに対応するカテゴリ（RegisterSimpleのcategory引数）を返す。未登録なら空文字を返す
+	static std::string GetCategory(const std::string& typeName);
+
 private:
 	static std::unordered_map<std::string, CreatorFunc>& Creators();
 	static std::unordered_map<std::type_index, std::string>& TypeNames();
 	static std::vector<std::string>& SimpleTypeNames();
 	static std::unordered_map<std::string, RemoverFunc>& Removers();
 	static std::unordered_map<std::string, std::string>& DisplayNames();
+	static std::unordered_map<std::string, std::string>& Categories();
 };
+
+// デフォルト構築できる「単純な」コンポーネントの.cppファイルの末尾に1行書くだけで、
+// ComponentRegistration.cppを編集しなくても自動的に登録されるようにするマクロ。
+// プログラム起動時（main()より前）、この翻訳単位が持つ名前空間スコープの静的オブジェクトの
+// コンストラクタが呼ばれるタイミングでRegisterSimple<T>が実行される。ComponentRegistry内部の
+// 各テーブルは関数ローカルstatic（Meyersのシングルトン）のため、他の翻訳単位の静的初期化との
+// 順序に依存せず、どのタイミングでコンストラクタが走っても安全に動く
+#define REGISTER_SIMPLE_COMPONENT(Type, typeName, displayName, category) \
+	namespace { \
+		struct Type##_AutoRegister { \
+			Type##_AutoRegister() { ComponentRegistry::RegisterSimple<Type>(typeName, displayName, category); } \
+		}; \
+		Type##_AutoRegister g_##Type##_autoRegister; \
+	}

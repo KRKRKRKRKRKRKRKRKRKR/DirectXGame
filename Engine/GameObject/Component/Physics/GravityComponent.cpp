@@ -1,4 +1,5 @@
 #include "GravityComponent.h"
+#include "../../ComponentRegistry.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include <string>
 
@@ -23,3 +24,5 @@ void GravityComponent::DrawImGui(const char* namePrefix) {
 	ImGui::DragFloat(velocityLabel.c_str(), &velocityY);
 	ImGui::EndDisabled();
 }
+
+REGISTER_SIMPLE_COMPONENT(GravityComponent, "Gravity", "重力", "物理");

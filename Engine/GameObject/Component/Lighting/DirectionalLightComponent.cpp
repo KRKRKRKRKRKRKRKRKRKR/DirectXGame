@@ -1,4 +1,5 @@
 #include "DirectionalLightComponent.h"
+#include "../../ComponentRegistry.h"
 #include "../../../Graphics/Renderer/Renderer.h"
 #include "../../../../Math/TransformMath.h"
 #include "../../../../Math/VectorMath.h"
@@ -38,3 +39,5 @@ void DirectionalLightComponent::DrawImGui(const char* namePrefix) {
 	ImGui::SliderFloat(ambientLabel.c_str(), &ambient, 0.0f, 1.0f);
 	ImGui::SliderFloat(halfLambertLabel.c_str(), &halfLambertPower, 0.1f, 8.0f);
 }
+
+REGISTER_SIMPLE_COMPONENT(DirectionalLightComponent, "DirectionalLight", "平行光源", "ライティング");

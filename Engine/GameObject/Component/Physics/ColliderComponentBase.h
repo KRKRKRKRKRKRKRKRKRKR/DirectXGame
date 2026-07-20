@@ -1,6 +1,9 @@
 #pragma once
 #include "../../IComponent.h"
 #include "CollisionLayer.h"
+#include <vector>
+
+class GameObject;
 
 // Sphere/OBBColliderComponentに共通する「入力データ」の置き場。
 // RenderComponentBase（描画コンポーネントの共通プロパティ基底）と同じ考え方の
@@ -29,6 +32,11 @@ public:
 	// 両方Solidで重なった場合、isStaticでない側だけが100%押し戻される
 	// （両方isStaticなら押し戻し自体をスキップする）
 	bool isStatic = false;
+
+	// Trigger判定で「前フレームに重なっていた相手」一覧。ColliderSystem::ResolveAndDrawが
+	// 侵入の瞬間（前フレームは無かった相手）だけOnTriggerEnterを呼ぶために使う実行時の
+	// 一時状態（GravityComponent::velocityYと同じ扱いで、保存はしない）
+	std::vector<GameObject*> triggerOverlapsLastFrame_;
 
 	// "{namePrefix} Collider Layer"コンボ・"{namePrefix} Collider Is Trigger"チェックボックス・
 	// "{namePrefix} Collider Is Static"チェックボックス・"{namePrefix} Collides With"の

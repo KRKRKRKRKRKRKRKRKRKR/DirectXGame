@@ -47,7 +47,7 @@ void ImGuiManager::Initialize(HWND hwnd, DirectXManager* dx) {
 	io.Fonts->Build();
 }
 
-void ImGuiManager::BeginFrame() {
+void ImGuiManager::BeginFrame(bool showEditorPanels) {
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
@@ -57,6 +57,7 @@ void ImGuiManager::BeginFrame() {
 	// 固定IDにしておくことで、imgui.iniに保存済みのレイアウトがあるかどうかを
 	// DockBuilderGetNode()で判定できるようにする（0=自動生成IDだと毎回変わってしまい判定できない）
 	ImGuiID dockspaceId = ImGui::GetID("MainDockSpace");
+	dockspaceId_ = dockspaceId; // GetSceneViewportRectが後でDockBuilderGetCentralNodeに使う
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
 
 	// このIDに対応する保存済みレイアウトがimgui.iniにまだ無い場合（＝初回、またはimgui.ini削除後）
@@ -66,37 +67,62 @@ void ImGuiManager::BeginFrame() {
 		ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
 		ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->Size);
 
-		// 左70%：ゲーム画面用（何もドッキングしない空の中央ノードのまま残す）
-		// 右30%：ImGui専用サイドバー
+		// Unityのデフォルトレイアウトを参考にした配置：
+		//   +-----------+---------------------------+------------+
+		//   | Hierarchy |   Scene（何もドッキング     | Inspector  |
+		//   |           |    しない空の中央ノード）    |            |
+		//   +-----------+---------------------------+------------+
+		//   |         プロジェクト / ギズモ / その他タブ群          |
+		//   +-------------------------------------------------------+
 		// DockBuilderSplitNodeの戻り値には頼らず、分割後の両側を必ずout引数で受け取る
 		// （戻り値をどちらか一方の代わりに使うと、片方をnullptrにした側と同じノードを指してしまい、
-		// 意図せず2つの領域が同一ノードにエイリアスされてタブが混ざるバグになる）
-		ImGuiID centerId, sidebarId;
-		ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Right, 0.30f, &sidebarId, &centerId);
+		// 意図せず2つの領域が同一ノードにエイリアスされてタブが混ざるバグになる）。
+		// 「中央ノード（PassthruCentralNode）」の資格は、各分割で dir 側に指定しなかった
+		// 反対側へ次々と引き継がれていく。最後まで一度もDockWindowしなかったcenterIdが
+		// 3DシーンのPassthrough領域として残る
+		ImGuiID topId, bottomId;
+		ImGui::DockBuilderSplitNode(dockspaceId, ImGuiDir_Down, 0.28f, &bottomId, &topId);
 
-		// サイドバーを上（Hierarchy）/中（Inspector）/下（残り全部をタブ）に分割
-		ImGuiID sidebarTopId, sidebarBottomId;
-		ImGui::DockBuilderSplitNode(sidebarId, ImGuiDir_Up, 0.30f, &sidebarTopId, &sidebarBottomId);
-		ImGuiID sidebarMiddleId, sidebarRestId;
-		ImGui::DockBuilderSplitNode(sidebarBottomId, ImGuiDir_Up, 0.50f, &sidebarMiddleId, &sidebarRestId);
+		ImGuiID leftId, centerRightId;
+		ImGui::DockBuilderSplitNode(topId, ImGuiDir_Left, 0.18f, &leftId, &centerRightId);
 
-		ImGui::DockBuilderDockWindow("ヒエラルキー##Hierarchy", sidebarTopId);
-		ImGui::DockBuilderDockWindow("インスペクター##Inspector", sidebarMiddleId);
-		ImGui::DockBuilderDockWindow("オブジェクト##Objects", sidebarRestId);
-		ImGui::DockBuilderDockWindow("ギズモ##Gizmo", sidebarRestId);
-		ImGui::DockBuilderDockWindow("カメラ##Camera", sidebarRestId);
-		ImGui::DockBuilderDockWindow("FPS", sidebarRestId);
-		ImGui::DockBuilderDockWindow("オーディオ##Audio", sidebarRestId);
-		ImGui::DockBuilderDockWindow("ライティング##Lighting", sidebarRestId);
-		ImGui::DockBuilderDockWindow("メッシュ設定##Mesh Settings", sidebarRestId);
+		ImGuiID rightId, centerId;
+		ImGui::DockBuilderSplitNode(centerRightId, ImGuiDir_Right, 0.22f, &rightId, &centerId);
+
+		ImGui::DockBuilderDockWindow("ヒエラルキー##Hierarchy", leftId);
+		ImGui::DockBuilderDockWindow("インスペクター##Inspector", rightId);
+		ImGui::DockBuilderDockWindow("プロジェクト##Project", bottomId);
+		ImGui::DockBuilderDockWindow("ギズモ##Gizmo", bottomId);
+		ImGui::DockBuilderDockWindow("カメラ##Camera", bottomId);
+		ImGui::DockBuilderDockWindow("FPS", bottomId);
+		ImGui::DockBuilderDockWindow("オーディオ##Audio", bottomId);
+		ImGui::DockBuilderDockWindow("ライティング##Lighting", bottomId);
+		ImGui::DockBuilderDockWindow("メッシュ設定##Mesh Settings", bottomId);
 
 		ImGui::DockBuilderFinish(dockspaceId);
 	}
 
 	// NoDockingOverCentralNodeで、ゲーム画面用に残した中央ノードへ後から別のウィンドウが
-	// ドッキングされてしまわないようにする
-	ImGui::DockSpaceOverViewport(dockspaceId, viewport,
-		ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
+	// ドッキングされてしまわないようにする。showEditorPanels=falseのときはドックスペース自体を
+	// 提出しない＝どのパネルウィンドウも描画対象にならず、画面全体がそのままゲーム画面になる
+	if (showEditorPanels) {
+		ImGui::DockSpaceOverViewport(dockspaceId, viewport,
+			ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
+	}
+}
+
+void ImGuiManager::GetSceneViewportRect(float& x, float& y, float& width, float& height) const {
+	ImGuiDockNode* central = ImGui::DockBuilderGetCentralNode(dockspaceId_);
+	if (central) {
+		x = central->Pos.x;
+		y = central->Pos.y;
+		width = central->Size.x;
+		height = central->Size.y;
+	} else {
+		// まだBeginFrame()が一度も呼ばれていない等、取得できない場合は呼び出し側が
+		// フルウィンドウ等へフォールバックできるよう0を返す
+		x = y = width = height = 0.0f;
+	}
 }
 
 void ImGuiManager::EndFrame(DirectXManager* dx) {

@@ -11,4 +11,12 @@ void PlayScene::HandleSceneTransitionInput() {
 	// デバッグ用キー割り当て（ESCでTitle、F1でGameOverへ遷移）
 	if (Input::IsTriggered(DIK_ESCAPE)) nextScene_ = SceneType::kTitle;
 	if (Input::IsTriggered(DIK_F1))     nextScene_ = SceneType::kGameOver;
+
+	// タグ"Player"のオブジェクトを毎フレーム見に行き、HealthComponentのHPが0になっていたら
+	// GameOverへ遷移する（ポーリング方式。AutoRun/CameraFollowの対象探しと同じやり方に揃えている）
+	if (GameObject* player = FindObjectByTag("Player")) {
+		if (auto* hp = player->GetComponent<HealthComponent>()) {
+			if (hp->IsDead()) nextScene_ = SceneType::kGameOver;
+		}
+	}
 }

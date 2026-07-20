@@ -232,6 +232,7 @@ void TextRenderComponent::ToJson(nlohmann::json& out) const {
 	out["dynamicText"] = dynamicText;
 	out["canvasWidth"] = canvasWidth;
 	out["canvasHeight"] = canvasHeight;
+	out["hudKey"] = hudKey;
 }
 
 void TextRenderComponent::FromJson(const nlohmann::json& in) {
@@ -244,4 +245,5 @@ void TextRenderComponent::FromJson(const nlohmann::json& in) {
 	dynamicText = in.value("dynamicText", dynamicText);
 	canvasWidth = in.value("canvasWidth", canvasWidth);
 	canvasHeight = in.value("canvasHeight", canvasHeight);
+	hudKey = in.value("hudKey", hudKey);
 }

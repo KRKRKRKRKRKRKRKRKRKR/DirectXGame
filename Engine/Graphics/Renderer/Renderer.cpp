@@ -16,11 +16,40 @@ void Renderer::Resize(int width, int height) {
 	mirrorColorState_ = D3D12_RESOURCE_STATE_RENDER_TARGET; // 新しいリソースはRENDER_TARGET状態で生成されるため追跡をリセット
 }
 
+void Renderer::SetSceneViewportRect(float x, float y, float width, float height) {
+	// ドックの中央ノードが閉じかけ等で極端に小さい場合に備え、最低1pxを保証する
+	// （0のままD3D12_VIEWPORTに渡すとエラー/アスペクト比のゼロ除算になる）
+	if (width < 1.0f) width = 1.0f;
+	if (height < 1.0f) height = 1.0f;
+	sceneViewportOffsetX_ = x;
+	sceneViewportOffsetY_ = y;
+	sceneViewportWidth_ = width;
+	sceneViewportHeight_ = height;
+
+	D3D12_VIEWPORT viewport{};
+	viewport.TopLeftX = x;
+	viewport.TopLeftY = y;
+	viewport.Width = width;
+	viewport.Height = height;
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+	D3D12_RECT scissor{};
+	scissor.left = static_cast<LONG>(x);
+	scissor.top = static_cast<LONG>(y);
+	scissor.right = static_cast<LONG>(x + width);
+	scissor.bottom = static_cast<LONG>(y + height);
+	commandList_->RSSetViewports(1, &viewport);
+	commandList_->RSSetScissorRects(1, &scissor);
+}
+
 void Renderer::Initialize(ID3D12Device* device, ID3D12GraphicsCommandList* commandList, DescriptorHeaps* heaps, int width, int height) {
 	device_ = device;
 	commandList_ = commandList;
 	windowWidth_ = width;
 	windowHeight_ = height;
+	// SetSceneViewportRectが呼ばれるまでの保険としてフルウィンドウ値を入れておく
+	sceneViewportWidth_ = static_cast<float>(width);
+	sceneViewportHeight_ = static_cast<float>(height);
 
 	shaderCompiler_.InitializeDXC();
 	pipeline_.Initialize(device_, &shaderCompiler_);

@@ -1,4 +1,5 @@
 #include "PointLightComponent.h"
+#include "../../ComponentRegistry.h"
 #include "../../../Graphics/Renderer/Renderer.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include <string>
@@ -36,3 +37,5 @@ void PointLightComponent::DrawImGui(const char* namePrefix) {
 	ImGui::SliderFloat(radiusLabel.c_str(), &radius, 0.1f, 30.0f);
 	ImGui::SliderFloat(decayLabel.c_str(), &decay, 0.1f, 4.0f);
 }
+
+REGISTER_SIMPLE_COMPONENT(PointLightComponent, "PointLight", "点光源", "ライティング");

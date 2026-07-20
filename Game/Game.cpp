@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "../Externals/imgui/imgui.h"
 #include "../Engine/GameObject/ComponentRegistration.h"
+#include "../Engine/Utils/EditorState.h"
 
 void Game::Initialize(Renderer* renderer, Camera* camera) {
 	renderer_ = renderer;
@@ -14,7 +15,7 @@ void Game::Update(float deltaTime) {
 	// ImGuiパネル上でのマウス操作（クリック・ドラッグ・ホイールスクロール等）中はカメラの
 	// Orbit/Look/Pan/Dollyとして拾わないようにする（Hierarchyのスクロールでカメラが前後に
 	// 動いてしまう、パネルのドラッグでカメラが回転してしまう等を防ぐ）
-	if (!ImGui::GetIO().WantCaptureMouse) {
+	if (EditorState::GetInstance().IsUiVisible() && !ImGui::GetIO().WantCaptureMouse) {
 		camera_->HandleInput(deltaTime);
 	}
 
@@ -32,7 +33,9 @@ void Game::Update(float deltaTime) {
 
 void Game::Render() {
 	sceneManager_.Render(deltaTime_);
-	DrawImGui();
+	if (EditorState::GetInstance().IsUiVisible()) {
+		DrawImGui();
+	}
 }
 
 void Game::DrawImGui() {

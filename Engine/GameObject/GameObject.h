@@ -19,6 +19,11 @@ public:
 
 	std::string name; // ImGui/ギズモのUI表示用の識別名
 
+	// Unityのタグに相当する任意の識別文字列（空="Untagged"）。「シーン内で最初に見つかった
+	// Xを機械的に使う」だけでは複数存在する場合に選べなかった箇所（メインカメラ・プレイヤー等）を、
+	// SceneBase::FindObjectByTagで明示的に指定できるようにする
+	std::string tag;
+
 	// マウスピッキング用のBounding Sphere半径の基準値（scale=1のときの半径）。
 	// Cube/Sphere/Triangleは「1辺/半径1.0の単位形状」を前提にscaleがそのまま見た目のサイズと
 	// 一致するため1.0のままでよいが、Model系はメッシュ自体の実寸とscaleの対応が個体ごとに
@@ -52,6 +57,11 @@ public:
 
 	void Update(float deltaTime) { components_.Update(deltaTime, transformComponent_->transform); }
 
+	// ColliderSystem::ResolveAndDrawが、Trigger相手と新しく重なった瞬間に呼ぶ。
+	// 自分が持つ全コンポーネントへそのままIComponent::OnTriggerEnterとして伝える
+	// （実際に何か反応するかどうかは各コンポーネント側のオーバーライド次第。例：HealthComponent）
+	void OnTriggerEnter(GameObject& other) { components_.OnTriggerEnter(other); }
+
 	// 自分が持つ全コンポーネントをUnity風（コンポーネントごとの見出し・並び替え・右クリック
 	// メニュー付き）にImGui描画させる。GameObject自身はどんなコンポーネントが付いているか
 	// 一切気にしない（Update()と同じ形）。TransformComponentもcomponents_の一員のため、
@@ -75,6 +85,12 @@ public:
 	// newParentをnullptrにするとルート（親なし）に戻す。newParentが自分自身、または自分の
 	// 子孫（IsDescendantOfで判定）の場合は循環参照になるため何もしない
 	void SetParent(GameObject* newParent);
+
+	// Hierarchyのドラッグ&ドロップ並べ替え用。droppedをthisの子にした上で、children_内の
+	// index番目（挿入後の位置、0=先頭）に来るよう並べ替える。droppedが既にthisの子である場合は
+	// SetParent自体は何もしないが、children_内での位置移動だけは行われる。循環参照になる場合は
+	// SetParentが無視するため何もしない
+	void ReparentAt(GameObject* dropped, size_t index);
 
 	// thisがobjの子孫（子・孫…）かどうか。SetParentの循環防止に使う
 	bool IsDescendantOf(const GameObject* obj) const;

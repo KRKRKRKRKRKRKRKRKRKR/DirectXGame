@@ -6,6 +6,7 @@
 #include "../Component/Physics/GravityComponent.h"
 #include "../../../Math/Collision.h"
 #include "../../Graphics/Renderer/Renderer.h"
+#include <algorithm>
 
 void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, bool isPlaying,
 	Renderer* renderer, const Matrix4x4& view, const Matrix4x4& proj, bool drawDebug) {
@@ -21,6 +22,9 @@ void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, boo
 		ColliderComponentBase* base; // layer/isTrigger参照用。sphere/obbのどちらか一方を指す
 		bool overlappingSolid   = false;
 		bool overlappingTrigger = false;
+		// 今フレームTrigger重なりだった相手の一覧。ループの最後にbase->triggerOverlapsLastFrame_へ
+		// 書き戻し、次フレームの「新規侵入か」判定（OnTriggerEnter発火）に使う
+		std::vector<GameObject*> triggerOverlapsThisFrame;
 	};
 	std::vector<Entry> entries;
 	for (auto* obj : targets) {
@@ -55,6 +59,18 @@ void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, boo
 			// 片方でもTriggerならこのペアはTrigger重なり、両方Solidの場合のみSolid重なり
 			if (a.base->isTrigger || b.base->isTrigger) {
 				a.overlappingTrigger = true; b.overlappingTrigger = true;
+				a.triggerOverlapsThisFrame.push_back(b.obj);
+				b.triggerOverlapsThisFrame.push_back(a.obj);
+
+				// 前フレームは重なっていなかった相手のときだけOnTriggerEnterを呼ぶ（Unityの
+				// 「重なった瞬間に1回だけ呼ばれる」挙動に合わせる。毎フレーム呼ぶと、HPを減らす等の
+				// 処理を書いたときに重なっている間ずっと連打されてしまうため）
+				bool wasAlreadyOverlapping = std::find(a.base->triggerOverlapsLastFrame_.begin(),
+					a.base->triggerOverlapsLastFrame_.end(), b.obj) != a.base->triggerOverlapsLastFrame_.end();
+				if (!wasAlreadyOverlapping) {
+					a.obj->OnTriggerEnter(*b.obj);
+					b.obj->OnTriggerEnter(*a.obj);
+				}
 			} else {
 				a.overlappingSolid = true; b.overlappingSolid = true;
 
@@ -106,6 +122,13 @@ void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, boo
 				}
 			}
 		}
+	}
+
+	// 今フレームのTrigger重なり一覧を各Colliderの「前フレーム」状態として保存する。
+	// drawDebugの早期returnより前で、判定を行った全フレームで必ず更新する
+	// （ここを飛ばすとGameビュー表示中だけOnTriggerEnterが毎フレーム連打される不具合になる）
+	for (auto& e : entries) {
+		e.base->triggerOverlapsLastFrame_ = e.triggerOverlapsThisFrame;
 	}
 
 	if (!drawDebug) return; // Gameビュー表示中は判定・押し戻しのみ行い、ワイヤーフレーム描画は省略する

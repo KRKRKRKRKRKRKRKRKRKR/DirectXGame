@@ -2,27 +2,14 @@
 #include "ComponentRegistry.h"
 #include "GameObject.h"
 #include "Component/Render/Render.h"
-#include "Component/Physics/Physics.h"
-#include "Component/Lighting/Lighting.h"
 #include "Component/Audio/Audio.h"
-#include "Component/Camera/Camera.h"
 #include "../Utils/Logger.h"
 
 void RegisterEngineComponents() {
-	// 単純パターン：デフォルト構築でき、他コンポーネントや外部リソースに依存しない
-	// （第2引数はInspector/Add Componentメニューでの表示名。第1引数のtypeName自体はJSON保存の
-	// キーとして使われるため変更しない）
-	ComponentRegistry::RegisterSimple<GravityComponent>("Gravity", "重力");
-	ComponentRegistry::RegisterSimple<PlayerControllerComponent>("PlayerController", "プレイヤー操作");
-	ComponentRegistry::RegisterSimple<SphereColliderComponent>("SphereCollider", "球コライダー");
-	ComponentRegistry::RegisterSimple<OBBColliderComponent>("OBBCollider", "直方体コライダー");
-	ComponentRegistry::RegisterSimple<CubeRenderComponent>("CubeRender", "キューブ描画");
-	ComponentRegistry::RegisterSimple<SphereRenderComponent>("SphereRender", "球描画");
-	ComponentRegistry::RegisterSimple<TriangleRenderComponent>("TriangleRender", "三角形描画");
-	ComponentRegistry::RegisterSimple<DirectionalLightComponent>("DirectionalLight", "平行光源");
-	ComponentRegistry::RegisterSimple<PointLightComponent>("PointLight", "点光源");
-	ComponentRegistry::RegisterSimple<SpotLightComponent>("SpotLight", "スポットライト");
-	ComponentRegistry::RegisterSimple<CameraComponent>("Camera", "カメラ");
+	// 単純パターン（デフォルト構築でき、他コンポーネントや外部リソースに依存しないコンポーネント）は
+	// ここには登録しない。各コンポーネント自身の.cpp末尾にあるREGISTER_SIMPLE_COMPONENTマクロが
+	// プログラム起動時に自己登録する（ComponentRegistry.h参照）。ここを編集しなくても新しい
+	// Simpleコンポーネントが自動的にAdd Componentメニュー/プロジェクトパネルに出てくるようにするため
 
 	// カスタムパターン：コンストラクタ引数が要る、または兄弟コンポーネント/外部リソースに依存する
 

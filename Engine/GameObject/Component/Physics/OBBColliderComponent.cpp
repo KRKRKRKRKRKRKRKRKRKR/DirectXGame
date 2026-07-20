@@ -1,4 +1,5 @@
 #include "OBBColliderComponent.h"
+#include "../../ComponentRegistry.h"
 #include "../../../../Math/TransformMath.h"
 #include <DirectXMath.h>
 
@@ -51,3 +52,5 @@ void OBBColliderComponent::DrawWireframe(Renderer* renderer, const Transform& ow
 	};
 	for (auto& e : kEdges) renderer->DrawLine(p[e[0]], p[e[1]], color, view, proj);
 }
+
+REGISTER_SIMPLE_COMPONENT(OBBColliderComponent, "OBBCollider", "直方体コライダー", "物理");

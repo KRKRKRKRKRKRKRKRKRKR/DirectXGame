@@ -1,4 +1,5 @@
 #include "PlayerControllerComponent.h"
+#include "../../ComponentRegistry.h"
 #include "../../../InputDevice/InputDevice.h"
 #include "../../../../Math/VectorMath.h"
 #include "../../../../Externals/imgui/imgui.h"
@@ -26,3 +27,5 @@ void PlayerControllerComponent::DrawImGui(const char* namePrefix) {
 	ImGui::Checkbox(enableLabel.c_str(), &enabled);
 	ImGui::SliderFloat(speedLabel.c_str(), &moveSpeed, 0.0f, 20.0f);
 }
+
+REGISTER_SIMPLE_COMPONENT(PlayerControllerComponent, "PlayerController", "プレイヤー操作", "物理");

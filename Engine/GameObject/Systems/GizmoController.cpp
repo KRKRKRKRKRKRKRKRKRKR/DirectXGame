@@ -10,6 +10,18 @@
 #include <cfloat>
 #include <cmath>
 
+namespace {
+// 実ウィンドウpx座標（ImGui::GetMousePos()等）を、Sceneビューの矩形オフセット分だけ
+// 差し引いた「Sceneビュー内のpx座標」に変換する（逆方向はToScreenPos）。3D描画がウィンドウ
+// 全体ではなくドック中央ノードだけに収まるようになったため、この変換が必須になった
+ImVec2 ToSceneLocal(const ImVec2& screenPos, Renderer* renderer) {
+	return ImVec2(screenPos.x - renderer->GetSceneViewportOffsetX(), screenPos.y - renderer->GetSceneViewportOffsetY());
+}
+ImVec2 ToScreenPos(const ImVec2& sceneLocalPos, Renderer* renderer) {
+	return ImVec2(sceneLocalPos.x + renderer->GetSceneViewportOffsetX(), sceneLocalPos.y + renderer->GetSceneViewportOffsetY());
+}
+}
+
 bool GizmoController::IsPickingTriggered(SelectionState& selection, const char* pushId) {
 	bool leftPressed = ImGui::IsMouseDown(ImGuiMouseButton_Left);
 	bool triggered = leftPressed && !selection.prevMouseLeftPressed;
@@ -60,10 +72,10 @@ void GizmoController::UpdatePicking(const std::vector<GameObject*>& targets, Ren
 	const Matrix4x4& view, const Matrix4x4& proj) {
 	if (!IsPickingTriggered(selection3D_, "GizmoController3D")) return;
 
-	// スクリーン座標 → NDC → ワールド空間レイ
-	ImVec2 mousePos = ImGui::GetMousePos();
-	float width  = static_cast<float>(renderer->GetClientWidth());
-	float height = static_cast<float>(renderer->GetClientHeight());
+	// スクリーン座標 → NDC → ワールド空間レイ（Sceneビューの矩形オフセット分を差し引いてから正規化する）
+	ImVec2 mousePos = ToSceneLocal(ImGui::GetMousePos(), renderer);
+	float width  = static_cast<float>(renderer->GetSceneViewportWidth());
+	float height = static_cast<float>(renderer->GetSceneViewportHeight());
 	float ndcX = (mousePos.x / width)  * 2.0f - 1.0f;
 	float ndcY = 1.0f - (mousePos.y / height) * 2.0f;
 
@@ -137,7 +149,8 @@ void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Rende
 	}
 
 	ImGuizmo::SetOrthographic(false);
-	ImGuizmo::SetRect(0, 0, (float)renderer->GetClientWidth(), (float)renderer->GetClientHeight());
+	ImGuizmo::SetRect(renderer->GetSceneViewportOffsetX(), renderer->GetSceneViewportOffsetY(),
+		(float)renderer->GetSceneViewportWidth(), (float)renderer->GetSceneViewportHeight());
 
 	// 親を持つ場合はworldを親込みのGetWorldMatrix()にすることで、ギズモハンドルが画面上の
 	// 実際の位置に表示される（Collider編集中はスコープ外＝従来通りローカル基準のまま）
@@ -185,12 +198,14 @@ void GizmoController::UpdatePicking2D(const std::vector<GameObject*>& targets2D,
 	if (!IsPickingTriggered(selection2D_, "GizmoController2D")) return;
 
 	// Transform.translation/scaleはRenderer::kUiDesignWidth/Height基準のデザイン座標系（Sprite2Dの
-	// 見た目と一致させるため）だが、ImGuiのマウス座標は実ウィンドウpx基準なので、比較の前に
-	// マウス座標をデザイン座標系へ変換する
+	// 見た目と一致させるため）だが、ImGuiのマウス座標は実ウィンドウpx基準（かつSceneビューの
+	// 矩形オフセット込み）なので、比較の前にSceneビュー内座標へ変換してからデザイン座標系へ変換する。
+	// mousePosRaw自体は矩形選択の開始位置保存用に実スクリーンpxのまま残しておく
 	ImVec2 mousePosRaw = ImGui::GetMousePos();
-	float scaleX = Renderer::GetUiDesignWidth()  / static_cast<float>(renderer->GetClientWidth());
-	float scaleY = Renderer::GetUiDesignHeight() / static_cast<float>(renderer->GetClientHeight());
-	ImVec2 mousePos{ mousePosRaw.x * scaleX, mousePosRaw.y * scaleY };
+	ImVec2 mousePosSceneLocal = ToSceneLocal(mousePosRaw, renderer);
+	float scaleX = Renderer::GetUiDesignWidth()  / static_cast<float>(renderer->GetSceneViewportWidth());
+	float scaleY = Renderer::GetUiDesignHeight() / static_cast<float>(renderer->GetSceneViewportHeight());
+	ImVec2 mousePos{ mousePosSceneLocal.x * scaleX, mousePosSceneLocal.y * scaleY };
 
 	int hitIndex = -1;
 	// 後ろから探すことで、重なっている場合は最後に描画される＝一番手前に見えるものを優先する
@@ -237,13 +252,16 @@ void GizmoController::UpdateRectSelect2D(const std::vector<GameObject*>& targets
 	if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
 	isRectSelecting_ = false;
 
-	// 矩形（実ウィンドウpx）をデザイン座標系へ変換してから、各オブジェクトのAABBと交差判定する
-	float scaleX = Renderer::GetUiDesignWidth()  / static_cast<float>(renderer->GetClientWidth());
-	float scaleY = Renderer::GetUiDesignHeight() / static_cast<float>(renderer->GetClientHeight());
-	float selLeft   = rectMin.x * scaleX;
-	float selTop    = rectMin.y * scaleY;
-	float selRight  = rectMax.x * scaleX;
-	float selBottom = rectMax.y * scaleY;
+	// 矩形（実ウィンドウpx）をSceneビュー内座標へ変換してから、デザイン座標系へ変換して
+	// 各オブジェクトのAABBと交差判定する
+	ImVec2 selMinLocal = ToSceneLocal(rectMin, renderer);
+	ImVec2 selMaxLocal = ToSceneLocal(rectMax, renderer);
+	float scaleX = Renderer::GetUiDesignWidth()  / static_cast<float>(renderer->GetSceneViewportWidth());
+	float scaleY = Renderer::GetUiDesignHeight() / static_cast<float>(renderer->GetSceneViewportHeight());
+	float selLeft   = selMinLocal.x * scaleX;
+	float selTop    = selMinLocal.y * scaleY;
+	float selRight  = selMaxLocal.x * scaleX;
+	float selBottom = selMaxLocal.y * scaleY;
 
 	multiSelected2D_.clear();
 	for (auto* obj : targets2D) {
@@ -270,23 +288,29 @@ void GizmoController::UpdateRectSelect2D(const std::vector<GameObject*>& targets
 		}
 	} else {
 		// 矩形に何も入らなかった場合（ドラッグせず何もない場所をクリックしただけの場合を含む）は
-		// 選択を解除する（Unityの Scene ビューと同じ操作感）
-		ResetSelection();
+		// 2D側の選択だけを解除する。3D版UpdatePickingは同じフレームで独立して動いており、
+		// 「3Dオブジェクトはヒットしたが、その画面位置がたまたま2Dオブジェクトの矩形に
+		// 入っていなかった」だけのクリックも普通にあるため、ここでResetSelection()を呼んで
+		// 3D側の選択（selection3D_/lastSelectedIs2D_）まで巻き込んで消してしまうと、3Dビューで
+		// オブジェクトをクリックして選択してもマウスを離した瞬間に選択解除される不具合になる
+		selection2D_.targetIndex = -1;
+		multiSelected2D_.clear();
+		if (lastSelectedIs2D_) lastSelectedIs2D_ = false; // 2D側が「最後の選択」だった場合のみ、その主張を取り下げる
 	}
 }
 
 void GizmoController::DrawSelectionRect2D(const Transform& t, Renderer* renderer) {
-	// デザイン座標系（Sprite2Dの見た目と同じ基準）→実ウィンドウpxへ変換してから描画する
-	// （SnapAndDrawGuidesと同じ変換）
-	float toRealX = static_cast<float>(renderer->GetClientWidth())  / Renderer::GetUiDesignWidth();
-	float toRealY = static_cast<float>(renderer->GetClientHeight()) / Renderer::GetUiDesignHeight();
+	// デザイン座標系（Sprite2Dの見た目と同じ基準）→Sceneビュー内の実pxへ変換してから、
+	// Sceneビューの矩形オフセットを足して実スクリーンpxへ変換する（SnapAndDrawGuidesと同じ変換）
+	float toRealX = static_cast<float>(renderer->GetSceneViewportWidth())  / Renderer::GetUiDesignWidth();
+	float toRealY = static_cast<float>(renderer->GetSceneViewportHeight()) / Renderer::GetUiDesignHeight();
 
 	// Sprite頂点は-0.5〜0.5（中心原点）のクアッドなので、実際の描画範囲はtranslationを中心に
 	// ±scale/2広がる。translationを左上として扱うと右下にscale分ズレるため中心基準で計算する
 	float halfW = t.scale.x * 0.5f;
 	float halfH = t.scale.y * 0.5f;
-	ImVec2 rectMin{ (t.translation.x - halfW) * toRealX, (t.translation.y - halfH) * toRealY };
-	ImVec2 rectMax{ (t.translation.x + halfW) * toRealX, (t.translation.y + halfH) * toRealY };
+	ImVec2 rectMin = ToScreenPos(ImVec2{ (t.translation.x - halfW) * toRealX, (t.translation.y - halfH) * toRealY }, renderer);
+	ImVec2 rectMax = ToScreenPos(ImVec2{ (t.translation.x + halfW) * toRealX, (t.translation.y + halfH) * toRealY }, renderer);
 
 	constexpr ImU32 kSelectionRectColor = IM_COL32(255, 220, 0, 220); // 黄色。透過テキストの見た目の範囲を明示する
 	ImGui::GetForegroundDrawList()->AddRect(rectMin, rectMax, kSelectionRectColor, 0.0f, 0, 1.5f);
@@ -309,8 +333,9 @@ void GizmoController::UpdateGizmo2D(const std::vector<GameObject*>& targets2D, R
 	}
 
 	ImGuizmo::SetOrthographic(true);
-	// SetRectは実際に描画・マウス判定される画面領域なので実ウィンドウpxのまま指定する
-	ImGuizmo::SetRect(0, 0, (float)renderer->GetClientWidth(), (float)renderer->GetClientHeight());
+	// SetRectは実際に描画・マウス判定される画面領域なので、Sceneビューの実際の矩形を指定する
+	ImGuizmo::SetRect(renderer->GetSceneViewportOffsetX(), renderer->GetSceneViewportOffsetY(),
+		(float)renderer->GetSceneViewportWidth(), (float)renderer->GetSceneViewportHeight());
 
 	// Renderer::DrawSprite2Dと全く同じ「world * 正射影(デザイン解像度)」空間で操作することで、
 	// 画面上の見た目とギズモの位置・大きさを一致させる（3Dカメラのview/projは使わない）。
@@ -407,10 +432,11 @@ void GizmoController::SnapAndDrawGuides(Transform* dragged, GameObject* draggedO
 
 	if (!foundX && !foundY) return;
 
-	// デザイン座標→実ウィンドウpxへ変換してからフォアグラウンド描画リストに直接線を引く
-	// （UpdatePicking2Dの逆変換：こちらはデザイン→実pxなのでGetClientWidth/Heightを掛ける）
-	float toRealX = static_cast<float>(renderer->GetClientWidth())  / Renderer::GetUiDesignWidth();
-	float toRealY = static_cast<float>(renderer->GetClientHeight()) / Renderer::GetUiDesignHeight();
+	// デザイン座標→Sceneビュー内実pxへ変換してからフォアグラウンド描画リストに直接線を引く
+	// （UpdatePicking2Dの逆変換：こちらはデザイン→実pxなのでGetSceneViewportWidth/Heightを掛ける。
+	// 最後に描画時にToScreenPosで実スクリーンpxへ変換する）
+	float toRealX = static_cast<float>(renderer->GetSceneViewportWidth())  / Renderer::GetUiDesignWidth();
+	float toRealY = static_cast<float>(renderer->GetSceneViewportHeight()) / Renderer::GetUiDesignHeight();
 
 	ImDrawList* drawList = ImGui::GetForegroundDrawList();
 	constexpr ImU32 kGuideColor = IM_COL32(255, 0, 90, 255); // ピンク〜赤の点線ガイド
@@ -431,14 +457,17 @@ void GizmoController::SnapAndDrawGuides(Transform* dragged, GameObject* draggedO
 		}
 	};
 
-	// ガイド線は画面全体を縦/横に貫通させる（PowerPoint等と同じく、揃った軸を画面端まで示す）
+	// ガイド線はSceneビュー全体を縦/横に貫通させる（PowerPoint等と同じく、揃った軸を
+	// 表示領域の端まで示す。ToScreenPosでSceneビューの矩形オフセットを足して実スクリーンpxにする）
 	if (foundX) {
 		float px = snapX * toRealX;
-		drawDashedLine(ImVec2(px, 0.0f), ImVec2(px, static_cast<float>(renderer->GetClientHeight())));
+		drawDashedLine(ToScreenPos(ImVec2(px, 0.0f), renderer),
+			ToScreenPos(ImVec2(px, static_cast<float>(renderer->GetSceneViewportHeight())), renderer));
 	}
 	if (foundY) {
 		float py = snapY * toRealY;
-		drawDashedLine(ImVec2(0.0f, py), ImVec2(static_cast<float>(renderer->GetClientWidth()), py));
+		drawDashedLine(ToScreenPos(ImVec2(0.0f, py), renderer),
+			ToScreenPos(ImVec2(static_cast<float>(renderer->GetSceneViewportWidth()), py), renderer));
 	}
 }
 
