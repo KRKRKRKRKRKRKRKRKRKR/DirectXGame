@@ -7,8 +7,8 @@
 // 両方から使うためファイルスコープに置く。
 // kCollisionLayerNamesはJSON保存・FromJsonでの文字列照合キーのため英語のまま維持し、
 // UI表示だけkCollisionLayerDisplayNames（日本語、同じ並び順）を使う
-static const char* kCollisionLayerNames[] = { "Default", "Player", "Obstacle", "Item", "Environment" };
-static const char* kCollisionLayerDisplayNames[] = { "デフォルト", "プレイヤー", "障害物", "アイテム", "環境" };
+static const char* kCollisionLayerNames[] = { "Default", "Player", "Obstacle", "Item", "Environment", "Enemy" };
+static const char* kCollisionLayerDisplayNames[] = { "デフォルト", "プレイヤー", "障害物", "アイテム", "環境", "敵" };
 // 要素数だけはコンパイル時に検証できる（順序の対応まではチェックできないため、追加時は
 // 配列とenumの両方を必ず同じ位置に増やすこと）
 static_assert(sizeof(kCollisionLayerNames) / sizeof(kCollisionLayerNames[0]) == static_cast<size_t>(CollisionLayer::kCount),

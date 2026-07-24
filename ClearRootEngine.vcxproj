@@ -149,6 +149,9 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Audio\AudioSourceComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraFollowComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GravityFlipComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\EnemyBounceComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\EnemyComponent.cpp" />
     <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
@@ -184,6 +187,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Game\Game.cpp" />
     <ClCompile Include="Game\SceneBase.cpp" />
     <ClCompile Include="Game\SceneObjectStore.cpp" />
+    <ClCompile Include="Game\GameSession.cpp" />
     <ClCompile Include="Game\PlayScene.cpp" />
     <ClCompile Include="Game\SceneManager.cpp" />
     <ClCompile Include="Game\TitleScene.cpp" />
@@ -234,6 +238,10 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Physics\CollisionLayer.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ColliderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GravityDirection.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GravityFlipComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\EnemyBounceComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\EnemyComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\PlayerControllerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\HealthComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\AutoRunComponent.h" />
@@ -286,6 +294,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Game\Game.h" />
     <ClInclude Include="Game\SceneBase.h" />
     <ClInclude Include="Game\SceneObjectStore.h" />
+    <ClInclude Include="Game\GameSession.h" />
     <ClInclude Include="Game\PlayScene.h" />
     <ClInclude Include="Game\SceneType.h" />
     <ClInclude Include="Game\IScene.h" />
@@ -294,6 +303,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Game\SelectScene.h" />
     <ClInclude Include="Game\GameOverScene.h" />
     <ClInclude Include="Math\Collision.h" />
+    <ClInclude Include="Math\EaseUtil.h" />
     <ClInclude Include="Math\MathTypes.h" />
     <ClInclude Include="Math\JsonUtil.h" />
     <ClInclude Include="Math\MatrixMath.h" />

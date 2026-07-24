@@ -89,9 +89,17 @@ protected:
 
 	// objects_の保存/復元自体はSceneObjectStoreに委譲する（ファイルパス組み立て・
 	// is2D振り分け・SceneSerializer呼び出しはそちらの責務）。ここではLoad後に必要な
-	// Rebind/RebuildDerivedLists/ResetSelectionの後始末だけを行う
-	void SaveScene();
-	void LoadScene();
+	// Rebind/RebuildDerivedLists/ResetSelectionの後始末だけを行う。
+	// saveNameを指定すると、既定のscene.json/ui.jsonとは別の名前付きスナップショットを
+	// 保存/読み込みする（省略時は今まで通りの既定ファイル）
+	void SaveScene(const std::string& saveName = "");
+	void LoadScene(const std::string& saveName = "");
+
+	// Resources/{assetFolder_}/を走査し、scene_*.jsonから名前付きスナップショット一覧を
+	// 作り直す。Initialize()で1回、名前を付けて保存した直後にも呼ぶ
+	void RescanSavedSnapshots();
+	std::vector<std::string> savedSnapshotNames_;
+	int selectedSnapshotIndex_ = 0;
 
 	// HUD1種類分の定義。providerは[this]をキャプチャするラムダで、camera_/lastDeltaTime_等
 	// 「呼び出し時点の最新値」をthis経由で毎回読むため、CreateHud時とLoad後の再バインド時とで

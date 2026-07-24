@@ -8,4 +8,9 @@ class PlayScene : public SceneBase {
 protected:
 	void OnInitialize() override;
 	void HandleSceneTransitionInput() override;
+
+	// EnemyComponent::pendingDestroy==trueのオブジェクトをまとめて回収する。
+	// ColliderSystem::ResolveAndDrawのループ中（OnTriggerEnterの中）ではGameObjectを
+	// その場でeraseできないため、ループが完全に終わった後のこのタイミングでまとめて処理する
+	void ProcessPendingDestroys();
 };

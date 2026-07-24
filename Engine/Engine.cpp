@@ -4,6 +4,29 @@
 #include "Utils/EditorState.h"
 #include "../Externals/imgui/imgui.h"
 
+namespace {
+	// ゲーム画面のアスペクト比をウィンドウ形状によらず16:9に固定する。エディタUI表示中は
+	// ドック中央ノードの矩形、非表示中（実際のプレイ画面そのもの）はウィンドウ全体を「外枠」として、
+	// その中に収まる最大の中央寄せ矩形を計算する（レターボックス/ピラーボックス）
+	constexpr float kFixedAspectRatio = 16.0f / 9.0f;
+
+	void FitAspectRect(float outerX, float outerY, float outerWidth, float outerHeight, float targetAspect,
+		float& x, float& y, float& width, float& height) {
+		float outerAspect = outerWidth / outerHeight;
+		if (outerAspect > targetAspect) {
+			// 外枠の方が横長 → 高さいっぱいに合わせ、左右に黒帯（ピラーボックス）
+			height = outerHeight;
+			width = height * targetAspect;
+		} else {
+			// 外枠の方が縦長 → 幅いっぱいに合わせ、上下に黒帯（レターボックス）
+			width = outerWidth;
+			height = width / targetAspect;
+		}
+		x = outerX + (outerWidth - width) * 0.5f;
+		y = outerY + (outerHeight - height) * 0.5f;
+	}
+}
+
 void Engine::Initialize(const std::wstring& windowTitle, int width, int height) {
 	Debug::RegisterCrashHandler();
 	Logger::Initialize();
@@ -48,17 +71,24 @@ bool Engine::Update() {
 	bool uiVisible = EditorState::GetInstance().IsUiVisible();
 	imgui_.BeginFrame(uiVisible);
 
-	// ドック中央ノード（Sceneビュー）の実際の画面矩形を、3D描画のビューポート/シザーへ反映する。
-	// directX_.BeginFrame()が既にフルウィンドウのビューポートを設定済みだが、これより後に
-	// 呼ぶことでコマンドリスト上で上書きされ、以降の3D描画はこの矩形内だけに収まる。
-	// UI非表示時はドックスペース自体が無い＝中央ノードの矩形が取れないため、
-	// SetSceneViewportRectを呼ばずフルウィンドウのビューポートのままにする
+	// ドック中央ノード（Sceneビュー、UI非表示時はウィンドウ全体）を「外枠」として、その中に
+	// 16:9で収まる中央寄せ矩形を3D描画のビューポート/シザーへ反映する。directX_.BeginFrame()が
+	// 既にフルウィンドウのビューポートを設定済みだが、これより後に呼ぶことでコマンドリスト上で
+	// 上書きされる。UI非表示時（F11トグル/Releaseビルド既定）は実際のプレイ画面そのものなので、
+	// ここでもアスペクト比を固定しないと本来の目的（ゲーム画面の見た目を保つ）を果たせない
+	float outerX, outerY, outerWidth, outerHeight;
 	if (uiVisible) {
-		float sceneX, sceneY, sceneWidth, sceneHeight;
-		imgui_.GetSceneViewportRect(sceneX, sceneY, sceneWidth, sceneHeight);
-		if (sceneWidth > 0.0f && sceneHeight > 0.0f) {
-			renderer_.SetSceneViewportRect(sceneX, sceneY, sceneWidth, sceneHeight);
-		}
+		imgui_.GetSceneViewportRect(outerX, outerY, outerWidth, outerHeight);
+	} else {
+		outerX = 0.0f;
+		outerY = 0.0f;
+		outerWidth  = static_cast<float>(window_.GetClientWidth());
+		outerHeight = static_cast<float>(window_.GetClientHeight());
+	}
+	if (outerWidth > 0.0f && outerHeight > 0.0f) {
+		float x, y, width, height;
+		FitAspectRect(outerX, outerY, outerWidth, outerHeight, kFixedAspectRatio, x, y, width, height);
+		renderer_.SetSceneViewportRect(x, y, width, height);
 	}
 
 	return true;

@@ -51,17 +51,39 @@ GameObject& SceneBase::CreateDynamicTextObject(const std::string& name, const st
 	return obj;
 }
 
-void SceneBase::SaveScene() {
-	SceneObjectStore::Save(assetFolder_, objects_);
+void SceneBase::SaveScene(const std::string& saveName) {
+	SceneObjectStore::Save(assetFolder_, objects_, saveName);
+	// 名前付きスナップショットを保存した直後は一覧に反映しておく（既定保存では一覧は変わらない）
+	if (!saveName.empty()) RescanSavedSnapshots();
 }
 
-void SceneBase::LoadScene() {
+void SceneBase::LoadScene(const std::string& saveName) {
 	ComponentLoadContext ctx{ renderer_, &textures_ };
-	if (SceneObjectStore::Load(assetFolder_, objects_, ctx)) {
+	if (SceneObjectStore::Load(assetFolder_, objects_, ctx, saveName)) {
 		RebindDynamicTextProviders();
 		RebuildDerivedLists();
 		gizmoController_.ResetSelection();
 	}
+}
+
+void SceneBase::RescanSavedSnapshots() {
+	savedSnapshotNames_.clear();
+	namespace fs = std::filesystem;
+	const std::string prefix = "scene_";
+	const std::string suffix = ".json";
+	std::error_code ec;
+	std::string dir = "Resources/" + assetFolder_;
+	if (!fs::exists(dir, ec)) return;
+	for (auto& entry : fs::directory_iterator(dir, ec)) {
+		if (ec || !entry.is_regular_file()) continue;
+		std::string filename = entry.path().filename().string();
+		if (filename.size() > prefix.size() + suffix.size()
+			&& filename.compare(0, prefix.size(), prefix) == 0
+			&& filename.compare(filename.size() - suffix.size(), suffix.size(), suffix) == 0) {
+			savedSnapshotNames_.push_back(filename.substr(prefix.size(), filename.size() - prefix.size() - suffix.size()));
+		}
+	}
+	selectedSnapshotIndex_ = 0;
 }
 
 void SceneBase::DeleteSelectedObject() {
@@ -155,6 +177,7 @@ void SceneBase::Initialize(Renderer* renderer, Camera* camera, const std::string
 	RebuildDerivedLists();
 
 	RescanProjectAssets(); // プロジェクトパネル（画像/音声）用にResources/を一度走査しておく
+	RescanSavedSnapshots(); // 名前を付けて保存した既存スナップショット一覧を読み込んでおく
 }
 
 void SceneBase::RescanProjectAssets() {
@@ -863,10 +886,51 @@ void SceneBase::DrawImGui() {
 	if (ImGui::Button("選択を削除")) DeleteSelectedObject();
 
 	ImGui::Separator();
-	// UI（is2D）とObject（3D）をResources/{assetFolder_}/ui.json・scene.jsonの2ファイルに分けて保存/復元する
+	// UI（is2D）とObject（3D）をResources/{assetFolder_}/ui.json・scene.jsonの2ファイルに分けて保存/復元する。
+	// 引数なしのSaveScene()/LoadScene()は常にこの既定ファイルを指す（起動時の自動ロードもこれ）
 	if (ImGui::Button("保存")) SaveScene();
 	ImGui::SameLine();
 	if (ImGui::Button("読み込み")) LoadScene();
+
+	// 名前を付けて保存：既定のscene.json/ui.jsonとは別に、名前付きスナップショットを追加保存する
+	// （テスト配置を複数残しておきたい等の用途。既定の保存/読み込みは上のボタンのまま変わらない）
+	ImGui::SameLine();
+	if (ImGui::Button("名前を付けて保存")) ImGui::OpenPopup("SaveAsPopup");
+	if (ImGui::BeginPopup("SaveAsPopup")) {
+		static char saveAsNameBuf[128] = "";
+		ImGui::InputText("保存名", saveAsNameBuf, sizeof(saveAsNameBuf));
+		bool canSave = saveAsNameBuf[0] != '\0';
+		if (!canSave) ImGui::BeginDisabled();
+		if (ImGui::Button("保存##SaveAsConfirm")) {
+			// ファイル名に使えない文字を除去する（既存の静的テキスト保存箇所と同じサニタイズ）
+			std::string sanitized = saveAsNameBuf;
+			sanitized.erase(std::remove_if(sanitized.begin(), sanitized.end(),
+				[](char c) { return c == '/' || c == '\\' || c == ':'; }), sanitized.end());
+			if (!sanitized.empty()) {
+				SaveScene(sanitized);
+				saveAsNameBuf[0] = '\0';
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		if (!canSave) ImGui::EndDisabled();
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル##SaveAsCancel")) ImGui::CloseCurrentPopup();
+		ImGui::EndPopup();
+	}
+
+	if (!savedSnapshotNames_.empty()) {
+		int current = std::clamp(selectedSnapshotIndex_, 0, static_cast<int>(savedSnapshotNames_.size()) - 1);
+		if (ImGui::BeginCombo("保存済みスナップショット", savedSnapshotNames_[current].c_str())) {
+			for (int i = 0; i < static_cast<int>(savedSnapshotNames_.size()); i++) {
+				bool selected = (i == current);
+				if (ImGui::Selectable(savedSnapshotNames_[i].c_str(), selected)) selectedSnapshotIndex_ = i;
+				if (selected) ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("選択したスナップショットを読み込み")) LoadScene(savedSnapshotNames_[selectedSnapshotIndex_]);
+	}
 
 	ImGui::Separator();
 	// シーン遷移。今まではキーボード（Enter/Escape/F1等）のみだったため、ImGuiからも

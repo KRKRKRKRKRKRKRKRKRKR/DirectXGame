@@ -1,0 +1,429 @@
+{
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                },
+                {
+                    "data": {
+                        "direction": "Down",
+                        "enabled": true,
+                        "gravity": 20.0,
+                        "maxDirectionChange": 1,
+                        "maxFallSpeed": 30.0
+                    },
+                    "type": "GravityFlip"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "Player",
+            "parentIndex": -1,
+            "tag": "Player",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [],
+            "excludeFromGizmoList": false,
+            "name": "壁フォルダ",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "TopWall",
+            "parentIndex": 1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    20.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    10.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "BottomWall",
+            "parentIndex": 1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    20.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    -10.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "LeftWall",
+            "parentIndex": 1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    20.0,
+                    1.0
+                ],
+                "translation": [
+                    -10.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "RightWall",
+            "parentIndex": 1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    20.0,
+                    1.0
+                ],
+                "translation": [
+                    10.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "farClip": 1000.0,
+                        "fov": 45.0,
+                        "nearClip": 0.10000000149011612,
+                        "positionOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "rotationOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "Camera"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "name": "カメラ",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    -27.266754150390625
+                ]
+            }
+        }
+    ]
+}

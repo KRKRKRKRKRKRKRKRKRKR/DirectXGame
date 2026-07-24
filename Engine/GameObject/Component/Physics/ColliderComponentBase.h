@@ -22,7 +22,7 @@ public:
 	// このコライダーが衝突判定の対象として選んでいるレイヤーの一覧（trueなら判定候補にする）。
 	// 添字はCollisionLayerの値をそのまま使う。デフォルトは全レイヤーとtrue
 	// （何も設定しなければ従来通り全部と当たる。除外したいものだけ個別にfalseにする運用）
-	bool collidesWith[static_cast<size_t>(CollisionLayer::kCount)] = { true, true, true, true, true };
+	bool collidesWith[static_cast<size_t>(CollisionLayer::kCount)] = { true, true, true, true, true, true };
 
 	bool CollidesWithLayer(CollisionLayer other) const {
 		return collidesWith[static_cast<size_t>(other)];

@@ -4,7 +4,9 @@
 #include "../Component/Physics/SphereColliderComponent.h"
 #include "../Component/Physics/OBBColliderComponent.h"
 #include "../Component/Physics/GravityComponent.h"
+#include "../Component/Physics/GravityFlipComponent.h"
 #include "../../../Math/Collision.h"
+#include "../../../Math/VectorMath.h"
 #include "../../Graphics/Renderer/Renderer.h"
 #include <algorithm>
 
@@ -118,6 +120,28 @@ void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, boo
 					}
 					if (GravityComponent* bGravity = b.obj->GetComponent<GravityComponent>()) {
 						if (bDelta.y > 0.0f && bGravity->velocityY < 0.0f) bGravity->velocityY = 0.0f;
+					}
+
+					// GravityFlipComponent版（GraviTwist用、4方向重力）。上のGravityComponent分岐と
+					// 完全に対称な形にする。「押し戻しベクトルと現在の重力方向の内積が負」＝
+					// 「重力方向と逆向きに押し戻された」＝「落下方向にある壁に着地した」ことを表す
+					// （Y軸決め打ちのaDelta.y>0判定を、Dot(押し戻し, 重力方向)<0という
+					// 一般化した式に置き換えたもの）
+					if (GravityFlipComponent* aFlip = a.obj->GetComponent<GravityFlipComponent>()) {
+						Vector3 fallDir = GravityDirectionToVector(aFlip->direction);
+						if (VectorMath::Dot(aDelta, fallDir) < 0.0f) {
+							aFlip->velocity = 0.0f;
+							if (!aFlip->isGrounded) aFlip->NotifyLanded();
+							aFlip->isGrounded = true;
+						}
+					}
+					if (GravityFlipComponent* bFlip = b.obj->GetComponent<GravityFlipComponent>()) {
+						Vector3 fallDir = GravityDirectionToVector(bFlip->direction);
+						if (VectorMath::Dot(bDelta, fallDir) < 0.0f) {
+							bFlip->velocity = 0.0f;
+							if (!bFlip->isGrounded) bFlip->NotifyLanded();
+							bFlip->isGrounded = true;
+						}
 					}
 				}
 			}

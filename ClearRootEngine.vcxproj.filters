@@ -95,6 +95,9 @@
     <ClCompile Include="Engine\GameObject\Component\Audio\AudioSourceComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraFollowComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GravityFlipComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\EnemyBounceComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\EnemyComponent.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Line\Line.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Triangle\Triangle.cpp" />
     <ClCompile Include="Engine\Graphics\ShaderCompiler\ShaderCompiler.cpp" />
@@ -104,6 +107,7 @@
     <ClCompile Include="Game\Game.cpp" />
     <ClCompile Include="Game\SceneBase.cpp" />
     <ClCompile Include="Game\SceneObjectStore.cpp" />
+    <ClCompile Include="Game\GameSession.cpp" />
     <ClCompile Include="Game\PlayScene.cpp" />
     <ClCompile Include="Game\SceneManager.cpp" />
     <ClCompile Include="Game\TitleScene.cpp" />
@@ -150,6 +154,9 @@
       <Filter>Math</Filter>
     </ClInclude>
     <ClInclude Include="Math\JsonUtil.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\EaseUtil.h">
       <Filter>Math</Filter>
     </ClInclude>
     <ClInclude Include="Externals\imgui\imconfig.h">
@@ -217,6 +224,10 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\CollisionLayer.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ColliderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GravityDirection.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GravityFlipComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\EnemyBounceComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\EnemyComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\PlayerControllerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\HealthComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\AutoRunComponent.h" />
@@ -241,6 +252,7 @@
     <ClInclude Include="Game\Game.h" />
     <ClInclude Include="Game\SceneBase.h" />
     <ClInclude Include="Game\SceneObjectStore.h" />
+    <ClInclude Include="Game\GameSession.h" />
     <ClInclude Include="Game\PlayScene.h" />
     <ClInclude Include="Game\SceneType.h" />
     <ClInclude Include="Game\IScene.h" />

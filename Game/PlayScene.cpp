@@ -8,6 +8,10 @@ void PlayScene::OnInitialize() {
 }
 
 void PlayScene::HandleSceneTransitionInput() {
+	// ColliderSystem::ResolveAndDrawの直後（Renderの最後）に呼ばれるこのタイミングで、
+	// 今フレーム体当たりされた敵をまとめて回収する
+	ProcessPendingDestroys();
+
 	// デバッグ用キー割り当て（ESCでTitle、F1でGameOverへ遷移）
 	if (Input::IsTriggered(DIK_ESCAPE)) nextScene_ = SceneType::kTitle;
 	if (Input::IsTriggered(DIK_F1))     nextScene_ = SceneType::kGameOver;
@@ -19,4 +23,14 @@ void PlayScene::HandleSceneTransitionInput() {
 			if (hp->IsDead()) nextScene_ = SceneType::kGameOver;
 		}
 	}
+}
+
+void PlayScene::ProcessPendingDestroys() {
+	std::vector<GameObject*> toDestroy;
+	for (auto& obj : objects_) {
+		if (auto* enemy = obj->GetComponent<EnemyComponent>()) {
+			if (enemy->pendingDestroy) toDestroy.push_back(obj.get());
+		}
+	}
+	if (!toDestroy.empty()) DeleteObjects(toDestroy);
 }

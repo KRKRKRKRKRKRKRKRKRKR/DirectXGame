@@ -10,6 +10,7 @@ enum class CollisionLayer {
 	kObstacle,    // 障害物。ぶつかると止まる/ゲームオーバー等を想定（Solid運用）
 	kItem,        // アイテム。プレイヤーがすり抜けて拾う想定（Trigger運用）
 	kEnvironment, // 床/壁など背景の当たり判定
+	kEnemy,       // 敵。GraviTwist用（プレイヤーとのTrigger判定に使う）
 
 	kCount, // 要素数。配列サイズ/ループ境界にのみ使う番兵で、実際のレイヤー値としては使わない
 };

@@ -9,8 +9,8 @@
 // レイヤー名の表示はColliderComponentBase.cppと同じ並び（CollisionLayer.hのenum順）。
 // 共有テーブルはまだ無いため、このコンボ用にここだけ同じ内容を持つ
 // （kCollisionLayerNames自体はJSON保存キーのため英語のまま、表示だけ日本語）
-static const char* kHealthLayerNames[] = { "Default", "Player", "Obstacle", "Item", "Environment" };
-static const char* kHealthLayerDisplayNames[] = { "デフォルト", "プレイヤー", "障害物", "アイテム", "環境" };
+static const char* kHealthLayerNames[] = { "Default", "Player", "Obstacle", "Item", "Environment", "Enemy" };
+static const char* kHealthLayerDisplayNames[] = { "デフォルト", "プレイヤー", "障害物", "アイテム", "環境", "敵" };
 static_assert(sizeof(kHealthLayerNames) / sizeof(kHealthLayerNames[0]) == static_cast<size_t>(CollisionLayer::kCount),
 	"kHealthLayerNames must have exactly CollisionLayer::kCount entries, in the same order as the enum");
 
