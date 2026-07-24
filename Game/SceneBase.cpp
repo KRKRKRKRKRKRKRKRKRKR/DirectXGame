@@ -413,6 +413,14 @@ void SceneBase::Render(float deltaTime) {
 	// ImGui::NewFrame()の後、ImGui::Render()の前に呼ぶ必要がある
 	ImGuizmo::BeginFrame();
 
+	// エディタUIが非表示の間（＝Releaseビルドの既定状態、またはDebugでF11を押した後）は
+	// 常にPlay状態にする。UIが無いと"再生"ボタンを押す手段が無いままisPlaying_==falseに
+	// 固定され、Gravity/AutoRun/PlayerController等のコンポーネントが一切更新されなくなるため
+	// （viewingGameCamera_をUI非表示時に強制trueにする下のロジックと同じ考え方）
+	if (!EditorState::GetInstance().IsUiVisible()) {
+		isPlaying_ = true;
+	}
+
 	// isPlaying_中のみコンポーネント更新（Stop中はGizmoで自由に配置できるようにする）
 	if (isPlaying_) {
 		// CameraFollowComponentのtarget解決：まずタグ"Player"が付いたオブジェクトを優先し、
