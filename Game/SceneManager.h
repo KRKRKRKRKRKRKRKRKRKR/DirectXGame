@@ -12,6 +12,10 @@ public:
 	void Initialize(Renderer* renderer, Camera* camera, SceneType startScene);
 	void Render(float deltaTime);
 
+	// アプリ終了確認等、現在のシーンに対して外部から操作したい呼び出し元向け
+	// （Game::Updateがアプリ終了時の保存確認でRequestSave()を呼ぶ）
+	IScene* GetCurrentScene() const { return currentScene_.get(); }
+
 private:
 	Renderer* renderer_ = nullptr;
 	Camera* camera_ = nullptr;

@@ -6,6 +6,65 @@
                     "data": {
                         "alphaTest": false,
                         "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "is3D": false,
+                        "lighting": false,
+                        "uvOffset": [
+                            0.0,
+                            0.0
+                        ],
+                        "uvRotation": 0.0,
+                        "uvScale": [
+                            1.0,
+                            1.0
+                        ]
+                    },
+                    "type": "SpriteRender"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Sprite2D",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    100.0,
+                    100.0,
+                    1.0
+                ],
+                "translation": [
+                    100.0,
+                    100.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
                         "blendMode": "Normal (Alpha)",
                         "blendStrength": 1.0,
                         "canvasHeight": 48,
@@ -20,16 +79,18 @@
                         "fontFilePath": "Resources/Font/font.ttf",
                         "fontSize": 32.0,
                         "hudKey": "",
+                        "is3D": false,
                         "lighting": false,
                         "lineSpacing": 1.2000000476837158,
                         "superSample": 2.0,
-                        "txtFilePath": "Resources/Title/Text/新規追加 3.txt"
+                        "txtFilePath": "Resources/Title/Text/Sprite2DText.txt"
                     },
                     "type": "TextRender"
                 }
             ],
             "excludeFromGizmoList": false,
-            "name": "TitleText",
+            "excludeFromPicking": false,
+            "name": "Sprite2DText",
             "parentIndex": -1,
             "tag": "",
             "transform": {
@@ -45,8 +106,8 @@
                     1.0
                 ],
                 "translation": [
-                    48.0,
-                    21.999984741210938,
+                    100.0,
+                    33.0,
                     0.0
                 ]
             }

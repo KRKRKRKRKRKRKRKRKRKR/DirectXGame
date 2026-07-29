@@ -41,11 +41,21 @@ void Model::Initialize(ID3D12Device* device, TextureManager* textureManager,
 		? static_cast<uint32_t>(modelData.skinnedVertices.size())
 		: static_cast<uint32_t>(modelData.vertices.size());
 
-	// MTLで指定されたテクスチャをロード（ファイルが存在する場合のみ）
-	if (!modelData.material.textureFilePath.empty()) {
-		std::ifstream check(modelData.material.textureFilePath);
-		if (check.is_open()) {
-			textureHandle_ = textureManager->Load(modelData.material.textureFilePath, heaps);
+	// サブメッシュ（頂点範囲）はマルチマテリアル対応のため維持するが、MTL/FBXが指す
+	// テクスチャは自動ロードしない。Cube/Sphere/Sprite等の他の描画コンポーネントと同じく、
+	// テクスチャはTextureSelectorComponentで手動アタッチする運用に統一する
+	// （テクスチャ未割り当てのサブメッシュはtextureHandle=kTextureNone=白テクスチャのまま）。
+	// ファイルが実際に指すテクスチャパスはログにだけ残しておき、手動で選ぶ際の参考にできるようにする
+	subMeshes_.clear();
+	subMeshes_.reserve(modelData.subMeshes.size());
+	for (const auto& src : modelData.subMeshes) {
+		SubMesh subMesh;
+		subMesh.vertexOffset = src.vertexOffset;
+		subMesh.vertexCount  = src.vertexCount;
+		subMeshes_.push_back(subMesh);
+		if (!src.material.textureFilePath.empty()) {
+			Logger::Log("Model: sub-mesh material suggests texture '" + src.material.textureFilePath +
+				"' (not auto-loaded; attach a TextureSelectorComponent to use it)\n");
 		}
 	}
 
@@ -59,7 +69,8 @@ void Model::Initialize(ID3D12Device* device, TextureManager* textureManager,
 	}
 
 	Logger::Log("Model loaded: " + directoryPath + "/" + filename +
-		" | " + std::to_string(vertexCount_) + " vertices\n");
+		" | " + std::to_string(vertexCount_) + " vertices, " +
+		std::to_string(subMeshes_.size()) + " sub-mesh(es)\n");
 }
 
 // ---- GPUリソース作成 ----
@@ -124,7 +135,39 @@ ID3D12PipelineState* Model::GetPipelineState() const {
 
 void Model::Draw(ID3D12GraphicsCommandList* commandList,
 	uint32_t instanceCount, uint32_t startInstance) {
+	// IDrawableインターフェース互換の後方互換パス：全頂点を単一テクスチャ（先頭サブメッシュの
+	// ものがSetPipelineCommandsでバインドされている前提）で描く。マルチマテリアルモデルを
+	// 正しく描くにはRenderer::FlushModelsのようにサブメッシュ単位でSetPipelineCommandsForSubMesh
+	// →DrawSubMeshを呼ぶこと
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	commandList->DrawInstanced(vertexCount_, instanceCount, 0, startInstance);
+}
+
+void Model::SetPipelineCommandsForSubMesh(ID3D12GraphicsCommandList* commandList,
+	TextureManager* textureManager, size_t subMeshIndex, TextureHandle overrideTexture,
+	BlendMode blendMode, float blendStrength, bool enableAlphaTest, float alphaThreshold) {
+
+	TextureHandle tex = (overrideTexture != kTextureNone) ? overrideTexture : subMeshes_[subMeshIndex].textureHandle;
+
+	bool skinned = skeleton_.hasSkeleton;
+	ID3D12RootSignature* rs  = skinned ? skinnedRootSignature_ : rootSignature_;
+	ID3D12PipelineState* pso = skinned ? skinnedPipeline_->GetPipelineState(blendMode, enableAlphaTest)
+	                                    : pipeline_->GetPipelineState(blendMode, enableAlphaTest);
+
+	PipelineCommandHelper::ApplyCommon(commandList, rs, pso,
+		textureManager->GetSrvGpuHandle(tex), wvpColorBuffer_.GetWvpSrvHandle(), wvpColorBuffer_.GetColorSrvHandle(),
+		blendMode, blendStrength, enableAlphaTest, alphaThreshold);
+
+	if (skinned) {
+		commandList->SetGraphicsRootDescriptorTable(6, boneMatrixSrvHandle_); // t3: ボーン行列パレット
+	}
+}
+
+void Model::DrawSubMesh(ID3D12GraphicsCommandList* commandList, size_t subMeshIndex,
+	uint32_t instanceCount, uint32_t startInstance) {
+	const SubMesh& subMesh = subMeshes_[subMeshIndex];
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView_);
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->DrawInstanced(subMesh.vertexCount, instanceCount, subMesh.vertexOffset, startInstance);
 }

@@ -17,7 +17,11 @@ public:
 	float   radius = 5.0f;
 	float   decay = 1.0f;
 
-	void SyncToRenderer(Renderer* renderer, const Transform& transform) const override;
+	LightType GetLightType() const override { return LightType::kPoint; }
+
+	// slotIndex: SceneLight::LightData::pointLights配列の何番目に書き込むか
+	// （SceneBase::Renderが「今フレーム何番目のPointLightComponentか」を数えて渡す）
+	void SyncToRenderer(Renderer* renderer, const Transform& transform, uint32_t slotIndex) const override;
 
 	// enabled時のみtransform.translationに色付き球を描画する（デバッグ可視化）
 	void DrawGizmoVisualization(Renderer* renderer, const Transform& transform, const Matrix4x4& view, const Matrix4x4& proj) const override;
@@ -39,4 +43,10 @@ public:
 		radius = in.value("radius", radius);
 		decay = in.value("decay", decay);
 	}
+
+private:
+	// DrawImGuiで「このインスタンスは上限を超えて無効化されているか」を表示するため、
+	// 直近のSyncToRenderer呼び出しで実際に割り当てられたslotIndexをキャッシュしておく
+	// （SyncToRendererはconstだがGizmoController等と同じ「表示用の一時状態」としてmutableにする）
+	mutable uint32_t lastSlotIndex_ = 0;
 };

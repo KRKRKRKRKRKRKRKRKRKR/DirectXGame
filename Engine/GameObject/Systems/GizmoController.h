@@ -39,6 +39,13 @@ public:
 	// （SnapAndDrawGuides参照）
 	void UpdateGizmo2D(const std::vector<GameObject*>& targets2D, Renderer* renderer);
 
+	// Sceneビュー上で何か選択中に右クリックすると、移動/回転/拡縮を選べるコンテキストメニューを開く
+	// （毎回Gizmoパネルまでマウスを移動させなくても操作モードを切り替えられるようにするため）。
+	// 右ドラッグは既にCamera::HandleInputのLook（視点回転）に割り当て済みなので、ここでは
+	// 「ドラッグせずに離した」場合だけを単発クリックとみなす（そうしないとLook操作のたびに
+	// メニューが開いてしまう）
+	void UpdateContextMenu(Renderer* renderer);
+
 	// "Gizmo"ウィンドウの中身のうちEdit Collider・Translate/Rotate/Scaleを描画する。
 	// オブジェクト選択自体はHierarchyパネル（SceneBase::DrawHierarchy）に一本化したため、
 	// ここでは選択済みのtargets[selection3D_.targetIndex]がColliderを持つかの判定にのみ使う。

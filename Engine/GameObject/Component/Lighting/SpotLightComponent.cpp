@@ -1,21 +1,17 @@
 #include "SpotLightComponent.h"
 #include "../../ComponentRegistry.h"
 #include "../../../Graphics/Renderer/Renderer.h"
+#include "../../../Graphics/Lighting/SceneLight.h"
 #include "../../../../Math/TransformMath.h"
 #include "../../../../Math/VectorMath.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include <string>
 
-void SpotLightComponent::SyncToRenderer(Renderer* renderer, const Transform& transform) const {
+void SpotLightComponent::SyncToRenderer(Renderer* renderer, const Transform& transform, uint32_t slotIndex) const {
+	lastSlotIndex_ = slotIndex;
 	auto& light = renderer->GetLight();
-	light.SetEnableSpotLight(enabled);
-	light.SetSpotPosition(transform.translation);
-	light.SetSpotDirection(TransformMath::EulerRadiansToDirection(transform.rotation));
-	light.SetSpotColor(color);
-	light.SetSpotIntensity(intensity);
-	light.SetSpotDistance(distance);
-	light.SetSpotDecay(decay);
-	light.SetSpotConeAngles(cosAngle, cosFalloffStart);
+	Vector3 direction = TransformMath::EulerRadiansToDirection(transform.rotation);
+	light.SetSpotLight(slotIndex, enabled, transform.translation, direction, color, intensity, distance, decay, cosAngle, cosFalloffStart);
 }
 
 void SpotLightComponent::DrawGizmoVisualization(Renderer* renderer, const Transform& transform, const Matrix4x4& view, const Matrix4x4& proj) const {
@@ -47,6 +43,13 @@ void SpotLightComponent::DrawImGui(const char* namePrefix) {
 	ImGui::SliderFloat(decayLabel.c_str(), &decay, 0.1f, 4.0f);
 	ImGui::SliderFloat(cosAngleLabel.c_str(), &cosAngle, 0.0f, 0.999f);
 	ImGui::SliderFloat(cosFalloffLabel.c_str(), &cosFalloffStart, 0.0f, 0.999f);
+
+	// PointLightComponentと同じ理由の注意書き・上限超過警告
+	ImGui::TextDisabled("(シーン全体で同時に有効なスポットライトは最大%u個まで)", SceneLight::LightData::kMaxSpotLights);
+	if (enabled && lastSlotIndex_ >= SceneLight::LightData::kMaxSpotLights) {
+		ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.1f, 1.0f),
+			"上限を超えているため、この光源は反映されていません（%u個目）", lastSlotIndex_ + 1);
+	}
 }
 
 REGISTER_SIMPLE_COMPONENT(SpotLightComponent, "SpotLight", "スポットライト", "ライティング");

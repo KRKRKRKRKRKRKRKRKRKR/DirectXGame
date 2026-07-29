@@ -21,4 +21,9 @@ public:
 
 	// 遷移したい場合は次のSceneTypeを返す。デフォルトは「遷移しない」
 	virtual SceneType GetNextScene() const { return SceneType::kNone; }
+
+	// アプリ終了確認（Window::IsCloseRequested）等、シーン非依存のコードから「今のシーンを
+	// 保存してほしい」と伝えるためのフック。デフォルトは何もしない（SceneBaseがオーバーライドして
+	// 既定のSaveScene()を呼ぶ）
+	virtual void RequestSave() {}
 };

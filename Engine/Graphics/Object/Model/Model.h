@@ -40,7 +40,32 @@ public:
 		TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
 		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 
-	TextureHandle GetTextureHandle() const { return textureHandle_; }
+	// 後方互換用：先頭サブメッシュのテクスチャを返す（呼び出し側がテクスチャ未指定の場合の
+	// フォールバックに使う。単一マテリアルのモデルなら常にこれが「そのモデルのテクスチャ」になる）
+	TextureHandle GetTextureHandle() const { return subMeshes_.empty() ? kTextureNone : subMeshes_[0].textureHandle; }
+
+	// ---- マルチマテリアル対応 ----
+	// サブメッシュ：同じマテリアル（テクスチャ）を使う連続した頂点範囲。単一マテリアルの
+	// モデルは要素数1（vertexOffset=0, vertexCount=全頂点）になる
+	struct SubMesh {
+		uint32_t      vertexOffset  = 0;
+		uint32_t      vertexCount   = 0;
+		TextureHandle textureHandle = kTextureNone;
+	};
+	size_t GetSubMeshCount() const { return subMeshes_.size(); }
+
+	// サブメッシュ1個分のパイプライン設定（テクスチャ/PSO/ブレンド等）を行う。
+	// overrideTextureがkTextureNoneでなければ全サブメッシュ共通でそちらを使う
+	// （TextureSelectorComponent等、手動で1枚のテクスチャに差し替えたい場合向け）
+	void SetPipelineCommandsForSubMesh(ID3D12GraphicsCommandList* commandList,
+		TextureManager* textureManager, size_t subMeshIndex, TextureHandle overrideTexture,
+		BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
+
+	// サブメッシュ1個分のDrawInstanced。SetPipelineCommandsForSubMeshで対応するテクスチャを
+	// バインドしてから呼ぶこと
+	void DrawSubMesh(ID3D12GraphicsCommandList* commandList, size_t subMeshIndex,
+		uint32_t instanceCount, uint32_t startInstance = 0);
 
 	// アニメーションを1フレーム進め、ボーン行列パレットを更新する。ボーンが無いモデルは何もしない
 	void UpdateAnimation(float deltaTime);
@@ -57,10 +82,21 @@ private:
 		std::string textureFilePath;
 	};
 
+	// ロード直後の中間データ側のサブメッシュ表現（GPUリソース化前）。SubMesh（GPU用、
+	// textureHandle保持）とは別に、ロード時点ではまだテクスチャがロードされていないため
+	// ファイルパスのままのMaterialDataを持つ
+	struct SubMeshData {
+		uint32_t     vertexOffset = 0;
+		uint32_t     vertexCount  = 0;
+		MaterialData material;
+	};
+
 	struct ModelData {
 		std::vector<VertexData>        vertices;
 		std::vector<SkinnedVertexData> skinnedVertices; // hasSkeleton時のみ使用（verticesと同じ頂点数・同じ並び）
-		MaterialData                   material;
+		// マルチマテリアル対応：同じマテリアルを使う連続した頂点範囲ごとに1エントリ。
+		// 単一マテリアルのモデルも要素数1（vertexOffset=0, vertexCount=全頂点）で必ず1個以上入る
+		std::vector<SubMeshData>       subMeshes;
 	};
 
 	// ---- スキニング/アニメーション用メタデータ ----
@@ -100,7 +136,7 @@ private:
 	};
 
 	uint32_t      vertexCount_   = 0;
-	TextureHandle textureHandle_ = kTextureNone;
+	std::vector<SubMesh> subMeshes_; // GPU用（textureHandleロード済み）。Initialize()で構築する
 
 	ComPtr<ID3D12Resource> vertexResource_;
 	D3D12_VERTEX_BUFFER_VIEW vertexBufferView_{};
@@ -122,9 +158,10 @@ private:
 	SkeletonData skeleton_;
 	float animationTime_ = 0.0f; // 現在の再生時刻（tick単位、ループする）
 
-	// MTLファイルからテクスチャパスを読む（学校資料の LoadMaterialTemplateFile 相当）
-	MaterialData LoadMaterialTemplateFile(const std::string& directoryPath,
-		const std::string& filename);
+	// MTLファイル内の全マテリアルを名前→MaterialDataで読む（学校資料の
+	// LoadMaterialTemplateFile相当だが、複数マテリアル対応のためマップを返す）
+	std::unordered_map<std::string, MaterialData> LoadMaterialTemplateFile(
+		const std::string& directoryPath, const std::string& filename);
 
 	// OBJファイルを読む（自前パーサー）
 	ModelData LoadObjFile(const std::string& directoryPath, const std::string& filename);

@@ -53,9 +53,16 @@ public:
 	using ModelHandle = uint32_t;
 	ModelHandle LoadModel(const std::string& directoryPath, const std::string& filename);
 
-	void DrawModel(ModelHandle handle, const Transform& t, const Vector4& color = { 1,1,1,1 }, TextureHandle texture = kTextureNone, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
+	// マルチマテリアル対応：subMeshTexturesはサブメッシュごとのテクスチャ上書き（要素数が
+	// サブメッシュ数に満たない/kTextureNoneの分はそのサブメッシュ自身の設定＝白のまま）。
+	// ModelRenderComponentがサブメッシュ数ぶんのInspectorコンボから組み立てて渡す
+	void DrawModel(ModelHandle handle, const Transform& t, const Vector4& color = { 1,1,1,1 },
+		const std::vector<TextureHandle>& subMeshTextures = {}, bool useLighting = true, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
 		bool enableAlphaTest = false, float alphaThreshold = 0.5f);
 	void FlushModels();
+
+	// Inspectorがサブメッシュ数ぶんのテクスチャ選択コンボを描くために使う
+	size_t GetModelSubMeshCount(ModelHandle handle) const { return models_[handle]->GetSubMeshCount(); }
 
 	// ボーン付きModelのアニメーションを進める。毎フレームGame::Update等から呼ぶ
 	void UpdateModelAnimation(ModelHandle handle, float deltaTime);
@@ -192,6 +199,9 @@ private:
 	};
 	struct ModelCommand : DrawCommandBase {
 		ModelHandle handle;
+		// マルチマテリアル対応：サブメッシュごとのテクスチャ上書き。DrawCommandBase::textureは
+		// ModelCommandでは使わない（共通フィールドの型だけ流用し、常にkTextureNoneのまま）
+		std::vector<TextureHandle> subMeshTextures;
 	};
 
 	// Triangle/Cube/Sphereの3種で共通のFlush処理（ソート→バッチ化→描画）。

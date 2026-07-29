@@ -23,7 +23,11 @@ public:
 
     void SetWvpMatrix(const Matrix4x4& wvpMatrix, const Matrix4x4& world, uint32_t index);
     void SetColor(const Vector4& color, uint32_t index);
-    void SetUVTransform(const UVTransform& uvTransform);
+    // UVTransformは頂点(位置/UV)に直接焼き込むため、WVP/Colorと同じくindexごとに
+    // 独立した頂点4つ分のスロットへ書き込む（単一スロット共有だと、CPU側で書いた値を
+    // GPUが実際に描画コマンドを実行する時点まで上書きし続けてしまい、同一フレーム内の
+    // 全スプライトが最後にSetUVTransformされた値で描画されてしまうため）
+    void SetUVTransform(const UVTransform& uvTransform, uint32_t index);
     void SetFlipV(bool flip);
     void SetPipelineCommands(ID3D12GraphicsCommandList* commandList,
         TextureManager* textureManager, TextureHandle texture, BlendMode blendMode = BlendMode::kNone, float blendStrength = 1.0f,
@@ -51,6 +55,7 @@ private:
 
     static constexpr int kVertexCount = 4;
     static constexpr int kIndexCount  = 6;
+    // インスタンスごとに独立した頂点4つ分を確保するため、頂点バッファはkMaxInstanceCount枚分持つ
 
     void CreateVertexResource(ID3D12Device* device);
     void CreateIndexResource(ID3D12Device* device);

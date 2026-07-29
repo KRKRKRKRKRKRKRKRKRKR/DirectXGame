@@ -162,11 +162,11 @@ void Renderer::UpdateModelAnimation(ModelHandle handle, float deltaTime) {
 	models_[handle]->UpdateAnimation(deltaTime);
 }
 
-void Renderer::DrawModel(ModelHandle handle, const Transform& t, const Vector4& color, TextureHandle texture, bool useLighting, BlendMode blendMode, float blendStrength,
-	bool enableAlphaTest, float alphaThreshold) {
+void Renderer::DrawModel(ModelHandle handle, const Transform& t, const Vector4& color, const std::vector<TextureHandle>& subMeshTextures,
+	bool useLighting, BlendMode blendMode, float blendStrength, bool enableAlphaTest, float alphaThreshold) {
 	Matrix4x4 world = TransformMath::MakeAffineMatrix(t.scale, t.rotation, t.translation);
 	Matrix4x4 wvp   = world * view_ * projection_;
-	modelCommands_.push_back({ wvp, world, color, texture, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold, std::nullopt, handle });
+	modelCommands_.push_back({ wvp, world, color, kTextureNone, useLighting, blendMode, blendStrength, enableAlphaTest, alphaThreshold, std::nullopt, handle, subMeshTextures });
 }
 
 void Renderer::FlushModels() {
@@ -183,9 +183,20 @@ void Renderer::FlushModels() {
 		model->SetWvpMatrix(cmd.wvp, cmd.world, idx);
 		model->SetColor(cmd.color, idx);
 
-		// 呼び出し側がテクスチャを指定していればそれを使い、なければモデルのMTLテクスチャを使う
-		TextureHandle tex = (cmd.texture != kTextureNone) ? cmd.texture : model->GetTextureHandle();
-		IssueDrawCommand(model, tex, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, idx);
+		// ライト・インスタンスオフセットはモデル1個につき1回だけ設定すればよい
+		// （PipelineCommandHelper::ApplyCommonが使うルートパラメータ0/1/2/5とは別のスロットのため、
+		// サブメッシュごとにテクスチャを切り替えて再設定しても壊れない）
+		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(cmd.useLighting));
+		commandList_->SetGraphicsRoot32BitConstant(4, idx, 0);
+
+		// マルチマテリアル対応：サブメッシュごとに（cmd.subMeshTextures[s]が指定されていれば
+		// それを、無ければkTextureNone＝白のまま）個別にDrawInstancedする
+		for (size_t s = 0; s < model->GetSubMeshCount(); ++s) {
+			TextureHandle subTex = (s < cmd.subMeshTextures.size()) ? cmd.subMeshTextures[s] : kTextureNone;
+			model->SetPipelineCommandsForSubMesh(commandList_, &textureManager_, s, subTex,
+				cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold);
+			model->DrawSubMesh(commandList_, s, 1, idx);
+		}
 	}
 	nextModelInstanceOffset_ = base + static_cast<uint32_t>(modelCommands_.size());
 
@@ -314,16 +325,14 @@ void Renderer::DrawSprite2D(const Transform& transform, const Vector4& color, Te
 void Renderer::FlushSprites3D() {
 	if (sprite3DCommands_.empty()) return;
 
-	// Cube/Sphere等と同じインスタンス配列パターン：indexごとに独立したスロットへWVP/色を書き込む。
-	// UVTransformは頂点バッファ（全インスタンス共有）に焼き込む都合上、コマンドごとに
-	// SetUVTransform→即IssueDrawCommandする（バッチ化はしない。順序はwvpColorBuffer_書き込み後で問題ない）
+	// Cube/Sphere等と同じインスタンス配列パターン：indexごとに独立したスロットへWVP/色/UVTransformを書き込む
 	uint32_t base = nextSprite3DInstanceOffset_;
 	for (int i = 0; i < (int)sprite3DCommands_.size(); i++) {
 		auto& cmd = sprite3DCommands_[i];
 		uint32_t idx = base + static_cast<uint32_t>(i);
 		sprite3D_->SetWvpMatrix(cmd.wvp, cmd.world, idx);
 		sprite3D_->SetColor(cmd.color, idx);
-		sprite3D_->SetUVTransform(cmd.uvTransform);
+		sprite3D_->SetUVTransform(cmd.uvTransform, idx);
 		IssueDrawCommand(sprite3D_.get(), cmd.texture, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, idx);
 	}
 	nextSprite3DInstanceOffset_ = base + static_cast<uint32_t>(sprite3DCommands_.size());
@@ -340,7 +349,7 @@ void Renderer::FlushSprites2D() {
 		uint32_t idx = base + static_cast<uint32_t>(i);
 		sprite2D_->SetWvpMatrix(cmd.wvp, cmd.world, idx);
 		sprite2D_->SetColor(cmd.color, idx);
-		sprite2D_->SetUVTransform(cmd.uvTransform);
+		sprite2D_->SetUVTransform(cmd.uvTransform, idx);
 		IssueDrawCommand(sprite2D_.get(), cmd.texture, cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold, cmd.useLighting, idx);
 	}
 	nextSprite2DInstanceOffset_ = base + static_cast<uint32_t>(sprite2DCommands_.size());

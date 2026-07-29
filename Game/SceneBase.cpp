@@ -7,6 +7,7 @@
 #include "../Math/JsonUtil.h"
 #include "../Engine/Audio/AudioManager.h"
 #include "../Engine/GameObject/ComponentRegistry.h"
+#include "../Engine/GameObject/ObjectArchetypes.h"
 #include "../Engine/Utils/StringUtils.h"
 #include "../Engine/Utils/Logger.h"
 #include "../Engine/Utils/EditorState.h"
@@ -58,7 +59,7 @@ void SceneBase::SaveScene(const std::string& saveName) {
 }
 
 void SceneBase::LoadScene(const std::string& saveName) {
-	ComponentLoadContext ctx{ renderer_, &textures_ };
+	ComponentLoadContext ctx = MakeComponentLoadContext();
 	if (SceneObjectStore::Load(assetFolder_, objects_, ctx, saveName)) {
 		RebindDynamicTextProviders();
 		RebuildDerivedLists();
@@ -148,19 +149,17 @@ void SceneBase::Initialize(Renderer* renderer, Camera* camera, const std::string
 	assetFolder_ = assetFolder;
 	nextScene_ = SceneType::kNone;
 
-	// テクスチャ一覧をまとめてロード（"なし" は白テクスチャ）
+	// テクスチャ一覧を構築する（"なし"は白テクスチャ、それ以外はRescanProjectAssets()が
+	// Resources/配下の画像を全部スキャンして登録する）。以前はここで数枚だけハードコードした
+	// リストを作っていたが、そのリストに無い画像をTextureSelector/ModelRenderComponentの
+	// Inspectorから選ぶと、選択中は動いても保存→再読み込み後に名前解決できず選択が
+	// 消えてしまうバグがあった（textures_に無い名前はFromJsonで見つからずindex=-1に戻るため）。
+	// Resources/配下の画像を漏れなく登録することで、選んだものが必ず再読み込みできるようにする
 	textures_.push_back({ kTextureNone, "なし" });
-	for (const std::string& path : std::vector<std::string>{
-		"Resources/t.png",
-		"Resources/f.png",
-		"Resources/s.png",
-		"Resources/monsterBall.png.png",
-		"Resources/White.png",
-		"Resources/transparent .png", // αTest確認用（板の隙間が透過になっている柵）
-		}) {
-		TextureHandle h = renderer_->LoadTexture(path);
-		textures_.push_back({ h, path.substr(path.find_last_of('/') + 1) });
-	}
+	// LoadScene()より前に呼ぶ必要がある（TextureSelector/ModelRenderComponentのFromJsonが
+	// テクスチャ名→index解決にtextures_を使うため）。projectImages_/projectAudioClips_/
+	// projectModels_（プロジェクトパネル用の一覧）の構築もここで済ませる
+	RescanProjectAssets();
 
 	// HUDテーブルはcamera_等をキャプチャするラムダを含むため、Initialize後の状態で一度だけ
 	// 構築してキャッシュする（CreateHud/RebindDynamicTextProviders/DrawImGuiが毎回作り直さない）
@@ -176,16 +175,18 @@ void SceneBase::Initialize(Renderer* renderer, Camera* camera, const std::string
 
 	RebuildDerivedLists();
 
-	RescanProjectAssets(); // プロジェクトパネル（画像/音声）用にResources/を一度走査しておく
 	RescanSavedSnapshots(); // 名前を付けて保存した既存スナップショット一覧を読み込んでおく
 }
 
 void SceneBase::RescanProjectAssets() {
 	projectImages_.clear();
 	projectAudioClips_.clear();
+	projectModels_.clear();
 	namespace fs = std::filesystem;
 	static const std::vector<std::string> kImageExt = { ".png", ".jpg", ".jpeg", ".bmp", ".dds", ".tga" };
 	static const std::vector<std::string> kAudioExt  = { ".wav", ".mp3" };
+	// Model::Initializeが対応する拡張子（.objは自前パーサー、それ以外はAssimp経由）に合わせる
+	static const std::vector<std::string> kModelExt  = { ".obj", ".fbx", ".gltf", ".glb", ".dae" };
 
 	std::error_code ec;
 	if (!fs::exists("Resources", ec)) return;
@@ -199,8 +200,14 @@ void SceneBase::RescanProjectAssets() {
 		std::string name = entry.path().filename().string();
 		if (std::find(kImageExt.begin(), kImageExt.end(), ext) != kImageExt.end()) {
 			projectImages_.push_back({ path, name });
+			// TextureSelector/ModelRenderComponentのInspectorコンボ・保存名の解決に使う
+			// 共有一覧（textures_）にも登録しておく。EnsureTextureRegisteredは名前の
+			// 重複を見て二重登録しないため、毎回のRescanProjectAssets呼び出しでも安全
+			EnsureTextureRegistered(path);
 		} else if (std::find(kAudioExt.begin(), kAudioExt.end(), ext) != kAudioExt.end()) {
 			projectAudioClips_.push_back({ path, name });
+		} else if (std::find(kModelExt.begin(), kModelExt.end(), ext) != kModelExt.end()) {
+			projectModels_.push_back({ path, name });
 		}
 	}
 }
@@ -215,7 +222,22 @@ std::string SceneBase::EnsureTextureRegistered(const std::string& path) {
 	return filename;
 }
 
+ComponentLoadContext SceneBase::MakeComponentLoadContext() {
+	ComponentLoadContext ctx;
+	ctx.renderer = renderer_;
+	ctx.textures = &textures_;
+	ctx.ensureTextureRegistered = [this](const std::string& path) { EnsureTextureRegistered(path); };
+	return ctx;
+}
+
 void SceneBase::AttachTextureAsset(GameObject& obj, const std::string& path) {
+	// Modelはサブメッシュごとのテクスチャ選択をModelRenderComponent自身のInspectorに内蔵した
+	// ため、ドラッグ&ドロップでのTextureSelectorComponent付与は対象外にする
+	// （付けても何にも使われず紛らわしいだけのため。Add Componentメニューと同じ理由）
+	if (obj.GetComponent<ModelRenderComponent>()) {
+		Logger::Log("モデルへの画像ドロップは未対応です。Inspectorのサブメッシュ別テクスチャで選択してください\n");
+		return;
+	}
 	// Cube/Sphere/Sprite Render等の描画コンポーネントが無いと貼り付け先が無いため、
 	// Add Componentメニューの「テクスチャ選択」と同じ前提条件をここでも守る
 	if (!obj.GetComponent<RenderComponentBase>()) {
@@ -228,7 +250,7 @@ void SceneBase::AttachTextureAsset(GameObject& obj, const std::string& path) {
 		// 既に付いている場合は一旦外してから新しいテクスチャ名で作り直す
 		ComponentRegistry::RemoveByTypeName("TextureSelector", obj);
 	}
-	ComponentLoadContext ctx{ renderer_, &textures_ };
+	ComponentLoadContext ctx = MakeComponentLoadContext();
 	nlohmann::json data;
 	data["textureName"] = texName;
 	ComponentRegistry::Create("TextureSelector", obj, ctx, data);
@@ -239,13 +261,39 @@ void SceneBase::AttachAudioAsset(GameObject& obj, const std::string& path) {
 	size_t dot = filename.find_last_of('.');
 	std::string stem = (dot == std::string::npos) ? filename : filename.substr(0, dot);
 
-	ComponentLoadContext ctx{ renderer_, &textures_ };
+	ComponentLoadContext ctx = MakeComponentLoadContext();
 	nlohmann::json data;
 	data["filePath"] = path;
 	data["registeredName"] = stem;
 	data["soundType"] = static_cast<int>(SoundType::SE);
 	data["loop"] = false;
 	ComponentRegistry::Create("AudioSource", obj, ctx, data);
+}
+
+void SceneBase::AttachModelAsset(GameObject& obj, const std::string& path) {
+	// 画像/音声と違い、モデルはそれ自体がRenderComponentBase（ModelRenderComponent）を新規に
+	// 追加する操作のため、既に何か描画コンポーネントが付いている相手には付与しない
+	// （2個目のRenderComponentBaseが付くと、描画ループ・TextureSelectorのどちらからも
+	// 「最初の1個」しか見てもらえず無視される壊れた状態になるため。Add Componentメニューの
+	// 重複防止ガードと同じ理由）
+	if (obj.GetComponent<RenderComponentBase>()) {
+		Logger::Log("モデルのドロップは、まだ描画コンポーネントが付いていないGameObjectにのみ行えます\n");
+		return;
+	}
+
+	// path例: "Resources/Model/teapot/teapot.obj" → directoryPath="Resources/Model/teapot"、
+	// filename="teapot.obj"（Model::Initializeの引数形式に合わせる。ModelRenderComponentの
+	// Add Componentメニューと同じ組み立て方）
+	size_t slashPos = path.find_last_of('/');
+	std::string directoryPath = (slashPos == std::string::npos) ? "Resources" : path.substr(0, slashPos);
+	std::string filename      = (slashPos == std::string::npos) ? path : path.substr(slashPos + 1);
+
+	ComponentLoadContext ctx = MakeComponentLoadContext();
+	nlohmann::json data;
+	data["directoryPath"] = directoryPath;
+	data["filename"] = filename;
+	data["hasAnimation"] = false;
+	ComponentRegistry::Create("ModelRender", obj, ctx, data);
 }
 
 namespace {
@@ -557,6 +605,7 @@ void SceneBase::Render(float deltaTime) {
 		gizmoController_.UpdateGizmo(gizmoTargets_, renderer_, activeView, activeProj);
 		gizmoController_.UpdatePicking2D(screenTargets_, renderer_);
 		gizmoController_.UpdateGizmo2D(screenTargets_, renderer_);
+		gizmoController_.UpdateContextMenu(renderer_);
 	}
 
 	for (auto& obj : objects_) {
@@ -575,10 +624,18 @@ void SceneBase::Render(float deltaTime) {
 	colliderSystem_.ResolveAndDraw(gizmoTargets_, isPlaying_, renderer_, activeView, activeProj, !useGameCamera);
 
 	// 各ライトコンポーネントが自分のSetter呼び出しとデバッグ表示を行う（ILightComponent経由で汎用処理）。
-	// SyncToRenderer（実際のライティング反映）はどちらの表示中でも必要、デバッグ可視化はScene表示中のみ
+	// SyncToRenderer（実際のライティング反映）はどちらの表示中でも必要、デバッグ可視化はScene表示中のみ。
+	// ループ前に一旦Directional/Point/Spotの有効フラグを全部リセットしておく（削除されたコンポーネントの
+	// 光源が有効なまま残り続けるのを防ぐ。詳細はResetPerFrameEnableFlagsのコメント参照）。
+	// Point/SpotLightは複数配置できるため、種類ごとに「今フレーム何番目に見つかったか」を数えて
+	// SceneLightの配列インデックスとして渡す（GetLightType()でダウンキャストせずに種類判定する）
+	renderer_->GetLight().ResetPerFrameEnableFlags();
+	uint32_t lightSlotCounters[3] = { 0, 0, 0 }; // kDirectional/kPoint/kSpotの順（LightType参照）
 	for (auto& obj : objects_) {
 		if (auto* light = obj->GetComponent<ILightComponent>()) {
-			light->SyncToRenderer(renderer_, obj->GetWorldTransform());
+			uint32_t& slot = lightSlotCounters[static_cast<int>(light->GetLightType())];
+			light->SyncToRenderer(renderer_, obj->GetWorldTransform(), slot);
+			slot++;
 			if (!useGameCamera) {
 				light->DrawGizmoVisualization(renderer_, obj->GetWorldTransform(), activeView, activeProj);
 			}
@@ -609,6 +666,50 @@ void SceneBase::Render(float deltaTime) {
 	// 無視する（Inspectorの名前欄でEnterを押しただけでシーン遷移してしまう等を防ぐ）
 	if (!ImGui::GetIO().WantCaptureKeyboard) {
 		HandleSceneTransitionInput();
+	}
+
+	// エディタUI表示中のみ、シーン遷移前に保存確認を挟む（Releaseビルド・F11で隠した実プレイ中は
+	// 従来通り即座に遷移させる。保存確認はエディタ機能であって最終的なゲームプレイには不要なため）。
+	// HandleSceneTransitionInputと"Objects"パネルの手動切替ボタン、どちらもnextScene_へ代入する
+	// だけなので、ここで一箇所だけ横取りすれば両方をカバーできる
+	if (EditorState::GetInstance().IsUiVisible()) {
+		if (nextScene_ != SceneType::kNone && !showTransitionSavePrompt_) {
+			pendingTransitionRequest_ = nextScene_;
+			nextScene_ = SceneType::kNone; // 確認が済むまでSceneManagerには見せない
+			showTransitionSavePrompt_ = true;
+			ImGui::OpenPopup("シーン遷移の確認##SceneTransitionSavePrompt");
+		}
+		if (showTransitionSavePrompt_) {
+			DrawTransitionSavePrompt();
+		}
+	}
+}
+
+void SceneBase::DrawTransitionSavePrompt() {
+	// OpenPopupは要求が発生した最初のフレームだけ呼べばよいが、BeginPopupModalは
+	// 表示され続ける間、毎フレーム呼ぶ必要がある（ImGuiの標準的なモーダルの使い方）
+	if (ImGui::BeginPopupModal("シーン遷移の確認##SceneTransitionSavePrompt", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::Text("現在のシーンを保存しますか？");
+		ImGui::Separator();
+		if (ImGui::Button("保存して進む", ImVec2(140, 0))) {
+			SaveScene();
+			nextScene_ = pendingTransitionRequest_;
+			showTransitionSavePrompt_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("保存せず進む", ImVec2(140, 0))) {
+			nextScene_ = pendingTransitionRequest_;
+			showTransitionSavePrompt_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル", ImVec2(100, 0))) {
+			pendingTransitionRequest_ = SceneType::kNone;
+			showTransitionSavePrompt_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 	}
 }
 
@@ -661,7 +762,7 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 	}
 	if (!ImGui::BeginPopup("AddComponentPopup")) return;
 
-	ComponentLoadContext ctx{ renderer_, &textures_ };
+	ComponentLoadContext ctx = MakeComponentLoadContext();
 
 	// 既定値のまま追加してよい型は、選んだ瞬間に追加してポップアップを閉じる
 	auto instantAddCategory = [&](const std::string& categoryLabel, const std::vector<ComponentMenuEntry>& items) {
@@ -681,15 +782,25 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 	// ---- 描画：コンストラクタ引数や兄弟コンポーネントへの依存があるため個別UIのまま残す ----
 	ImGui::SeparatorText("描画");
 
+	// RenderComponentBase系（Cube/Sphere/Triangle/Model/Sprite Render）は、描画ループ
+	// （SceneBase::Render）もTextureSelector/Mirrorの依存解決もGetComponent<RenderComponentBase>()の
+	// 「最初の1個」だけを見る前提のため、1GameObjectに2個目を追加できてしまうと後から追加した方が
+	// 無言で無視される（テクスチャが反映されない、Transformの解釈がis3D/is2Dの食い違いで壊れる等）。
+	// ここで既に1個持っていたら「モデル描画」「スプライト描画」の追加自体をブロックする
+	bool alreadyHasRenderComponent = selected.GetComponent<RenderComponentBase>() != nullptr;
+
 	// ModelRender：directoryPath/filenameを指定してLoadModelを呼び直す必要がある
 	if (ImGui::TreeNode("モデル描画")) {
 		static char modelDirBuf[256] = "Resources";
 		static char modelFileBuf[256] = "";
 		static bool modelHasAnimation = false;
+		if (alreadyHasRenderComponent) {
+			ImGui::TextDisabled("(既に描画コンポーネントが付いています。先に既存のものを削除してください)");
+		}
 		ImGui::InputText("ディレクトリ", modelDirBuf, sizeof(modelDirBuf));
 		ImGui::InputText("ファイル名", modelFileBuf, sizeof(modelFileBuf));
 		ImGui::Checkbox("アニメーションあり", &modelHasAnimation);
-		bool canAdd = modelFileBuf[0] != '\0';
+		bool canAdd = modelFileBuf[0] != '\0' && !alreadyHasRenderComponent;
 		if (!canAdd) ImGui::BeginDisabled();
 		if (ImGui::Button("追加##ModelRender")) {
 			nlohmann::json data;
@@ -706,32 +817,44 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 
 	// SpriteRender：is3Dのみコンストラクタ引数。テクスチャ自体はTextureSelectorComponentを
 	// 別途追加して選ぶ運用（RenderComponentBase::textureHandleは初期値kTextureNoneのまま）。
-	// is3D=false（2D UI）を選んだ場合はTransformComponent::is2Dも合わせてtrueにし、
-	// TextRenderComponent::CreateStatic等と同じくスクリーン空間ピクセル座標として扱えるようにする
+	// is3D/TransformComponent::is2Dは常に逆の関係になるよう両方向で同期する（is3D=falseなら
+	// is2D=true、is3D=trueならis2D=false。片方向だけ更新すると、既にis2D=trueだったオブジェクトへ
+	// 3D扱いで追加した場合にis3DとTransformの座標系が食い違い、3D空間にpx単位の座標がそのまま
+	// 使われて描画がおかしくなる不具合が過去に発生したため）
 	if (ImGui::TreeNode("スプライト描画")) {
 		static bool spriteIs3D = true;
+		if (alreadyHasRenderComponent) {
+			ImGui::TextDisabled("(既に描画コンポーネントが付いています。先に既存のものを削除してください)");
+		}
 		ImGui::Checkbox("3D", &spriteIs3D);
+		if (alreadyHasRenderComponent) ImGui::BeginDisabled();
 		if (ImGui::Button("追加##SpriteRender")) {
 			nlohmann::json data;
 			data["is3D"] = spriteIs3D;
 			ComponentRegistry::Create("SpriteRender", selected, ctx, data);
+			TransformComponent* transform = selected.GetComponent<TransformComponent>();
+			transform->is2D = !spriteIs3D;
 			if (!spriteIs3D) {
-				TransformComponent* transform = selected.GetComponent<TransformComponent>();
-				transform->is2D = true;
 				transform->translationSpeed = 1.0f; transform->translationMin = 0.0f; transform->translationMax = 1920.0f;
 				transform->scaleSpeed = 1.0f; transform->scaleMin = 1.0f; transform->scaleMax = 1920.0f;
-				RebuildDerivedLists(); // is2Dが変わったのでscreenTargets_に反映させる
 			}
+			RebuildDerivedLists(); // is2Dが変わったのでgizmoTargets_/screenTargets_に反映させる
 			ImGui::CloseCurrentPopup();
 		}
+		if (alreadyHasRenderComponent) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
 
 	// TextureSelector：同じGameObjectに既にRenderComponentBase系（CubeRender/SphereRender/
-	// SpriteRender等）が付いていることが前提。無ければ追加できないようにする
+	// SpriteRender等）が付いていることが前提。無ければ追加できないようにする。
+	// Modelはサブメッシュごとのテクスチャ選択をModelRenderComponent自身のInspectorに内蔵した
+	// ため、TextureSelectorComponentは対象外にする（付けても何にも使われず紛らわしいだけのため）
 	if (ImGui::TreeNode("テクスチャ選択")) {
+		bool hasModelRender = selected.GetComponent<ModelRenderComponent>() != nullptr;
 		bool hasRenderComponent = selected.GetComponent<RenderComponentBase>() != nullptr;
-		if (!hasRenderComponent) {
+		if (hasModelRender) {
+			ImGui::TextDisabled("(モデルはInspectorのサブメッシュ別テクスチャで選択してください)");
+		} else if (!hasRenderComponent) {
 			ImGui::TextDisabled("(先にCube/Sphere/Sprite Render等を追加してください)");
 		} else if (textures_.empty()) {
 			ImGui::TextDisabled("(利用可能なテクスチャがありません)");
@@ -761,8 +884,14 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 	// （旧ヒエラルキー「HUD/テキストを作成」は専用の新規オブジェクトを作る方式だったが、
 	// こちらは他の描画コンポーネントと同じくAdd Componentから選択中オブジェクトへ付与する）
 	if (ImGui::TreeNode("テキスト描画")) {
+		if (alreadyHasRenderComponent) {
+			ImGui::TextDisabled("(既に描画コンポーネントが付いています。先に既存のものを削除してください)");
+		}
+		static bool textIs3D = false;
+		ImGui::Checkbox("3D（ワールド空間に置く。オフなら従来通り画面UI）", &textIs3D);
 		static bool isDynamicHud = true;
 		ImGui::Checkbox("HUD（動的）", &isDynamicHud);
+		if (alreadyHasRenderComponent) ImGui::BeginDisabled();
 		if (isDynamicHud) {
 			static int hudIndex = 0;
 			// コンボの表示だけ日本語にする。TextRenderComponent::hudKeyに書き込むのは
@@ -779,10 +908,10 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 				if (ImGui::Button("追加##TextRenderHud")) {
 					const auto& [hudName, def] = hudDefinitions_[hudIndex];
 					TextRenderComponent* text = TextRenderComponent::CreateDynamic(
-						selected, renderer_, "Resources/Font/font.ttf", 20.0f, def.canvasWidth, def.canvasHeight);
+						selected, renderer_, "Resources/Font/font.ttf", 20.0f, def.canvasWidth, def.canvasHeight, textIs3D);
 					text->hudKey = hudName;
 					text->SetTextProvider(def.provider);
-					RebuildDerivedLists(); // is2DがtrueになったのでscreenTargets_に反映させる（さもないとHierarchyから選択できなくなる）
+					RebuildDerivedLists(); // is2Dが変わったのでgizmoTargets_/screenTargets_に反映させる（さもないとHierarchyから選択できなくなる）
 					ImGui::CloseCurrentPopup();
 				}
 			}
@@ -803,13 +932,14 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 				std::ofstream file(StringUtils::ConvertString(txtPath), std::ios::binary);
 				file << staticTextContentBuf;
 				file.close();
-				TextRenderComponent::CreateStatic(selected, renderer_, txtPath, "Resources/Font/font.ttf", 32.0f);
+				TextRenderComponent::CreateStatic(selected, renderer_, txtPath, "Resources/Font/font.ttf", 32.0f, textIs3D);
 				staticTextContentBuf[0] = '\0';
-				RebuildDerivedLists(); // is2DがtrueになったのでscreenTargets_に反映させる（さもないとHierarchyから選択できなくなる）
+				RebuildDerivedLists(); // is2Dが変わったのでgizmoTargets_/screenTargets_に反映させる（さもないとHierarchyから選択できなくなる）
 				ImGui::CloseCurrentPopup();
 			}
 			if (!canAdd) ImGui::EndDisabled();
 		}
+		if (alreadyHasRenderComponent) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
 
@@ -822,11 +952,15 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		static char audioNameBuf[128] = "";
 		static int  audioTypeIndex = 0; // 0=BGM, 1=SE
 		static bool audioLoop = true;
+		static bool audioPlayOnAwake = true; // Unity同様、生成直後に自動再生するか
+		static float audioVolume = 1.0f;
 		const char* typeNames[] = { "BGM", "SE" };
 		ImGui::InputText("ファイルパス", audioPathBuf, sizeof(audioPathBuf));
 		ImGui::InputText("登録名", audioNameBuf, sizeof(audioNameBuf));
 		ImGui::Combo("サウンド種別", &audioTypeIndex, typeNames, 2);
 		ImGui::Checkbox("ループ", &audioLoop);
+		ImGui::Checkbox("開始時に自動再生 (Play On Awake)", &audioPlayOnAwake);
+		ImGui::SliderFloat("音量", &audioVolume, 0.0f, 1.0f);
 		bool canAdd = audioPathBuf[0] != '\0' && audioNameBuf[0] != '\0';
 		if (!canAdd) ImGui::BeginDisabled();
 		if (ImGui::Button("追加##AudioSource")) {
@@ -835,6 +969,8 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 			data["registeredName"] = std::string(audioNameBuf);
 			data["soundType"] = audioTypeIndex;
 			data["loop"] = audioLoop;
+			data["playOnAwake"] = audioPlayOnAwake;
+			data["volume"] = audioVolume;
 			ComponentRegistry::Create("AudioSource", selected, ctx, data);
 			audioPathBuf[0] = '\0';
 			audioNameBuf[0] = '\0';
@@ -967,29 +1103,12 @@ void SceneBase::DrawImGui() {
 // ドラッグ&ドロップで親子付けするときのペイロード種別名（BeginDragDropSource/Targetで対応させる）
 static const char* kHierarchyDragDropId = "HIERARCHY_GAMEOBJECT";
 
-// プロジェクトパネル→ヒエラルキー/インスペクターへのドラッグ&ドロップ用ペイロードID（3種）。
-// スクリプトはGetInstantAddCategories()の静的テーブル内のstd::string、画像/音声はSceneBaseの
-// メンバprojectImages_/projectAudioClips_内のstd::stringを指すポインタを運ぶ
-// （テーブル/メンバとも、ドラッグ中に再構築されない限りアドレスが安定しているため）
-static const char* kProjectComponentDragDropId = "PROJECT_COMPONENT_TYPE";
-static const char* kProjectImageDragDropId     = "PROJECT_IMAGE_ASSET";
+// プロジェクトパネル→ヒエラルキー/インスペクターへのドラッグ&ドロップ用ペイロードID。
+// SceneBaseのメンバprojectImages_/projectAudioClips_/projectModels_内のstd::stringを指すポインタを運ぶ
+// （ドラッグ中に再構築されない限りアドレスが安定しているため）。
+// kProjectImageDragDropIdだけはModelRenderComponent.cppからも使うためTextureEntry.hで共有定義している
 static const char* kProjectAudioDragDropId     = "PROJECT_AUDIO_ASSET";
-
-namespace {
-// ComponentManager.cpp内のTypeNameToColor()と同じアルゴリズム（意図的な複製）。typeNameの
-// 文字列ハッシュから色を決めるので、同じ型は常に同じ色のアイコンになる
-ImVec4 ComponentIconColor(const std::string& typeName) {
-	uint32_t hash = 2166136261u; // FNV-1a
-	for (char ch : typeName) {
-		hash ^= static_cast<uint8_t>(ch);
-		hash *= 16777619u;
-	}
-	float hue = static_cast<float>(hash % 360) / 360.0f;
-	float r, g, b;
-	ImGui::ColorConvertHSVtoRGB(hue, 0.55f, 0.85f, r, g, b);
-	return ImVec4(r, g, b, 1.0f);
-}
-} // namespace
+static const char* kProjectModelDragDropId     = "PROJECT_MODEL_ASSET";
 
 // 選択中GameObjectの詳細（名前・コンポーネント一覧・Add Component）を表示するUnity風の
 // Inspectorウィンドウ。空のGameObject自体の新規生成はHierarchyパネルの「+ 新規追加」のみとし、
@@ -1014,6 +1133,11 @@ void SceneBase::DrawInspector() {
 		// MainCamera/PlayerはそれぞれGameビューのカメラ選出・AutoRunComponentのプレイヤー判定で
 		// 特別扱いされる（SceneBase::Render参照）。他は自由な文字列でよい
 		if (ImGui::InputTextWithHint("タグ", "(例: MainCamera, Player)", tagBuf, sizeof(tagBuf))) selected->tag = tagBuf;
+		// Floorのような極端に平たい/巨大なオブジェクトはBounding Sphereでのレイキャスト判定が
+		// 実際の見た目よりはるかに巨大になり、Sceneビュー上のどこをクリックしてもこのオブジェクトが
+		// 最優先でヒットしてしまい「何もない空間をクリックしても選択解除できない」原因になる。
+		// ONにするとクリックでの選択・選択解除の判定対象から外れる（コンボボックス等からの選択は影響しない）
+		ImGui::Checkbox("クリック選択の対象外にする（Floor等の平たい形状向け）", &selected->excludeFromPicking);
 		ImGui::Separator();
 
 		selected->DrawImGui();
@@ -1024,7 +1148,7 @@ void SceneBase::DrawInspector() {
 	}
 
 	// プロジェクトパネルからのドロップ受け入れ：残りの余白へ落とすと選択中オブジェクトへ
-	// スクリプト/画像/音声を付与する。BeginDragDropTargetは直前に何か「アイテム」が要るため、
+	// 画像/音声を付与する。BeginDragDropTargetは直前に何か「アイテム」が要るため、
 	// ヒエラルキーの余白ドロップ（##hierarchy_root_drop）と同じくInvisibleButtonを土台にする
 	// （幅・高さのどちらかが0だとIM_ASSERTで落ちる既知のクラッシュパターンのため最低1pxを保証）
 	ImVec2 dropSize = ImGui::GetContentRegionAvail();
@@ -1033,11 +1157,6 @@ void SceneBase::DrawInspector() {
 	ImGui::InvisibleButton("##inspector_asset_drop", dropSize);
 	if (ImGui::BeginDragDropTarget()) {
 		if (selected) {
-			if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(kProjectComponentDragDropId)) {
-				const std::string& typeName = *(*static_cast<const std::string* const*>(p->Data));
-				ComponentLoadContext ctx{ renderer_, &textures_ };
-				ComponentRegistry::Create(typeName, *selected, ctx, nlohmann::json::object());
-			}
 			if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(kProjectImageDragDropId)) {
 				const std::string& path = *(*static_cast<const std::string* const*>(p->Data));
 				AttachTextureAsset(*selected, path);
@@ -1046,6 +1165,10 @@ void SceneBase::DrawInspector() {
 				const std::string& path = *(*static_cast<const std::string* const*>(p->Data));
 				AttachAudioAsset(*selected, path);
 			}
+			if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(kProjectModelDragDropId)) {
+				const std::string& path = *(*static_cast<const std::string* const*>(p->Data));
+				AttachModelAsset(*selected, path);
+			}
 		}
 		ImGui::EndDragDropTarget();
 	}
@@ -1053,8 +1176,8 @@ void SceneBase::DrawInspector() {
 	ImGui::End();
 }
 
-// Unityの「Projectビュー」相当。ユーザーが追加したスクリプト（登録済みコンポーネント）・
-// 画像・音声をカテゴリごとのアイコングリッドとして表示する。アイコンをドラッグして
+// Unityの「Projectビュー」相当。ユーザーが追加した画像・音声をカテゴリごとの
+// アイコングリッドとして表示する。アイコンをドラッグして
 // ヒエラルキーのオブジェクト行、またはインスペクターへドロップすると実際に付与される
 void SceneBase::DrawProjectPanel() {
 	ImGui::Begin("プロジェクト##Project");
@@ -1101,40 +1224,9 @@ void SceneBase::DrawProjectPanel() {
 		ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoDragDrop;
 	int columnCount = (std::max)(1, static_cast<int>(ImGui::GetContentRegionAvail().x / kTileWidth));
 
-	// ---- スクリプト：既定値のまま追加できる登録済みコンポーネントを、カテゴリの見出しは
-	// 出さずフラットに並べる（画像/音声と並ぶ1カテゴリという位置づけのため） ----
-	ImGui::SeparatorText("スクリプト");
-	int col = 0;
-	for (const auto& category : GetInstantAddCategories()) {
-		for (const auto& item : category.items) {
-			ImGui::PushID(item.typeName.c_str());
-			ImGui::BeginGroup();
-			ImVec4 color = ComponentIconColor(item.typeName);
-			ImGui::ColorButton("##icon", color, kIconFlags, ImVec2(kIconSize, kIconSize));
-			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + kTileWidth - 4.0f);
-			ImGui::TextWrapped("%s", item.displayName.c_str());
-			ImGui::PopTextWrapPos();
-			ImGui::EndGroup();
-			// BeginGroup/EndGroup直後の「最後のアイテム」はTextWrapped（ID無し）のため、
-			// 何もフラグを渡さずBeginDragDropSourceを呼ぶとIM_ASSERT(0)で落ちる
-			// （ComponentManager.cppの「::」ドラッグハンドルで踏んだのと同じ既知のクラッシュパターン）。
-			// ImGuiDragDropFlags_SourceAllowNullIDでID無し要素からのドラッグを明示的に許可する
-			if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-				const std::string* typeNamePtr = &item.typeName;
-				ImGui::SetDragDropPayload(kProjectComponentDragDropId, &typeNamePtr, sizeof(const std::string*));
-				ImGui::Text("%s", item.displayName.c_str());
-				ImGui::EndDragDropSource();
-			}
-			ImGui::PopID();
-			col++;
-			if (col < columnCount) ImGui::SameLine(0.0f, 12.0f);
-			else col = 0;
-		}
-	}
-
 	// ---- 画像：Resources/配下から見つかった画像ファイルを実テクスチャのサムネイルで表示する ----
 	ImGui::SeparatorText("画像");
-	col = 0;
+	int col = 0;
 	for (const auto& asset : projectImages_) {
 		ImGui::PushID(asset.path.c_str());
 		ImGui::BeginGroup();
@@ -1158,6 +1250,9 @@ void SceneBase::DrawProjectPanel() {
 		if (col < columnCount) ImGui::SameLine(0.0f, 12.0f);
 		else col = 0;
 	}
+	// 最後の行が列を埋めきらなかった場合、直前のSameLine()でカーソルがまだ同じ行に
+	// 残っている。そのままだと次のSeparatorTextがこの行の続きに描かれてしまうため改行する
+	if (col != 0) ImGui::NewLine();
 
 	// ---- 音声：波形サムネイル等は無いため、種別を示す固定色のアイコンにする ----
 	ImGui::SeparatorText("音声");
@@ -1181,6 +1276,34 @@ void SceneBase::DrawProjectPanel() {
 		if (col < columnCount) ImGui::SameLine(0.0f, 12.0f);
 		else col = 0;
 	}
+	if (col != 0) ImGui::NewLine();
+
+	// ---- モデル：サムネイル描画（オフスクリーンレンダリング）は無いため、音声と同じく
+	// 種別を示す固定色のアイコンにする。「まだ描画コンポーネントが付いていないGameObjectに
+	// ドラッグすると新規にModelRenderComponentが付く」点だけ画像/音声と挙動が異なる
+	// （AttachModelAsset参照）
+	ImGui::SeparatorText("モデル");
+	col = 0;
+	for (const auto& asset : projectModels_) {
+		ImGui::PushID(asset.path.c_str());
+		ImGui::BeginGroup();
+		ImGui::ColorButton("##icon", ImVec4(0.85f, 0.55f, 0.25f, 1.0f), kIconFlags, ImVec2(kIconSize, kIconSize));
+		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + kTileWidth - 4.0f);
+		ImGui::TextWrapped("%s", asset.displayName.c_str());
+		ImGui::PopTextWrapPos();
+		ImGui::EndGroup();
+		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+			const std::string* pathPtr = &asset.path;
+			ImGui::SetDragDropPayload(kProjectModelDragDropId, &pathPtr, sizeof(const std::string*));
+			ImGui::Text("%s", asset.displayName.c_str());
+			ImGui::EndDragDropSource();
+		}
+		ImGui::PopID();
+		col++;
+		if (col < columnCount) ImGui::SameLine(0.0f, 12.0f);
+		else col = 0;
+	}
+	if (col != 0) ImGui::NewLine();
 
 	ImGui::End();
 }
@@ -1299,13 +1422,8 @@ void SceneBase::DrawHierarchy() {
 				dropped->SetParent(obj);
 				RebuildDerivedLists();
 			}
-			// プロジェクトパネルからのドロップ：このオブジェクトへスクリプト/画像/音声を付与する
+			// プロジェクトパネルからのドロップ：このオブジェクトへ画像/音声を付与する
 			// （Unityの「アセットをHierarchyのオブジェクトへドラッグ」に相当）
-			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kProjectComponentDragDropId)) {
-				const std::string& typeName = *(*static_cast<const std::string* const*>(payload->Data));
-				ComponentLoadContext ctx{ renderer_, &textures_ };
-				ComponentRegistry::Create(typeName, *obj, ctx, nlohmann::json::object());
-			}
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kProjectImageDragDropId)) {
 				const std::string& path = *(*static_cast<const std::string* const*>(payload->Data));
 				AttachTextureAsset(*obj, path);
@@ -1313,6 +1431,10 @@ void SceneBase::DrawHierarchy() {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kProjectAudioDragDropId)) {
 				const std::string& path = *(*static_cast<const std::string* const*>(payload->Data));
 				AttachAudioAsset(*obj, path);
+			}
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kProjectModelDragDropId)) {
+				const std::string& path = *(*static_cast<const std::string* const*>(payload->Data));
+				AttachModelAsset(*obj, path);
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -1389,6 +1511,28 @@ void SceneBase::DrawHierarchy() {
 			RebuildDerivedLists();
 		}
 		ImGui::EndDragDropTarget();
+	}
+
+	// 何もない場所を右クリックすると新規作成メニューを出す（Unityの「Hierarchyで右クリック→Create」
+	// 相当）。BeginPopupContextItemは直前のアイテム（##hierarchy_root_dropのInvisibleButton）に紐付く。
+	// ObjectArchetypes（キューブ/球/光源/カメラ等の完成形ひな形）は既存のJSON復元パイプラインに
+	// そのまま流し込める形のJSONを返す設計で用意されていたが、これまでどこからも呼ばれていなかった
+	// ため、ここで初めて実際に使う
+	if (ImGui::BeginPopupContextItem("HierarchyCreateContext")) {
+		if (ImGui::MenuItem("空のオブジェクト")) {
+			CreateObject("新規追加 " + std::to_string(objects_.size() + 1));
+			RebuildDerivedLists();
+		}
+		ImGui::Separator();
+		ComponentLoadContext ctx = MakeComponentLoadContext();
+		for (const auto& archetypeName : ObjectArchetypes::GetNames()) {
+			if (ImGui::MenuItem(archetypeName.c_str())) {
+				GameObject& obj = CreateObject(archetypeName);
+				obj.FromJson(ObjectArchetypes::GetJson(archetypeName), ctx);
+				RebuildDerivedLists();
+			}
+		}
+		ImGui::EndPopup();
 	}
 
 	// 右クリックメニューで「削除」が押されていれば、木構造の描画が全部終わった今ここで実際に消す

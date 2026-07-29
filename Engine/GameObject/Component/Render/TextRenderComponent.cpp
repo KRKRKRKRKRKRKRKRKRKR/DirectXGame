@@ -59,13 +59,28 @@ void SetupScreenSpaceTransform(GameObject& obj) {
 	transform->scaleSpeed = 1.0f; transform->scaleMin = 1.0f; transform->scaleMax = 1920.0f;
 }
 
+// 3Dワールド空間のオブジェクトとしてTransformComponentを設定する（is2Dはデフォルトのfalseのまま、
+// 他のCube/Sphere等と同じ範囲に揃える）。SpriteRenderComponentのAdd Componentメニューと同じく、
+// is2D/is3Dが食い違ったまま保存されるとDrawSprite3D/2Dの座標解釈がズレて描画がおかしくなるため、
+// is2Dを明示的にfalseへ揃えておく
+void SetupWorldSpaceTransform(GameObject& obj) {
+	TransformComponent* transform = obj.GetComponent<TransformComponent>();
+	transform->is2D = false;
+}
+
+// 焼き込みビットマップの実寸(px)は、3Dワールド空間ではそのままだと巨大すぎる（例:
+// 200x50pxの文字なら200x50ユニットになってしまう）。「100px = 1ユニット」という単純な換算で
+// 実用的なサイズに縮小する。他のオブジェクトと同じくGizmoのScaleで後から自由に調整できる
+constexpr float kWorldSpaceTextPixelsPerUnit = 100.0f;
+
 } // namespace
 
 TextRenderComponent* TextRenderComponent::CreateStatic(GameObject& obj, Renderer* renderer,
-	const std::string& txtPath, const std::string& fontPath, float fontSize) {
-	SetupScreenSpaceTransform(obj);
+	const std::string& txtPath, const std::string& fontPath, float fontSize, bool is3D) {
+	if (is3D) SetupWorldSpaceTransform(obj); else SetupScreenSpaceTransform(obj);
 
 	TextRenderComponent* textRender = obj.AddComponent<TextRenderComponent>();
+	textRender->is3D = is3D;
 	textRender->txtFilePath = txtPath;
 	textRender->fontFilePath = fontPath;
 	textRender->fontSize = fontSize;
@@ -73,22 +88,25 @@ TextRenderComponent* TextRenderComponent::CreateStatic(GameObject& obj, Renderer
 
 	// 箱(Transform.scale)の初期値は表示上の基準サイズに合わせる。txt/フォントが見つからず
 	// Load()が失敗した場合はビットマップ実寸が0のままなのでscaleは{0,0,1}になる（見えないだけ）
-	obj.GetTransform().scale = { textRender->GetNativeWidth(), textRender->GetNativeHeight(), 1.0f };
+	float unitScale = is3D ? (1.0f / kWorldSpaceTextPixelsPerUnit) : 1.0f;
+	obj.GetTransform().scale = { textRender->GetNativeWidth() * unitScale, textRender->GetNativeHeight() * unitScale, 1.0f };
 	return textRender;
 }
 
 TextRenderComponent* TextRenderComponent::CreateDynamic(GameObject& obj, Renderer* renderer,
-	const std::string& fontPath, float fontSize, uint32_t canvasWidth, uint32_t canvasHeight) {
-	SetupScreenSpaceTransform(obj);
+	const std::string& fontPath, float fontSize, uint32_t canvasWidth, uint32_t canvasHeight, bool is3D) {
+	if (is3D) SetupWorldSpaceTransform(obj); else SetupScreenSpaceTransform(obj);
 
 	TextRenderComponent* textRender = obj.AddComponent<TextRenderComponent>();
+	textRender->is3D = is3D;
 	textRender->fontFilePath = fontPath;
 	textRender->fontSize = fontSize;
 	textRender->canvasWidth = canvasWidth;
 	textRender->canvasHeight = canvasHeight;
 	textRender->LoadDynamic(renderer);
 
-	obj.GetTransform().scale = { textRender->GetNativeWidth(), textRender->GetNativeHeight(), 1.0f };
+	float unitScale = is3D ? (1.0f / kWorldSpaceTextPixelsPerUnit) : 1.0f;
+	obj.GetTransform().scale = { textRender->GetNativeWidth() * unitScale, textRender->GetNativeHeight() * unitScale, 1.0f };
 	return textRender;
 }
 
@@ -185,8 +203,13 @@ void TextRenderComponent::Draw(Renderer* renderer, const Transform& transform, f
 
 	// 箱の大きさ(transform.scale、Gizmoで自由に変更できる)とフォントサイズ(ラスタライズ解像度)は
 	// 独立させる。SpriteRenderComponentと同じくtransformをそのまま使い、テクスチャは箱に合わせて
-	// 伸縮する（fontSizeを上げると同じ箱の中で文字が高解像度になるだけで、箱自体は変わらない）
-	renderer->DrawSprite2D(transform, color, textureHandle, lighting, UVTransform{}, blendMode, blendStrength, alphaTest, alphaThreshold);
+	// 伸縮する（fontSizeを上げると同じ箱の中で文字が高解像度になるだけで、箱自体は変わらない）。
+	// is3D（SpriteRenderComponentと同じ意味）に応じてDrawSprite3D/2Dを切り替える
+	if (is3D) {
+		renderer->DrawSprite3D(transform, color, textureHandle, lighting, UVTransform{}, blendMode, blendStrength, alphaTest, alphaThreshold);
+	} else {
+		renderer->DrawSprite2D(transform, color, textureHandle, lighting, UVTransform{}, blendMode, blendStrength, alphaTest, alphaThreshold);
+	}
 }
 
 void TextRenderComponent::DrawImGui(const char* namePrefix) {
@@ -233,6 +256,7 @@ void TextRenderComponent::ToJson(nlohmann::json& out) const {
 	out["canvasWidth"] = canvasWidth;
 	out["canvasHeight"] = canvasHeight;
 	out["hudKey"] = hudKey;
+	out["is3D"] = is3D;
 }
 
 void TextRenderComponent::FromJson(const nlohmann::json& in) {
@@ -246,4 +270,5 @@ void TextRenderComponent::FromJson(const nlohmann::json& in) {
 	canvasWidth = in.value("canvasWidth", canvasWidth);
 	canvasHeight = in.value("canvasHeight", canvasHeight);
 	hudKey = in.value("hudKey", hudKey);
+	is3D = in.value("is3D", is3D);
 }

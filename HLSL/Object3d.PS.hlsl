@@ -16,6 +16,41 @@ cbuffer BlendData : register(b2)
     float gAlphaThreshold;
 };
 
+// SceneLight.h の PointLight/SpotLight と1対1で対応させること（フィールド順・16バイト境界も含む）。
+// cbuffer内の配列要素は必ず16バイト境界から詰まるため、各構造体のサイズは16の倍数にしてある
+static const uint kMaxPointLights = 128;
+static const uint kMaxSpotLights  = 128;
+
+struct PointLightData
+{
+    float3 position;
+    float  intensity;
+
+    float3 color;
+    uint   enabled;
+
+    float  radius;
+    float  decay;
+    float2 pad;
+};
+
+struct SpotLightData
+{
+    float3 position;
+    float  intensity;
+
+    float3 direction;
+    uint   enabled;
+
+    float3 color;
+    float  cosAngle;
+
+    float  cosFalloffStart;
+    float  distance;
+    float  decay;
+    float  pad;
+};
+
 cbuffer LightData : register(b0)
 {
     // --- Directional Light ---
@@ -45,31 +80,11 @@ cbuffer LightData : register(b0)
     uint   gEnableRim;
     float2 gPad1;
 
-    // --- Point Light ---
-    float3 gPointPosition;
-    float  gPointIntensity;
+    // --- Point Light（複数対応）---
+    PointLightData gPointLights[kMaxPointLights];
 
-    float3 gPointColor;
-    uint   gEnablePoint;
-
-    float  gPointRadius;
-    float  gPointDecay;
-    float2 gPad2;
-
-    // --- Spot Light ---
-    float3 gSpotPosition;
-    float  gSpotIntensity;
-
-    float3 gSpotDirection;
-    uint   gEnableSpot;
-
-    float3 gSpotColor;
-    float  gSpotCosAngle;
-
-    float  gSpotCosFalloffStart;
-    float  gSpotDistance;
-    float  gSpotDecay;
-    float  gPad3;
+    // --- Spot Light（複数対応）---
+    SpotLightData gSpotLights[kMaxSpotLights];
 };
 
 struct PixelShaderOutput
@@ -137,16 +152,18 @@ PixelShaderOutput main(VertexShaderOutput input)
             }
         }
 
-        // ---- Point Light ----
-        if (gEnablePoint != 0)
+        // ---- Point Lights（複数対応、有効なものだけ加算）----
+        for (uint pi = 0; pi < kMaxPointLights; ++pi)
         {
-            float3 toLight  = gPointPosition - input.worldPosition;
+            if (gPointLights[pi].enabled == 0) continue;
+
+            float3 toLight  = gPointLights[pi].position - input.worldPosition;
             float  distance = length(toLight);
             float3 lightDir = toLight / max(distance, 1e-5f);
             float  NdotL    = saturate(dot(normal, lightDir));
 
-            float attenuation = pow(saturate(1.0f - distance / max(gPointRadius, 1e-4f)), gPointDecay);
-            float3 radiance   = gPointColor * gPointIntensity * attenuation;
+            float attenuation = pow(saturate(1.0f - distance / max(gPointLights[pi].radius, 1e-4f)), gPointLights[pi].decay);
+            float3 radiance   = gPointLights[pi].color * gPointLights[pi].intensity * attenuation;
 
             diffuse += NdotL * radiance;
 
@@ -156,20 +173,22 @@ PixelShaderOutput main(VertexShaderOutput input)
             }
         }
 
-        // ---- Spot Light ----
-        if (gEnableSpot != 0)
+        // ---- Spot Lights（複数対応、有効なものだけ加算）----
+        for (uint si = 0; si < kMaxSpotLights; ++si)
         {
-            float3 toLight  = gSpotPosition - input.worldPosition;
+            if (gSpotLights[si].enabled == 0) continue;
+
+            float3 toLight  = gSpotLights[si].position - input.worldPosition;
             float  distance = length(toLight);
             float3 lightDir = toLight / max(distance, 1e-5f);
             float  NdotL    = saturate(dot(normal, lightDir));
 
-            float distanceAttenuation = pow(saturate(1.0f - distance / max(gSpotDistance, 1e-4f)), gSpotDecay);
-            float cosAngle            = dot(-lightDir, normalize(gSpotDirection));
-            float spotAttenuation     = saturate((cosAngle - gSpotCosAngle) / max(gSpotCosFalloffStart - gSpotCosAngle, 1e-4f));
+            float distanceAttenuation = pow(saturate(1.0f - distance / max(gSpotLights[si].distance, 1e-4f)), gSpotLights[si].decay);
+            float cosAngle            = dot(-lightDir, normalize(gSpotLights[si].direction));
+            float spotAttenuation     = saturate((cosAngle - gSpotLights[si].cosAngle) / max(gSpotLights[si].cosFalloffStart - gSpotLights[si].cosAngle, 1e-4f));
 
             float  attenuation = distanceAttenuation * spotAttenuation;
-            float3 radiance    = gSpotColor * gSpotIntensity * attenuation;
+            float3 radiance    = gSpotLights[si].color * gSpotLights[si].intensity * attenuation;
 
             diffuse += NdotL * radiance;
 

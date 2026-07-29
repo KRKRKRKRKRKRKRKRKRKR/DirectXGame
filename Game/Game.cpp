@@ -3,9 +3,10 @@
 #include "../Engine/GameObject/ComponentRegistration.h"
 #include "../Engine/Utils/EditorState.h"
 
-void Game::Initialize(Renderer* renderer, Camera* camera) {
+void Game::Initialize(Renderer* renderer, Camera* camera, Window* window) {
 	renderer_ = renderer;
 	camera_ = camera;
+	window_ = window;
 	RegisterEngineComponents(); // JSON保存/復元のためのコンポーネント型登録（シーン初期化前に一度だけ）
 	sceneManager_.Initialize(renderer, camera, SceneType::kTitle);
 }
@@ -35,6 +36,46 @@ void Game::Render() {
 	sceneManager_.Render(deltaTime_);
 	if (EditorState::GetInstance().IsUiVisible()) {
 		DrawImGui();
+
+		// アプリを閉じようとした（×ボタン/Alt+F4でWindow::closeRequested_が立った）場合、
+		// エディタUI表示中だけ保存確認モーダルを挟む
+		if (window_ && window_->IsCloseRequested() && !showQuitSavePrompt_) {
+			showQuitSavePrompt_ = true;
+			ImGui::OpenPopup("アプリを閉じる確認##QuitSavePrompt");
+		}
+		if (showQuitSavePrompt_) {
+			DrawQuitSavePrompt();
+		}
+	} else if (window_ && window_->IsCloseRequested()) {
+		// UI非表示（Releaseビルド既定・F11で隠した実プレイ中）はモーダルを表示する手段が無いため、
+		// 保存確認自体はエディタ専用機能と割り切り、これまで通り即座に閉じる
+		window_->ConfirmClose();
+	}
+}
+
+void Game::DrawQuitSavePrompt() {
+	if (ImGui::BeginPopupModal("アプリを閉じる確認##QuitSavePrompt", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::Text("現在のシーンを保存してから閉じますか？");
+		ImGui::Separator();
+		if (ImGui::Button("保存して閉じる", ImVec2(140, 0))) {
+			if (IScene* scene = sceneManager_.GetCurrentScene()) scene->RequestSave();
+			window_->ConfirmClose();
+			showQuitSavePrompt_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("保存せず閉じる", ImVec2(140, 0))) {
+			window_->ConfirmClose();
+			showQuitSavePrompt_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル", ImVec2(100, 0))) {
+			window_->CancelCloseRequest();
+			showQuitSavePrompt_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 	}
 }
 

@@ -18,9 +18,12 @@ public:
 	float   ambient = 0.2f;
 	float   halfLambertPower = 2.0f;
 
+	LightType GetLightType() const override { return LightType::kDirectional; }
+
 	// transform.rotationをTransformMath::EulerRadiansToDirectionで方向ベクトルに変換し、
-	// Renderer::GetLight()のSetter経由でSceneLightへ反映する（Upload()を確実に通すため）
-	void SyncToRenderer(Renderer* renderer, const Transform& transform) const override;
+	// Renderer::GetLight()のSetter経由でSceneLightへ反映する（Upload()を確実に通すため）。
+	// slotIndexはPoint/Spot用（配列インデックス）のため、単一枠のDirectionalは使わない
+	void SyncToRenderer(Renderer* renderer, const Transform& transform, uint32_t slotIndex) const override;
 
 	// transform.translationに黄色い球、方向へラインを描画する（デバッグ可視化）
 	void DrawGizmoVisualization(Renderer* renderer, const Transform& transform, const Matrix4x4& view, const Matrix4x4& proj) const override;

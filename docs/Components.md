@@ -43,7 +43,7 @@ obj.DrawImGui(); // Transform/Render/Colliderの項目がまとめて描画さ�
 |---|---|---|
 | `transform` | `Transform`（scale/rotation/translation） | 実データ本体 |
 | `scaleSpeed`, `scaleMin`, `scaleMax` | `float` | ImGuiドラッグの刻み幅・範囲（Scale用） |
-| `rotationSpeed` | `float` | 回転ドラッグの刻み幅（範囲は常に±π固定） |
+| `rotationSpeed` | `float` | 回転ドラッグの刻み幅（Inspector上は度数法で表示・編集、範囲は常に±180度固定。内部の`transform.rotation`はラジアンのまま） |
 | `translationSpeed`, `translationMin`, `translationMax` | `float` | ImGuiドラッグの刻み幅・範囲（Translation用） |
 | `is2D` | `bool` | trueならSprite2D向けの2D表示（Pos(px)/Size(px)+Z軸回転のみ、`DragFloat2`使用）に切り替わる |
 

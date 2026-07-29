@@ -17,14 +17,16 @@ public:
 
 	// GameObjectに「.txtを読んで表示するText」として必要な一式（TransformComponentの2D設定＋
 	// TextRenderComponent追加＋Load()＋箱の初期scale）をまとめてセットアップする。
-	// PlayScene側は「GameObjectを作ってこれを呼ぶ」だけでよく、is2D等の設定を毎回書かずに済む
+	// PlayScene側は「GameObjectを作ってこれを呼ぶ」だけでよく、is2D等の設定を毎回書かずに済む。
+	// is3D=trueの場合はスクリーン空間(px座標)ではなく、通常の3Dワールド空間のTransformとして
+	// セットアップする（SpriteRenderComponentのis3Dと同じ意味）
 	static TextRenderComponent* CreateStatic(GameObject& obj, Renderer* renderer,
-		const std::string& txtPath, const std::string& fontPath, float fontSize);
+		const std::string& txtPath, const std::string& fontPath, float fontSize, bool is3D = false);
 
 	// GameObjectに「SetText()で毎フレーム内容を差し替えるHUD用Text」として必要な一式を
 	// まとめてセットアップする（Camera座標表示等）
 	static TextRenderComponent* CreateDynamic(GameObject& obj, Renderer* renderer,
-		const std::string& fontPath, float fontSize, uint32_t canvasWidth, uint32_t canvasHeight);
+		const std::string& fontPath, float fontSize, uint32_t canvasWidth, uint32_t canvasHeight, bool is3D = false);
 
 	// txtFilePath/fontFilePathを読み込み、合成ビットマップを作ってtextureHandleを更新する。
 	// フォント/txtが見つからない場合はfalseを返し、textureHandleはkTextureNoneのまま（描画スキップ）
@@ -80,6 +82,11 @@ public:
 
 	// true: txtFilePathを使わずSetText()で内容を差し替える運用（Camera座標表示等のHUD向け）
 	bool dynamicText = false;
+
+	// SpriteRenderComponent::is3Dと同じ意味。falseならSprite2Dと同じスクリーン空間UI
+	// （Renderer::DrawSprite2D、TransformComponent::is2D=trueのpx座標）、trueなら通常の
+	// 3Dワールド空間オブジェクト（Renderer::DrawSprite3D、is2D=falseの通常Transform）として描画する
+	bool is3D = false;
 	// dynamicText時に確保する固定テクスチャサイズ(px)。SetText()の文字列がこれを超えるとクリップされる
 	uint32_t canvasWidth = 512;
 	uint32_t canvasHeight = 48;

@@ -1,17 +1,14 @@
 #include "PointLightComponent.h"
 #include "../../ComponentRegistry.h"
 #include "../../../Graphics/Renderer/Renderer.h"
+#include "../../../Graphics/Lighting/SceneLight.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include <string>
 
-void PointLightComponent::SyncToRenderer(Renderer* renderer, const Transform& transform) const {
+void PointLightComponent::SyncToRenderer(Renderer* renderer, const Transform& transform, uint32_t slotIndex) const {
+	lastSlotIndex_ = slotIndex;
 	auto& light = renderer->GetLight();
-	light.SetEnablePointLight(enabled);
-	light.SetPointPosition(transform.translation);
-	light.SetPointColor(color);
-	light.SetPointIntensity(intensity);
-	light.SetPointRadius(radius);
-	light.SetPointDecay(decay);
+	light.SetPointLight(slotIndex, enabled, transform.translation, color, intensity, radius, decay);
 }
 
 void PointLightComponent::DrawGizmoVisualization(Renderer* renderer, const Transform& transform, const Matrix4x4& view, const Matrix4x4& proj) const {
@@ -36,6 +33,15 @@ void PointLightComponent::DrawImGui(const char* namePrefix) {
 	ImGui::SliderFloat(intensityLabel.c_str(), &intensity, 0.0f, 5.0f);
 	ImGui::SliderFloat(radiusLabel.c_str(), &radius, 0.1f, 30.0f);
 	ImGui::SliderFloat(decayLabel.c_str(), &decay, 0.1f, 4.0f);
+
+	// シーン全体で同時に効く点光源は最大SceneLight::LightData::kMaxPointLights個までという
+	// 固定長配列の上限があるため、常に上限を明記しつつ、このインスタンスが実際に上限を
+	// 超えて無効化されている場合は警告を出す（lastSlotIndex_は直近のSyncToRendererでキャッシュ済み）
+	ImGui::TextDisabled("(シーン全体で同時に有効な点光源は最大%u個まで)", SceneLight::LightData::kMaxPointLights);
+	if (enabled && lastSlotIndex_ >= SceneLight::LightData::kMaxPointLights) {
+		ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.1f, 1.0f),
+			"上限を超えているため、この光源は反映されていません（%u個目）", lastSlotIndex_ + 1);
+	}
 }
 
 REGISTER_SIMPLE_COMPONENT(PointLightComponent, "PointLight", "点光源", "ライティング");

@@ -32,6 +32,11 @@ public:
     void RegisterSound(const std::string& name, Sound* sound, SoundType type, bool loop = false);
     void UnregisterSound(Sound* sound);
 
+    // Sound*から対応するSoundEntryを引く（AudioSourceComponentのInspectorが、DrawImGui()の
+    // グローバルパネルと同じ実体（loop/volume）を直接読み書きできるようにするため。
+    // 二重に状態を持つとパネルとコンポーネント側の表示がズレるので、これで一本化する）
+    SoundEntry* FindEntry(Sound* sound);
+
     IXAudio2*            GetXAudio2()   const { return xAudio2_.Get(); }
     IXAudio2SubmixVoice* GetBGMSubmix() const { return bgmSubmix_; }
     IXAudio2SubmixVoice* GetSESubmix()  const { return seSubmix_; }

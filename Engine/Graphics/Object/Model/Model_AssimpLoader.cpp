@@ -52,8 +52,28 @@ Model::ModelData Model::LoadModelFileWithAssimp(
 	// （頂点ループ内でボーン名からindexを引くため）
 	LoadSkeletonAndAnimation(scene);
 
+	// 各aiMaterialのdiffuseテクスチャパスを先に解決しておく（サブメッシュ側からmMaterialIndexで引く）
+	std::vector<std::string> materialTexturePaths(scene->mNumMaterials);
+	for (unsigned int mi = 0; mi < scene->mNumMaterials; ++mi) {
+		aiMaterial* material = scene->mMaterials[mi];
+		if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+			aiString texturePath;
+			material->GetTexture(aiTextureType_DIFFUSE, 0, &texturePath);
+			materialTexturePaths[mi] = directoryPath + "/" + texturePath.C_Str();
+		}
+	}
+
+	// マルチメッシュ/マルチマテリアル対応：aiMesh1個＝サブメッシュ1個として扱う
+	// （Assimpは元々マテリアルが違うポリゴンを別々のaiMeshに分割して渡してくるため、
+	// mMaterialIndexをそのままサブメッシュのテクスチャ解決に使える）
 	for (unsigned int m = 0; m < scene->mNumMeshes; ++m) {
 		const aiMesh* mesh = scene->mMeshes[m];
+
+		SubMeshData subMesh;
+		subMesh.vertexOffset = static_cast<uint32_t>(modelData.vertices.size());
+		if (mesh->mMaterialIndex < materialTexturePaths.size()) {
+			subMesh.material.textureFilePath = materialTexturePaths[mesh->mMaterialIndex];
+		}
 
 		// このメッシュの頂点ごとに、影響するボーンを最大4本まで集計する
 		// aiBone::mWeights[] は「このボーンが影響する頂点のリスト」という逆引き形式なので、
@@ -128,17 +148,15 @@ Model::ModelData Model::LoadModelFileWithAssimp(
 				}
 			}
 		}
+
+		subMesh.vertexCount = static_cast<uint32_t>(modelData.vertices.size()) - subMesh.vertexOffset;
+		modelData.subMeshes.push_back(subMesh);
 	}
 
-	// 最初に見つかったdiffuseテクスチャのパスをマテリアルとして採用
-	for (unsigned int mi = 0; mi < scene->mNumMaterials; ++mi) {
-		aiMaterial* material = scene->mMaterials[mi];
-		if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
-			aiString texturePath;
-			material->GetTexture(aiTextureType_DIFFUSE, 0, &texturePath);
-			modelData.material.textureFilePath = directoryPath + "/" + texturePath.C_Str();
-			break;
-		}
+	// メッシュが1個も無いファイルへの安全策：空のサブメッシュを1個用意しておく
+	// （Model::Initializeは常に1個以上のsubMeshesを期待するため）
+	if (modelData.subMeshes.empty()) {
+		modelData.subMeshes.push_back(SubMeshData{});
 	}
 
 	return modelData;

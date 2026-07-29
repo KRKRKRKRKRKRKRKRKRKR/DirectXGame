@@ -6,7 +6,10 @@
 // Draw()内でDrawSprite3D/DrawSprite2Dのどちらを呼ぶか切り替える
 class SpriteRenderComponent : public RenderComponentBase {
 public:
-	explicit SpriteRenderComponent(bool is3D) : is3D(is3D) {}
+	// RenderComponentBase::lightingは既定でtrueだが、Spriteは頂点法線が常に固定(-Z向き)の
+	// 平面のため、ライティングをかけると光源の向きによって一律に暗くなるだけで見た目が不自然になる。
+	// Sprite2D/Sprite3Dどちらも既定は無効（Unlit）にしておき、必要な場合だけ手動でオンにする運用にする
+	explicit SpriteRenderComponent(bool is3D) : is3D(is3D) { lighting = false; }
 
 	void Draw(Renderer* renderer, const Transform& transform, float deltaTime) const override;
 

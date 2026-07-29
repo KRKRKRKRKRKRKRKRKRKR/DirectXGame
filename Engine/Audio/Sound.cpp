@@ -137,6 +137,7 @@ void Sound::Play(bool loop, SoundType type) {
     assert(!audioData_.empty() && "Sound::Load を先に呼んでください");
 
     Stop();
+    paused_ = false; // 新規再生なので一時停止状態はクリアする
 
     AudioManager& am = AudioManager::GetInstance();
     IXAudio2* xa2 = am.GetXAudio2();
@@ -165,6 +166,7 @@ void Sound::Play(bool loop, SoundType type) {
 }
 
 void Sound::Stop() {
+    paused_ = false;
     if (!sourceVoice_) return;
 
     // AudioManager::Finalize() 後は XAudio2 が null になる。
@@ -180,6 +182,20 @@ void Sound::Stop() {
     sourceVoice_ = nullptr;
 }
 
+void Sound::Pause() {
+    if (!sourceVoice_ || paused_) return;
+    // FlushSourceBuffersを呼ばないことがStop()（完全停止）との違い。キュー済みバッファの
+    // 消費位置はSourceVoice内部に残るため、Start()で一時停止した位置から再開できる
+    sourceVoice_->Stop();
+    paused_ = true;
+}
+
+void Sound::Resume() {
+    if (!sourceVoice_ || !paused_) return;
+    sourceVoice_->Start();
+    paused_ = false;
+}
+
 void Sound::SetVolume(float volume) {
     if (sourceVoice_) {
         sourceVoice_->SetVolume(volume);
@@ -187,7 +203,7 @@ void Sound::SetVolume(float volume) {
 }
 
 bool Sound::IsPlaying() const {
-    if (!sourceVoice_) return false;
+    if (!sourceVoice_ || paused_) return false;
     XAUDIO2_VOICE_STATE state;
     sourceVoice_->GetState(&state);
     return state.BuffersQueued > 0;

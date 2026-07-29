@@ -21,6 +21,7 @@ public:
 
 	Renderer* GetRenderer() { return &renderer_; }
 	Camera*   GetCamera()   { return &camera_; }
+	Window*   GetWindow()   { return &window_; }
 	float     GetDeltaTime() { return deltaTime_.GetDeltaTime(); }
 
 private:

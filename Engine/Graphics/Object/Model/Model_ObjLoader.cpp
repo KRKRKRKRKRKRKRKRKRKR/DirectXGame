@@ -4,27 +4,33 @@
 #include <sstream>
 #include <cassert>
 
-Model::MaterialData Model::LoadMaterialTemplateFile(
+std::unordered_map<std::string, Model::MaterialData> Model::LoadMaterialTemplateFile(
 	const std::string& directoryPath, const std::string& filename) {
 
-	MaterialData materialData;
+	// マルチマテリアル対応：newmtlごとに1エントリを登録し、以降のmap_Kdをそのエントリへ書き込む
+	std::unordered_map<std::string, MaterialData> materials;
 	std::ifstream file(directoryPath + "/" + filename);
-	if (!file.is_open()) return materialData;
+	if (!file.is_open()) return materials;
 
 	std::string line;
+	std::string currentName;
 	while (std::getline(file, line)) {
 		std::istringstream s(line);
 		std::string identifier;
 		s >> identifier;
 
-		if (identifier == "map_Kd") {
+		if (identifier == "newmtl") {
+			s >> currentName;
+			materials[currentName] = MaterialData{};
+
+		} else if (identifier == "map_Kd" && !currentName.empty()) {
 			std::string textureFilename;
 			s >> textureFilename;
 			// OBJと同じフォルダにテクスチャがあると想定してパスを結合
-			materialData.textureFilePath = directoryPath + "/" + textureFilename;
+			materials[currentName].textureFilePath = directoryPath + "/" + textureFilename;
 		}
 	}
-	return materialData;
+	return materials;
 }
 
 Model::ModelData Model::LoadObjFile(
@@ -34,6 +40,12 @@ Model::ModelData Model::LoadObjFile(
 	std::vector<Vector2> texcoords;
 	std::vector<Vector3> normals;
 	ModelData modelData;
+
+	std::unordered_map<std::string, MaterialData> materials;
+	// modelData.subMeshesと1対1対応する、構築中だけ使うマテリアル名の並び
+	// （usemtlが一度も無いファイルは空文字列キーのグループ1つになる＝マテリアル無し扱い）
+	std::vector<std::string> subMeshMaterialNames;
+	std::string currentMaterialName;
 
 	std::ifstream file(directoryPath + "/" + filename);
 	assert(file.is_open());
@@ -47,7 +59,10 @@ Model::ModelData Model::LoadObjFile(
 		if (identifier == "mtllib") {
 			std::string mtlFilename;
 			s >> mtlFilename;
-			modelData.material = LoadMaterialTemplateFile(directoryPath, mtlFilename);
+			materials = LoadMaterialTemplateFile(directoryPath, mtlFilename);
+
+		} else if (identifier == "usemtl") {
+			s >> currentMaterialName;
 
 		} else if (identifier == "v") {
 			Vector3 p;
@@ -67,6 +82,16 @@ Model::ModelData Model::LoadObjFile(
 			normals.push_back(n);
 
 		} else if (identifier == "f") {
+			// 直前のサブメッシュと使うマテリアルが違う（または初回の面）なら新しいサブメッシュを
+			// 開始する。Blender等のエクスポートは同じマテリアルの面がusemtlごとに連続して
+			// 並ぶため、これだけで実用上十分にグループ化できる
+			if (subMeshMaterialNames.empty() || subMeshMaterialNames.back() != currentMaterialName) {
+				SubMeshData sm;
+				sm.vertexOffset = static_cast<uint32_t>(modelData.vertices.size());
+				modelData.subMeshes.push_back(sm);
+				subMeshMaterialNames.push_back(currentMaterialName);
+			}
+
 			// 全頂点トークンを読む（三角形・四角形・n角形対応）
 			std::vector<VertexData> faceVerts;
 			std::string token;
@@ -98,8 +123,22 @@ Model::ModelData Model::LoadObjFile(
 				modelData.vertices.push_back(faceVerts[0]);
 				modelData.vertices.push_back(faceVerts[i + 1]);
 				modelData.vertices.push_back(faceVerts[i]);
+				modelData.subMeshes.back().vertexCount += 3;
 			}
 		}
 	}
+
+	// マテリアル名→実データ（テクスチャパス）を解決する
+	for (size_t i = 0; i < modelData.subMeshes.size(); ++i) {
+		auto it = materials.find(subMeshMaterialNames[i]);
+		if (it != materials.end()) modelData.subMeshes[i].material = it->second;
+	}
+
+	// "f"行が1個も無いファイルへの安全策：空のサブメッシュを1個用意しておく
+	// （Model::Initializeは常に1個以上のsubMeshesを期待するため）
+	if (modelData.subMeshes.empty()) {
+		modelData.subMeshes.push_back(SubMeshData{});
+	}
+
 	return modelData;
 }

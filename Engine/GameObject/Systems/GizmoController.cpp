@@ -471,6 +471,36 @@ void GizmoController::SnapAndDrawGuides(Transform* dragged, GameObject* draggedO
 	}
 }
 
+void GizmoController::UpdateContextMenu(Renderer* renderer) {
+	bool hasSelection = selection3D_.targetIndex >= 0 || selection2D_.targetIndex >= 0 || !multiSelected2D_.empty();
+
+	// IsMouseDragging(..., threshold)で「ボタンが下りてから閾値以上動いたか」を見て、動いていなければ
+	// Look用の右ドラッグではなく単発クリックだったとみなす。WantCaptureMouseでImGuiパネル上のクリックは除外し、
+	// ToSceneLocalでSceneビューの矩形内かどうかも確認する（ビュー外での右クリックには反応させない）
+	if (hasSelection && ImGui::IsMouseReleased(ImGuiMouseButton_Right)
+		&& !ImGui::IsMouseDragging(ImGuiMouseButton_Right, 4.0f)
+		&& !ImGui::GetIO().WantCaptureMouse) {
+		ImVec2 local = ToSceneLocal(ImGui::GetMousePos(), renderer);
+		bool insideViewport = local.x >= 0.0f && local.y >= 0.0f
+			&& local.x <= static_cast<float>(renderer->GetSceneViewportWidth())
+			&& local.y <= static_cast<float>(renderer->GetSceneViewportHeight());
+		if (insideViewport) {
+			ImGui::OpenPopup("GizmoOperationContextMenu");
+		}
+	}
+
+	if (ImGui::BeginPopup("GizmoOperationContextMenu")) {
+		// Collider編集中はRotateに意味がないため無効化する（DrawImGuiのラジオボタンと同じ制約）
+		bool disableRotate = editCollider_;
+		if (ImGui::MenuItem("移動", nullptr, gizmoOperation_ == ImGuizmo::TRANSLATE)) gizmoOperation_ = ImGuizmo::TRANSLATE;
+		if (disableRotate) ImGui::BeginDisabled();
+		if (ImGui::MenuItem("回転", nullptr, gizmoOperation_ == ImGuizmo::ROTATE)) gizmoOperation_ = ImGuizmo::ROTATE;
+		if (disableRotate) ImGui::EndDisabled();
+		if (ImGui::MenuItem("拡縮", nullptr, gizmoOperation_ == ImGuizmo::SCALE)) gizmoOperation_ = ImGuizmo::SCALE;
+		ImGui::EndPopup();
+	}
+}
+
 void GizmoController::SetSelected(GameObject* obj, const std::vector<GameObject*>& targets) {
 	for (size_t i = 0; i < targets.size(); i++) {
 		if (targets[i] == obj) {

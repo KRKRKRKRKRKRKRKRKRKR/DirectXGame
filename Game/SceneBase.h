@@ -33,6 +33,7 @@ public:
 	void Render(float deltaTime) override;
 
 	SceneType GetNextScene() const override { return nextScene_; }
+	void RequestSave() override { SaveScene(); }
 
 protected:
 	// SceneBase::Initializeの最後（RebuildDerivedLists()の直前）に呼ばれる。
@@ -46,6 +47,14 @@ protected:
 	Renderer* renderer_ = nullptr;
 	Camera* camera_ = nullptr;
 	SceneType nextScene_ = SceneType::kNone;
+
+	// 「常に警告」方式の保存確認：実際に変更があったかは追跡せず、シーン遷移が要求される
+	// （nextScene_がセットされる）たびに毎回確認モーダルを挟む。HandleSceneTransitionInputと
+	// Objects/Gizmoパネルの手動切替ボタンのどちらも最終的にnextScene_へ代入するだけなので、
+	// Render()の末尾でnextScene_を一旦ここに退避し、確認が済むまでSceneManagerに見せない
+	SceneType pendingTransitionRequest_ = SceneType::kNone;
+	bool showTransitionSavePrompt_ = false;
+	void DrawTransitionSavePrompt();
 
 	// SceneManagerから渡される素材フォルダ名（例:"Play"/"Title"）。SaveScene/LoadScene内で
 	// Resources/{assetFolder_}/ui.json・Resources/{assetFolder_}/scene.jsonの組み立てに使う
@@ -154,27 +163,37 @@ protected:
 	void DrawHierarchy();
 	void DrawInspector();
 
-	// Unityの「Projectビュー」相当。ユーザーが追加したスクリプト（登録済みコンポーネント）・
-	// 画像・音声をアイコンの一覧として表示し、ドラッグ&ドロップでオブジェクトへ付与できるようにする
+	// Unityの「Projectビュー」相当。ユーザーが追加した画像・音声・モデルをアイコンの一覧として
+	// 表示し、ドラッグ&ドロップでオブジェクトへ付与できるようにする
 	void DrawProjectPanel();
 
-	// プロジェクトパネルの画像/音声セクション1件分（Resources/配下から見つけたファイル）
+	// プロジェクトパネルの画像/音声/モデルセクション1件分（Resources/配下から見つけたファイル）
 	struct ProjectAssetEntry { std::string path; std::string displayName; };
 
-	// Resources/配下を走査してprojectImages_/projectAudioClips_を作り直す。Initialize()で1回、
-	// 以降はプロジェクトパネルの「更新」ボタンから呼ばれる
+	// Resources/配下を走査してprojectImages_/projectAudioClips_/projectModels_を作り直す。
+	// Initialize()で1回、以降はプロジェクトパネルの「更新」ボタンから呼ばれる
 	void RescanProjectAssets();
 	std::vector<ProjectAssetEntry> projectImages_;
 	std::vector<ProjectAssetEntry> projectAudioClips_;
+	std::vector<ProjectAssetEntry> projectModels_;
 
 	// pathの画像がtextures_（TextureSelectorComponentが参照する共有テクスチャ一覧）に
 	// 無ければLoadTexture+登録し、表示名（textures_内でのname）を返す
 	std::string EnsureTextureRegistered(const std::string& path);
 
+	// ComponentLoadContext{renderer_, &textures_, ensureTextureRegisteredコールバック}の組み立てを
+	// 1箇所にまとめる（呼び出し箇所が複数あり、フィールドが増えるたびに全箇所を書き換えずに済むように）
+	ComponentLoadContext MakeComponentLoadContext();
+
 	// プロジェクトパネルからのドロップ受け入れ処理。画像はRenderComponentBaseを持つ相手にのみ
 	// TextureSelectorComponentを付与/差し替え、音声はAudioSourceComponentを付与する
 	void AttachTextureAsset(GameObject& obj, const std::string& path);
 	void AttachAudioAsset(GameObject& obj, const std::string& path);
+
+	// モデルはそれ自体がRenderComponentBase（ModelRenderComponent）なので、画像/音声と違い
+	// 「RenderComponentBaseを持たないGameObjectにのみ」新規追加する（既に何か描画コンポーネントが
+	// 付いている相手には、Sprite/Model重複防止ガードと同じ理由で付与しない）
+	void AttachModelAsset(GameObject& obj, const std::string& path);
 
 	// プロジェクトパネルの「+ 新規スクリプト」ボタンの実処理。baseNameから
 	// className="{baseName}Component"（既にComponent終わりなら付け足さない）、

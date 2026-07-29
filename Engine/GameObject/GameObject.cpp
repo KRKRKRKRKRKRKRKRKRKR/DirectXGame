@@ -6,6 +6,7 @@
 #include "../../Math/MatrixMath.h"
 #include "../../Externals/ImGuizmo/src/ImGuizmo.h"
 #include <algorithm>
+#include <unordered_set>
 
 void GameObject::SetParent(GameObject* newParent) {
 	if (newParent == this) return;
@@ -70,6 +71,7 @@ void GameObject::ToJson(nlohmann::json& out) const {
 	out["name"] = name;
 	out["tag"] = tag;
 	out["excludeFromGizmoList"] = excludeFromGizmoList;
+	out["excludeFromPicking"] = excludeFromPicking;
 
 	const Transform& t = transformComponent_->transform;
 	out["transform"]["translation"] = Vector3ToJson(t.translation);
@@ -93,6 +95,7 @@ void GameObject::FromJson(const nlohmann::json& in, const ComponentLoadContext& 
 	name = in.value("name", name);
 	tag = in.value("tag", tag);
 	excludeFromGizmoList = in.value("excludeFromGizmoList", false);
+	excludeFromPicking = in.value("excludeFromPicking", false);
 
 	components_.Clear();
 	transformComponent_ = components_.AddComponent<TransformComponent>();
@@ -105,8 +108,20 @@ void GameObject::FromJson(const nlohmann::json& in, const ComponentLoadContext& 
 	}
 
 	if (in.contains("components")) {
+		// TextureSelector/Mirrorは兄弟のRenderComponentBase系/CubeRenderComponentへの生ポインタを
+		// コンストラクタで即座にdereferenceするため、依存先より先に生成されるとnullptrになりクラッシュする。
+		// Inspectorのドラッグ&ドロップ並び替え（ComponentManager::Move）で保存順が入れ替わりうるため、
+		// 依存する側の型は常に後回しにして2パスで生成する
+		static const std::unordered_set<std::string> kDeferredTypes = { "TextureSelector", "Mirror" };
 		for (const auto& entry : in["components"]) {
-			ComponentRegistry::Create(entry.value("type", std::string()), *this, ctx, entry["data"]);
+			std::string type = entry.value("type", std::string());
+			if (kDeferredTypes.count(type)) continue;
+			ComponentRegistry::Create(type, *this, ctx, entry["data"]);
+		}
+		for (const auto& entry : in["components"]) {
+			std::string type = entry.value("type", std::string());
+			if (!kDeferredTypes.count(type)) continue;
+			ComponentRegistry::Create(type, *this, ctx, entry["data"]);
 		}
 	}
 }

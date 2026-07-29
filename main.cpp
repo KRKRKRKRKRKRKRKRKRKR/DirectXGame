@@ -11,7 +11,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int) {
 	Game   game;
 
 	engine.Initialize(KwindowTitle, KwindowWidth, KwindowHeight);
-	game.Initialize(engine.GetRenderer(), engine.GetCamera());
+	game.Initialize(engine.GetRenderer(), engine.GetCamera(), engine.GetWindow());
 
 	while (engine.Update()) {
 		game.Update(engine.GetDeltaTime());

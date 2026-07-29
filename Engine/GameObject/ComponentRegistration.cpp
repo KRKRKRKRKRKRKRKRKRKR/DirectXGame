@@ -23,6 +23,8 @@ void RegisterEngineComponents() {
 				ctx.renderer->LoadModel(dir, file), hasAnimation);
 			c->directoryPath = dir;
 			c->filename = file;
+			// FromJsonがsubMeshTextureNamesを名前→index解決するのに使うため、先に注入しておく
+			c->SetInspectorContext(ctx.renderer, ctx.textures, ctx.ensureTextureRegistered);
 			c->FromJson(data); // RenderComponentBase共通フィールドを反映
 		},
 		[](GameObject& obj) {
@@ -36,11 +38,20 @@ void RegisterEngineComponents() {
 		},
 		"モデル描画");
 
-	// SpriteRenderComponent：is3Dはコンストラクタ引数のため先に読んでから生成する
+	// SpriteRenderComponent：is3Dはコンストラクタ引数のため先に読んでから生成する。
+	// TransformComponent::is2Dはis3Dと常に逆の関係であるべき（is2D=trueならpx座標系、
+	// is3Dはその座標系をどちらのDrawSprite*で解釈するかを決めるため）。過去に、保存済みJSONで
+	// この2つが食い違ったまま保存され（Add Componentメニューがis2Dを一方向にしか揃えていなかった、
+	// または同一GameObjectにSpriteRenderComponentが2個付いて片方だけが正しく同期された等）、
+	// 3D空間にpx単位の座標がそのまま使われてスプライトが描画されない不具合が繰り返し起きたため、
+	// ロードのたびにここで強制的に同期し直す（手動編集・過去の壊れたセーブデータへの保険）
 	ComponentRegistry::Register<SpriteRenderComponent>("SpriteRender",
 		[](GameObject& obj, const ComponentLoadContext&, const nlohmann::json& data) {
 			bool is3D = data.value("is3D", true);
 			obj.AddComponent<SpriteRenderComponent>(is3D)->FromJson(data);
+			if (TransformComponent* transform = obj.GetComponent<TransformComponent>()) {
+				transform->is2D = !is3D;
+			}
 		},
 		[](GameObject& obj) {
 			// TextureSelectorComponentがこのSpriteRenderComponentへの生ポインタを持っている場合、
@@ -55,11 +66,16 @@ void RegisterEngineComponents() {
 
 	// TextRenderComponent：txtFilePath/fontFilePath/fontSize/lineSpacingを読んでからLoad()し直す。
 	// dynamicText（Camera座標表示等）の場合はtxtFilePathを使わないためLoadDynamic()を呼ぶ
-	// （実際の文字列は呼び出し元が毎フレームSetText()で与える必要がある）
+	// （実際の文字列は呼び出し元が毎フレームSetText()で与える必要がある）。
+	// SpriteRenderComponentと同じくis3D/TransformComponent::is2Dは常に逆の関係であるべきなので、
+	// ロードのたびに強制的に同期し直す（過去にSpriteRenderで起きた食い違いバグの再発防止）
 	ComponentRegistry::Register<TextRenderComponent>("TextRender",
 		[](GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {
 			TextRenderComponent* c = obj.AddComponent<TextRenderComponent>();
 			c->FromJson(data);
+			if (TransformComponent* transform = obj.GetComponent<TransformComponent>()) {
+				transform->is2D = !c->is3D;
+			}
 			if (c->dynamicText) {
 				c->LoadDynamic(ctx.renderer);
 			} else {
@@ -100,7 +116,9 @@ void RegisterEngineComponents() {
 			std::string registeredName = data.value("registeredName", std::string());
 			SoundType type = static_cast<SoundType>(data.value("soundType", static_cast<int>(SoundType::BGM)));
 			bool loop = data.value("loop", true);
-			obj.AddComponent<AudioSourceComponent>(filePath, registeredName, type, loop);
+			bool playOnAwake = data.value("playOnAwake", true);
+			float volume = data.value("volume", 1.0f);
+			obj.AddComponent<AudioSourceComponent>(filePath, registeredName, type, loop, playOnAwake, volume);
 		},
 		[](GameObject& obj) { return obj.RemoveComponent<AudioSourceComponent>(); },
 		"オーディオソース");

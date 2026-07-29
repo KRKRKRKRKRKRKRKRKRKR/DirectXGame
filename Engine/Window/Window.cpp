@@ -47,6 +47,15 @@ void Window::Create(const std::wstring& title,int32_t width, int32_t height) {
 }
 
 bool Window::ProcessMessage() {
+    // フレームが何も進行していないこの時点（BeginFrame/コマンドリスト記録の前）でだけ
+    // 実際にDestroyWindowする。ConfirmClose()自体はImGuiモーダルのボタンハンドラ内
+    // （DirectXのコマンドリスト記録中）から呼ばれるため、そこで即座に破棄すると
+    // Present等のフレーム終端処理がまだ済んでいないスワップチェーンを壊すおそれがある
+    if (pendingDestroy_) {
+        pendingDestroy_ = false;
+        if (hwnd_) DestroyWindow(hwnd_);
+    }
+
     MSG msg{};
 
     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -67,6 +76,12 @@ LRESULT CALLBACK Window::WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 	 }
 
     switch (msg) {
+    case WM_CLOSE:
+        // 既定のDestroyWindowを呼ばず、いったん「閉じようとした」ことだけ記録する。
+        // 実際に閉じるかどうか（保存確認モーダルの結果）はGame側が毎フレーム
+        // IsCloseRequested()を見て判断し、ConfirmClose()/CancelCloseRequest()を呼び返す
+        if (instance_) instance_->closeRequested_ = true;
+        return 0;
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;

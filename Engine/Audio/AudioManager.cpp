@@ -69,6 +69,13 @@ void AudioManager::UnregisterSound(Sound* sound) {
         sounds_.end());
 }
 
+SoundEntry* AudioManager::FindEntry(Sound* sound) {
+    for (auto& entry : sounds_) {
+        if (entry.sound == sound) return &entry;
+    }
+    return nullptr;
+}
+
 // ------------------------------------------------------------------ //
 //  音量 / ミュート
 // ------------------------------------------------------------------ //
@@ -102,7 +109,10 @@ void AudioManager::DrawSoundSection(SoundType sectionType) {
 
         // 再生状態インジケーター
         bool playing = entry.sound->IsPlaying();
-        if (playing) {
+        bool paused  = entry.sound->IsPaused();
+        if (paused) {
+            ImGui::TextColored({ 1.0f, 0.8f, 0.2f, 1.0f }, "一時停止中");
+        } else if (playing) {
             ImGui::TextColored({ 0.2f, 1.0f, 0.2f, 1.0f }, "再生中");
         } else {
             ImGui::TextColored({ 0.6f, 0.6f, 0.6f, 1.0f }, "停止中");
@@ -110,11 +120,18 @@ void AudioManager::DrawSoundSection(SoundType sectionType) {
         ImGui::SameLine();
         ImGui::Text("%s", entry.name.c_str());
 
-        // Play / Stop ボタン
+        // Play / Pause(Resume) / Stop ボタン
         if (ImGui::Button("再生")) {
             entry.sound->Play(entry.loop, sectionType);
             entry.sound->SetVolume(entry.volume);
         }
+        ImGui::SameLine();
+        bool canPauseOrResume = paused || playing;
+        if (!canPauseOrResume) ImGui::BeginDisabled();
+        if (ImGui::Button(paused ? "再開" : "一時停止")) {
+            if (paused) entry.sound->Resume(); else entry.sound->Pause();
+        }
+        if (!canPauseOrResume) ImGui::EndDisabled();
         ImGui::SameLine();
         if (ImGui::Button("停止")) {
             entry.sound->Stop();

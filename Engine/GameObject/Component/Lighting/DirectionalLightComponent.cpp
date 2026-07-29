@@ -7,7 +7,8 @@
 #include <string>
 #include <cmath>
 
-void DirectionalLightComponent::SyncToRenderer(Renderer* renderer, const Transform& transform) const {
+void DirectionalLightComponent::SyncToRenderer(Renderer* renderer, const Transform& transform, uint32_t slotIndex) const {
+	(void)slotIndex; // Directionalは単一枠のため未使用
 	auto& light = renderer->GetLight();
 	light.SetEnableDirectional(enabled);
 	light.SetColor(color);
