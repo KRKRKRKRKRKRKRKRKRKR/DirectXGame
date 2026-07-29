@@ -141,6 +141,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Physics\OBBColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GravityComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\PlayerControllerComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GamepadControllerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\HealthComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\AutoRunComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\DirectionalLightComponent.cpp" />
@@ -243,6 +244,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Physics\EnemyBounceComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\EnemyComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\PlayerControllerComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GamepadControllerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\HealthComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\AutoRunComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\Physics.h" />
