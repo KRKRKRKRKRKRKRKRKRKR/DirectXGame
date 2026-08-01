@@ -98,6 +98,16 @@ public:
 	std::string hudKey;
 
 private:
+	// Inspector内のテキストボックスでtxtFilePathの中身を直接編集できるようにする。
+	// editBuffer_はテキストボックスの表示専用（未保存の編集中身）で、「適用」を押すまでは
+	// txtFilePath自体にもビットマップにも反映しない（誤操作でファイルを上書きしないため）
+	void ApplyEditedText();
+
+	// ImGui::InputTextMultilineは素のchar[]バッファを要求する（imgui_stdlib未導入のため、
+	// SceneBase.cppのstaticTextContentBufと同じ固定サイズバッファ方式に合わせる）
+	char editBuffer_[4096] = "";
+	bool editBufferLoaded_ = false; // txtFilePathの中身をeditBuffer_へ読み込み済みか
+
 	TextBitmapBuilder builder_; // dynamicTextはLoad()のたびにフォントファイルを読み直さないよう永続化する
 	uint32_t bitmapWidth_ = 0;
 	uint32_t bitmapHeight_ = 0;

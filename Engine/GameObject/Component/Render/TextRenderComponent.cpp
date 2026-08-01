@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <format>
+#include <cstring>
 
 namespace {
 
@@ -39,6 +40,25 @@ std::vector<char32_t> Utf8Decode(const std::string& utf8) {
 		i += len;
 	}
 	return result;
+}
+
+// txtFilePathの中身をUTF-8のままstd::stringで読み込む（Utf8Decode前の生バイト列）。
+// 日本語ファイル名を正しく開くためwstring変換してから渡すのはLoad()と同じ理由
+bool ReadTxtFileRaw(const std::string& txtFilePath, std::string& out) {
+	std::ifstream txtFile(StringUtils::ConvertString(txtFilePath), std::ios::binary);
+	if (!txtFile.is_open()) return false;
+	std::ostringstream ss;
+	ss << txtFile.rdbuf();
+	out = ss.str();
+	return true;
+}
+
+// srcをInspectorの固定サイズ編集バッファへコピーする（bufSize超過分は切り詰める。
+// マルチバイト文字の途中で切れる可能性はあるが、編集バッファはあくまで表示・入力用であり、
+// 元のtxtFilePath自体はLoad()側で全文読み込むため実害はない）
+template<size_t N>
+void CopyToEditBuffer(char (&buf)[N], const std::string& src) {
+	strncpy_s(buf, src.c_str(), N - 1);
 }
 
 } // namespace
@@ -116,17 +136,13 @@ bool TextRenderComponent::Load(Renderer* renderer) {
 	bitmapHeight_ = 0;
 	textureHandle = kTextureNone;
 
-	// txtFilePathはUTF-8前提（Resources/Text/{name}.txtの{name}はImGuiのInputText由来）。
-	// std::string版のifstreamコンストラクタに直接渡すと実行時ロケールでパスが解釈され、
-	// 日本語ファイル名が正しく開けなくなるため、wstringへ変換してから渡す
-	std::ifstream txtFile(StringUtils::ConvertString(txtFilePath), std::ios::binary);
-	if (!txtFile.is_open()) {
+	// txtFilePathはUTF-8前提（Resources/Text/{name}.txtの{name}はImGuiのInputText由来）
+	std::string raw;
+	if (!ReadTxtFileRaw(txtFilePath, raw)) {
 		Logger::Log(std::format("TextRenderComponent::Load: failed to open txt file '{}'\n", txtFilePath));
 		return false;
 	}
-	std::ostringstream ss;
-	ss << txtFile.rdbuf();
-	std::vector<char32_t> text = Utf8Decode(ss.str());
+	std::vector<char32_t> text = Utf8Decode(raw);
 	if (text.empty()) {
 		Logger::Log(std::format("TextRenderComponent::Load: '{}' is empty after UTF-8 decode\n", txtFilePath));
 		return false;
@@ -148,6 +164,11 @@ bool TextRenderComponent::Load(Renderer* renderer) {
 	textureHandle = renderer->CreateTextureFromPixels(bitmap.width, bitmap.height, bitmap.rgbaPixels.data());
 	bitmapWidth_ = bitmap.width;
 	bitmapHeight_ = bitmap.height;
+
+	// 再読み込みのたびにeditBuffer_をファイルの最新内容へ同期する。編集途中の未保存の変更が
+	// あっても、Load()を明示的に呼び直した時点ではファイル側を正とみなして上書きしてよい
+	CopyToEditBuffer(editBuffer_, raw);
+	editBufferLoaded_ = true;
 	return true;
 }
 
@@ -188,6 +209,22 @@ bool TextRenderComponent::SetText(Renderer* renderer, const std::string& utf8Tex
 bool TextRenderComponent::UpdateDynamicText(Renderer* renderer) {
 	if (!dynamicText || !textProvider_) return false;
 	return SetText(renderer, textProvider_());
+}
+
+void TextRenderComponent::ApplyEditedText() {
+	if (dynamicText || txtFilePath.empty() || !renderer_) return;
+
+	// editBuffer_の内容をtxtFilePathへ書き戻してからLoad()し直す。Load()自体もファイルを
+	// 読み直してeditBuffer_を同期するため、ここではファイル書き込みだけ行えばよい
+	std::ofstream txtFile(StringUtils::ConvertString(txtFilePath), std::ios::binary | std::ios::trunc);
+	if (!txtFile.is_open()) {
+		Logger::Log(std::format("TextRenderComponent::ApplyEditedText: failed to write txt file '{}'\n", txtFilePath));
+		return;
+	}
+	txtFile << editBuffer_;
+	txtFile.close();
+
+	Load(renderer_);
 }
 
 void TextRenderComponent::Draw(Renderer* renderer, const Transform& transform, float deltaTime) const {
@@ -241,6 +278,22 @@ void TextRenderComponent::DrawImGui(const char* namePrefix) {
 		std::string reloadLabel = std::string(namePrefix) + "テキストを再読み込み";
 		if (renderer_ && ImGui::Button(reloadLabel.c_str())) {
 			Load(renderer_);
+		}
+
+		// txtFilePathの中身をInspector内で直接編集できるテキストボックス。「適用」を押すまでは
+		// ファイル・ビットマップどちらにも反映しない（誤操作で上書きしないよう明示操作にする、
+		// Reloadボタンと同じ方針）。編集開始前にeditBuffer_が空ならファイルから一度だけ読み込む
+		if (!editBufferLoaded_ && !txtFilePath.empty()) {
+			std::string raw;
+			if (ReadTxtFileRaw(txtFilePath, raw)) CopyToEditBuffer(editBuffer_, raw);
+			editBufferLoaded_ = true;
+		}
+
+		std::string editLabel = std::string(namePrefix) + "テキスト編集";
+		std::string applyLabel = std::string(namePrefix) + "編集内容を適用";
+		ImGui::InputTextMultiline(editLabel.c_str(), editBuffer_, sizeof(editBuffer_), ImVec2(0.0f, 120.0f));
+		if (renderer_ && !txtFilePath.empty() && ImGui::Button(applyLabel.c_str())) {
+			ApplyEditedText();
 		}
 	}
 }

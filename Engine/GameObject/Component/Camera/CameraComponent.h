@@ -50,6 +50,29 @@ public:
 		Matrix4x4 m = TransformMath::MakeAffineMatrix({ 1.0f, 1.0f, 1.0f }, effective.rotation, effective.translation);
 		return MatrixMath::Inverse(m);
 	}
+
+	// GetViewMatrix(const Transform&)の行列版。GameObject::GetWorldTransform()はワールド行列を
+	// 一度ImGuizmo::DecomposeMatrixToComponents（atan2ベースのEuler分解）でrotation Vector3へ
+	// 分解し直す実装になっているが、この分解規約はTransformMath::MakeAffineMatrixが使う
+	// XMMatrixRotationRollPitchYaw規約と一致しないため、yawが±180度付近を通過する瞬間に
+	// 分解結果が不連続にジャンプし、カメラの向きが突然反転して見える不具合があった
+	// （GamepadCameraLookComponentで毎フレームyawを回し続けると顕在化する）。
+	// ワールド行列をEuler経由で往復させず、行列のまま直接View行列を作ることでこれを回避する
+	Matrix4x4 GetViewMatrixFromWorld(const Matrix4x4& ownerWorldMatrix) const {
+		DirectX::XMMATRIX effectiveWorld = ComputeEffectiveWorldMatrix(ownerWorldMatrix);
+		Matrix4x4 result;
+		DirectX::XMStoreFloat4x4(&result, DirectX::XMMatrixInverse(nullptr, effectiveWorld));
+		return result;
+	}
+
+	// GetViewMatrixFromWorldが実際に見ている位置（positionOffset込みのワールド座標）。
+	// ライティングの鏡面反射計算等、View行列ではなく生の位置が必要な箇所向け
+	Vector3 GetEffectiveWorldPositionFromWorld(const Matrix4x4& ownerWorldMatrix) const {
+		DirectX::XMMATRIX effectiveWorld = ComputeEffectiveWorldMatrix(ownerWorldMatrix);
+		Vector3 result;
+		DirectX::XMStoreFloat3(&result, effectiveWorld.r[3]);
+		return result;
+	}
 	Matrix4x4 GetProjectionMatrix(float aspectRatio) const {
 		return TransformMath::MakePerspectiveForMatrix(DirectX::XMConvertToRadians(fov), aspectRatio, nearClip, farClip);
 	}
@@ -78,5 +101,32 @@ public:
 		farClip = in.value("farClip", farClip);
 		if (in.contains("positionOffset")) positionOffset = Vector3FromJson(in["positionOffset"]);
 		if (in.contains("rotationOffset")) rotationOffset = Vector3FromJson(in["rotationOffset"]);
+	}
+
+private:
+	// GetViewMatrixFromWorld/GetEffectiveWorldPositionFromWorldの共通部分。
+	// ownerWorldMatrixにpositionOffset/rotationOffsetを適用した「実際に見ている」ワールド行列を返す
+	DirectX::XMMATRIX ComputeEffectiveWorldMatrix(const Matrix4x4& ownerWorldMatrix) const {
+		DirectX::XMMATRIX ownerWorld = DirectX::XMLoadFloat4x4(&ownerWorldMatrix);
+
+		// Transform.scaleは意図的に無視する（非一様スケールの親を持っていても視界が歪まないように
+		// GetViewMatrix(const Transform&)と同じ方針）ため、まず回転+平行移動だけを取り出す
+		DirectX::XMVECTOR scale, rotQuat, trans;
+		DirectX::XMMatrixDecompose(&scale, &rotQuat, &trans, ownerWorld);
+		DirectX::XMMATRIX ownerRotTrans = DirectX::XMMatrixRotationQuaternion(rotQuat) *
+			DirectX::XMMatrixTranslationFromVector(trans);
+
+		// positionOffsetはオーナーから見た相対方向なので、オーナーの回転だけで変換してから
+		// ワールド位置へ加算する（GetEffectiveWorldTransformと同じ意味）
+		DirectX::XMMATRIX ownerRotOnly = DirectX::XMMatrixRotationQuaternion(rotQuat);
+		DirectX::XMVECTOR offsetVec = DirectX::XMVectorSet(positionOffset.x, positionOffset.y, positionOffset.z, 0.0f);
+		DirectX::XMVECTOR rotatedOffset = DirectX::XMVector3TransformNormal(offsetVec, ownerRotOnly);
+
+		// rotationOffsetはオーナーの回転行列に対する追加回転として合成する（Euler角のまま加算すると
+		// 再びEuler分解の不連続性を持ち込んでしまうため、行列同士の積で合成する）
+		DirectX::XMMATRIX offsetRot = DirectX::XMMatrixRotationRollPitchYaw(rotationOffset.x, rotationOffset.y, rotationOffset.z);
+		DirectX::XMMATRIX effectiveWorld = offsetRot * ownerRotTrans;
+		effectiveWorld.r[3] = DirectX::XMVectorAdd(effectiveWorld.r[3], rotatedOffset);
+		return effectiveWorld;
 	}
 };

@@ -183,18 +183,26 @@ void Renderer::FlushModels() {
 		model->SetWvpMatrix(cmd.wvp, cmd.world, idx);
 		model->SetColor(cmd.color, idx);
 
-		// ライト・インスタンスオフセットはモデル1個につき1回だけ設定すればよい
-		// （PipelineCommandHelper::ApplyCommonが使うルートパラメータ0/1/2/5とは別のスロットのため、
-		// サブメッシュごとにテクスチャを切り替えて再設定しても壊れない）
-		commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(cmd.useLighting));
-		commandList_->SetGraphicsRoot32BitConstant(4, idx, 0);
-
 		// マルチマテリアル対応：サブメッシュごとに（cmd.subMeshTextures[s]が指定されていれば
 		// それを、無ければkTextureNone＝白のまま）個別にDrawInstancedする
+		//
+		// ルートシグネチャはSetPipelineCommandsForSubMesh（内部でApplyCommon）が設定するため、
+		// 他のルートパラメータ（3, 4）へアクセスする前に必ず最初のサブメッシュ分を呼んでおく。
+		// 直前の描画コマンドがルートシグネチャを設定してくれる保証はない
+		// （そのコンポーネントの描画がゼロ件だとSET_ROOT_CONSTANT_BUFFER_VIEW_INVALIDになる）
 		for (size_t s = 0; s < model->GetSubMeshCount(); ++s) {
 			TextureHandle subTex = (s < cmd.subMeshTextures.size()) ? cmd.subMeshTextures[s] : kTextureNone;
 			model->SetPipelineCommandsForSubMesh(commandList_, &textureManager_, s, subTex,
 				cmd.blendMode, cmd.blendStrength, cmd.enableAlphaTest, cmd.alphaThreshold);
+
+			if (s == 0) {
+				// ライト・インスタンスオフセットはモデル1個につき1回だけ設定すればよい
+				// （PipelineCommandHelper::ApplyCommonが使うルートパラメータ0/1/2/5とは別のスロットのため、
+				// サブメッシュごとにテクスチャを切り替えて再設定しても壊れない）
+				commandList_->SetGraphicsRootConstantBufferView(3, light_.GetGPUAddress(cmd.useLighting));
+				commandList_->SetGraphicsRoot32BitConstant(4, idx, 0);
+			}
+
 			model->DrawSubMesh(commandList_, s, 1, idx);
 		}
 	}

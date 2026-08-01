@@ -590,12 +590,15 @@ void SceneBase::Render(float deltaTime) {
 	Matrix4x4 activeProj = proj;
 	Vector3   activeCamPos = camera_->GetCameraData().position;
 	if (useGameCamera) {
-		Transform camWorld = gameCameraObject->GetWorldTransform();
-		activeView = gameCamera->GetViewMatrix(camWorld);
+		// GetWorldTransform()（ImGuizmoのatan2ベースEuler分解経由）ではなくGetWorldMatrix()を
+		// 直接渡す。Euler往復変換だとyawが±180度付近を通過する瞬間に分解結果が不連続にジャンプし、
+		// カメラの向きが突然反転して見える不具合があったため（GamepadCameraLookComponent参照）
+		Matrix4x4 camWorldMatrix = gameCameraObject->GetWorldMatrix();
+		activeView = gameCamera->GetViewMatrixFromWorld(camWorldMatrix);
 		activeProj = gameCamera->GetProjectionMatrix(
 			camera_->GetAspectRatio(renderer_->GetSceneViewportWidth(), renderer_->GetSceneViewportHeight()));
 		// positionOffset込みの実際の視点位置（ライティングの鏡面反射計算等で使われる）
-		activeCamPos = gameCamera->GetEffectiveWorldTransform(camWorld).translation;
+		activeCamPos = gameCamera->GetEffectiveWorldPositionFromWorld(camWorldMatrix);
 	}
 	renderer_->SetCamera(activeView, activeProj, activeCamPos);
 
