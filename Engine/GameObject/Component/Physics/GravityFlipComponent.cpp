@@ -12,7 +12,8 @@ static const char* kGravityDirectionNames[]        = { "Down", "Up", "Left", "Ri
 static const char* kGravityDirectionDisplayNames[] = { "下", "上", "左", "右" };
 constexpr int kGravityDirectionCount = 4;
 
-void GravityFlipComponent::Update(float deltaTime, Transform& transform) {
+void GravityFlipComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled) return;
 
 	// WASDは世界座標のコンパス方向に固定する（W→+Y面, S→-Y面, A→-X面, D→+X面）。

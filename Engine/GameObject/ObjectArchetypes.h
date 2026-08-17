@@ -25,4 +25,10 @@ private:
 	static nlohmann::json MakePointLightArchetype();
 	static nlohmann::json MakeSpotLightArchetype();
 	static nlohmann::json MakeCameraArchetype();
+
+	// REFLEX敵テンプレート一式（見た目＋当たり判定＋ReflexEnemy(isTemplate=true)）を
+	// まとめて付与するアーキタイプ。型名は文字列でComponentRegistryへ渡すだけなので、
+	// Engine層のこのクラスがGame層の具体的なコンポーネント型を直接知る必要はない
+	// （既存のMakeCubeArchetype等と同じ考え方）
+	static nlohmann::json MakeEnemyTemplateArchetype();
 };

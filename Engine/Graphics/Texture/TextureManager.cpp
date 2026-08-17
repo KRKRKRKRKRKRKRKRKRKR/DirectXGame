@@ -80,6 +80,11 @@ bool TextureManager::UpdatePixels(TextureHandle handle, uint32_t width, uint32_t
 	toCopyDest.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
 	commandList_->ResourceBarrier(1, &toCopyDest);
 
+	// 古いintermediateResourceをこのフレーム中は生存させたまま新しい方に差し替える。
+	// GPUがまだ前回のコピー（このフレームの直前にCreateFromPixelsで積んだ分等）を完了して
+	// いない状態でここに来ると、即座に上書き（=参照カウント0で解放）するとGPUが参照中の
+	// リソースを消してしまい D3D12 ERROR #921 OBJECT_DELETED_WHILE_STILL_IN_USE になる
+	pendingIntermediateResources_.push_back(texRes.intermediateResource);
 	texRes.intermediateResource = UploadTextureData(texRes.resource, image);
 	return true;
 }

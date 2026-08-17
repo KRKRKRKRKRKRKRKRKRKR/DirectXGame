@@ -10,7 +10,7 @@ public:
 	float forwardSpeed = 10.0f; // 1秒あたりの自動前進量
 	float turnSpeed = 8.0f;     // 1秒あたりの左右移動量
 
-	void Update(float deltaTime, Transform& transform) override;
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
 
 	void ToJson(nlohmann::json& out) const override {

@@ -36,7 +36,7 @@ public:
 	// 「1回のジャンプが終わった」という着地イベント自体はGraviTwistのコア仕様として残す
 	int landingEventId = 0;
 
-	void Update(float deltaTime, Transform& transform) override;
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 
 	// 敵に体当たりした際にEnemyComponentから呼ばれる。参考実装のRecoverCount()と同じく
 	// 「1回分だけ回復し、maxDirectionChangeを超えないようクランプ」する（着地時の回復量

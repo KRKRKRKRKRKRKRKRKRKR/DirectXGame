@@ -18,7 +18,8 @@ namespace {
 	}
 }
 
-void EnemyBounceComponent::Update(float deltaTime, Transform& transform) {
+void EnemyBounceComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled) return;
 
 	transform.translation = transform.translation + velocity * deltaTime;

@@ -2,3 +2,5 @@
 
 void TitleScene::HandleSceneTransitionInput() {
 }
+
+REGISTER_SCENE(TitleScene, "Title");

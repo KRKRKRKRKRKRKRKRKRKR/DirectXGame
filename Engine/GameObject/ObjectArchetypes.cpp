@@ -166,11 +166,45 @@ nlohmann::json ObjectArchetypes::MakeCameraArchetype() {
 	return j;
 }
 
+nlohmann::json ObjectArchetypes::MakeEnemyTemplateArchetype() {
+	nlohmann::json j;
+	j["transform"]["translation"] = Vector3ToJson({ 0.0f, 1.0f, 0.0f });
+	j["transform"]["rotation"]    = Vector3ToJson({ 0.0f, 0.0f, 0.0f });
+	j["transform"]["scale"]       = Vector3ToJson({ 1.0f, 1.0f, 1.0f });
+
+	nlohmann::json comps = nlohmann::json::array();
+
+	// 見た目
+	nlohmann::json render;
+	render["type"] = "CubeRender";
+	render["data"] = nlohmann::json::object();
+	comps.push_back(render);
+
+	// 当たり判定：isTrigger=trueで押し戻さず検知のみ（プレイヤーの攻撃判定と重なって
+	// 消滅させたいだけなので、物理的に押し合う必要はない）
+	nlohmann::json collider;
+	collider["type"] = "OBBCollider";
+	collider["data"]["halfSize"]   = Vector3ToJson({ 0.5f, 0.5f, 0.5f });
+	collider["data"]["isTrigger"]  = true;
+	collider["data"]["layer"]      = "Default";
+	comps.push_back(collider);
+
+	// HP・ヒットシェイク等の敵固有パラメータ＋isTemplate=trueで「テンプレート」の目印にする
+	// （Play開始時にPlayScene::OnInitializeがisTemplate=trueのオブジェクトを自動的に隠す）
+	nlohmann::json enemy;
+	enemy["type"] = "ReflexEnemy";
+	enemy["data"]["isTemplate"] = true;
+	comps.push_back(enemy);
+
+	j["components"] = comps;
+	return j;
+}
+
 const std::vector<std::string>& ObjectArchetypes::GetNames() {
 	// ここで生成したGameObjectはJSONに残るのは各コンポーネントのtypeName（英語のまま）だけで、
 	// このArchetype名自体は保存されないため、GetJson側の分岐と揃えれば自由に日本語化してよい
 	static const std::vector<std::string> names = {
-		"キューブ", "球", "三角形", "平行光源", "点光源", "スポットライト", "カメラ",
+		"キューブ", "球", "三角形", "平行光源", "点光源", "スポットライト", "カメラ", "REFLEX敵テンプレート",
 	};
 	return names;
 }
@@ -183,5 +217,6 @@ nlohmann::json ObjectArchetypes::GetJson(const std::string& name) {
 	if (name == "点光源")     return MakePointLightArchetype();
 	if (name == "スポットライト") return MakeSpotLightArchetype();
 	if (name == "カメラ")     return MakeCameraArchetype();
+	if (name == "REFLEX敵テンプレート") return MakeEnemyTemplateArchetype();
 	return nlohmann::json::object();
 }

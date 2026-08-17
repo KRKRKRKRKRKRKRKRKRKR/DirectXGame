@@ -10,7 +10,7 @@ public:
 	bool  enabled = true;
 	float moveSpeed = 5.0f; // 1秒あたりの移動量
 
-	void Update(float deltaTime, Transform& transform) override;
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
 
 	void ToJson(nlohmann::json& out) const override {

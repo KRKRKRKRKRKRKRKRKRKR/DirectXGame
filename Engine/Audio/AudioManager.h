@@ -25,6 +25,11 @@ public:
     void Initialize();
     void Finalize();
 
+    // 毎フレーム呼ぶ。OneShotVoice（HitSoundComponent等が使う使い捨てSourceVoice）の
+    // 再生完了済みボイスをまとめて破棄する（XAudio2の仕様上、コールバックスレッドから
+    // 直接DestroyVoiceできないため、この呼び出しでメインスレッド側から破棄する）
+    void Update();
+
     // ImGui で全オーディオ機能を表示する
     void DrawImGui();
 

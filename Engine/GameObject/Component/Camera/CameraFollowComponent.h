@@ -25,7 +25,7 @@ public:
 	// シーンに無い）場合はUpdate()が何もしない
 	GameObject* target = nullptr;
 
-	void Update(float deltaTime, Transform& transform) override;
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
 
 	// targetはGameObject*のため保存しない（実行時にSceneBase::Renderが解決し直す）

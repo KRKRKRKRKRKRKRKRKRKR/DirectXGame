@@ -11,6 +11,17 @@ public:
     // WAVファイルを読み込む。Load後にPlayを呼ぶ
     void Load(const std::string& filePath);
 
+    // 既にデコード済みのPCMデータ（wfex/audioData）をコピーして使う。同じ音声ファイルを
+    // 複数のSoundインスタンスで鳴らしたい場合（HitSoundComponentの再生プール等）、
+    // Load()で毎回ファイル読み込み・デコードをやり直すと重いため、呼び出し側が一度だけ
+    // Load()したSoundのGetDecodedData()結果をここに渡して使い回す
+    void LoadFromDecoded(const WAVEFORMATEX& wfex, const std::vector<BYTE>& audioData);
+
+    // 他のSoundへLoadFromDecodedで渡すための、デコード済みPCMデータへの参照。
+    // Load()を呼んだ後でないと空/未初期化の状態のまま
+    const WAVEFORMATEX& GetFormat() const { return wfex_; }
+    const std::vector<BYTE>& GetAudioData() const { return audioData_; }
+
     // 再生。type で BGM / SE サブミックスに振り分ける
     void Play(bool loop = false, SoundType type = SoundType::SE);
 

@@ -17,6 +17,7 @@
 #include "../Engine/GameObject/Component/Camera/Camera.h"
 #include "../Engine/GameObject/ComponentLoadContext.h"
 #include "SceneObjectStore.h"
+#include "SceneRegistry.h"
 #include <memory>
 #include <vector>
 #include <string>
@@ -32,7 +33,7 @@ public:
 	void Initialize(Renderer* renderer, Camera* camera, const std::string& assetFolder) override;
 	void Render(float deltaTime) override;
 
-	SceneType GetNextScene() const override { return nextScene_; }
+	std::string GetNextScene() const override { return nextScene_; }
 	void RequestSave() override { SaveScene(); }
 
 protected:
@@ -46,13 +47,13 @@ protected:
 
 	Renderer* renderer_ = nullptr;
 	Camera* camera_ = nullptr;
-	SceneType nextScene_ = SceneType::kNone;
+	std::string nextScene_;
 
 	// 「常に警告」方式の保存確認：実際に変更があったかは追跡せず、シーン遷移が要求される
 	// （nextScene_がセットされる）たびに毎回確認モーダルを挟む。HandleSceneTransitionInputと
 	// Objects/Gizmoパネルの手動切替ボタンのどちらも最終的にnextScene_へ代入するだけなので、
 	// Render()の末尾でnextScene_を一旦ここに退避し、確認が済むまでSceneManagerに見せない
-	SceneType pendingTransitionRequest_ = SceneType::kNone;
+	std::string pendingTransitionRequest_;
 	bool showTransitionSavePrompt_ = false;
 	void DrawTransitionSavePrompt();
 
@@ -166,9 +167,6 @@ protected:
 	// Unityの「Projectビュー」相当。ユーザーが追加した画像・音声・モデルをアイコンの一覧として
 	// 表示し、ドラッグ&ドロップでオブジェクトへ付与できるようにする
 	void DrawProjectPanel();
-
-	// プロジェクトパネルの画像/音声/モデルセクション1件分（Resources/配下から見つけたファイル）
-	struct ProjectAssetEntry { std::string path; std::string displayName; };
 
 	// Resources/配下を走査してprojectImages_/projectAudioClips_/projectModels_を作り直す。
 	// Initialize()で1回、以降はプロジェクトパネルの「更新」ボタンから呼ばれる

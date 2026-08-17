@@ -11,6 +11,7 @@
 #include "../Engine/Utils/StringUtils.h"
 #include "../Engine/Utils/Logger.h"
 #include "../Engine/Utils/EditorState.h"
+#include "../Engine/GameObject/Systems/HitEffect.h"
 #include <cmath>
 #include <algorithm>
 #include <cfloat>
@@ -147,7 +148,7 @@ void SceneBase::Initialize(Renderer* renderer, Camera* camera, const std::string
 	renderer_ = renderer;
 	camera_ = camera;
 	assetFolder_ = assetFolder;
-	nextScene_ = SceneType::kNone;
+	nextScene_.clear();
 
 	// テクスチャ一覧を構築する（"なし"は白テクスチャ、それ以外はRescanProjectAssets()が
 	// Resources/配下の画像を全部スキャンして登録する）。以前はここで数枚だけハードコードした
@@ -227,6 +228,7 @@ ComponentLoadContext SceneBase::MakeComponentLoadContext() {
 	ctx.renderer = renderer_;
 	ctx.textures = &textures_;
 	ctx.ensureTextureRegistered = [this](const std::string& path) { EnsureTextureRegistered(path); };
+	ctx.audioClips = &projectAudioClips_;
 	return ctx;
 }
 
@@ -492,12 +494,11 @@ void SceneBase::Render(float deltaTime) {
 		isPlaying_ = true;
 	}
 
-	// isPlaying_中のみコンポーネント更新（Stop中はGizmoで自由に配置できるようにする）
+	// CameraFollowComponentのtarget解決：まずタグ"Player"が付いたオブジェクトを優先し、
+	// 無ければ（今までどおり）シーン内で最初に見つかったAutoRunComponent持ちオブジェクトに
+	// フォールバックする。各オブジェクトのUpdate()より前に解決しておくことで、このフレームの
+	// CameraFollowComponent::Updateが古い/nullのtargetを見ないようにする
 	if (isPlaying_) {
-		// CameraFollowComponentのtarget解決：まずタグ"Player"が付いたオブジェクトを優先し、
-		// 無ければ（今までどおり）シーン内で最初に見つかったAutoRunComponent持ちオブジェクトに
-		// フォールバックする。各オブジェクトのUpdate()より前に解決しておくことで、このフレームの
-		// CameraFollowComponent::Updateが古い/nullのtargetを見ないようにする
 		GameObject* autoRunTarget = FindObjectByTag("Player");
 		if (!autoRunTarget) {
 			for (auto& obj : objects_) {
@@ -509,8 +510,6 @@ void SceneBase::Render(float deltaTime) {
 				follow->target = autoRunTarget;
 			}
 		}
-
-		for (auto* obj : gizmoTargets_) obj->Update(deltaTime);
 	}
 
 	Matrix4x4 view = camera_->GetViewMatrix();
@@ -524,38 +523,6 @@ void SceneBase::Render(float deltaTime) {
 		if (auto* text = obj->GetComponent<TextRenderComponent>()) {
 			text->UpdateDynamicText(renderer_);
 		}
-	}
-
-	// Mirrorを探す（削除されていれば存在しない＝反射パス自体を丸ごとスキップする）
-	MirrorComponent* mirror = nullptr;
-	GameObject* mirrorObject = nullptr;
-	for (auto& obj : objects_) {
-		if (auto* m = obj->GetComponent<MirrorComponent>()) {
-			mirror = m;
-			mirrorObject = obj.get();
-			break;
-		}
-	}
-
-	if (mirror) {
-		// 鏡の反射視点で、Mirror自身とSprite2D（スクリーン空間UI）以外を全部オフスクリーンへ描画する
-		Collision::Plane mirrorPlane   = mirror->ComputePlane(mirrorObject->GetTransform());
-		Matrix4x4        reflection    = MatrixMath::MakeReflectionMatrix(mirrorPlane);
-		Matrix4x4        reflectedView = reflection * view;
-		Vector3          reflectedCamPos = TransformMath::Transform(camera_->GetCameraData().position, reflection);
-
-		renderer_->BeginMirrorPass(reflectedView, proj, reflectedCamPos);
-		for (auto& obj : objects_) {
-			if (obj->GetComponent<MirrorComponent>()) continue;
-			if (auto* sprite = obj->GetComponent<SpriteRenderComponent>()) {
-				if (!sprite->is3D) continue; // Sprite2Dは反射に映さない
-			}
-			if (auto* r = obj->GetComponent<RenderComponentBase>()) {
-				// deltaTime=0：ModelRenderComponentのアニメーションを通常パスと二重に進めないため
-				r->Draw(renderer_, obj->GetWorldTransform(), 0.0f);
-			}
-		}
-		renderer_->EndMirrorPass();
 	}
 
 	// Gameモード用カメラの候補を探す：まずタグ"MainCamera"が付いたオブジェクトを優先し、
@@ -600,7 +567,44 @@ void SceneBase::Render(float deltaTime) {
 		// positionOffset込みの実際の視点位置（ライティングの鏡面反射計算等で使われる）
 		activeCamPos = gameCamera->GetEffectiveWorldPositionFromWorld(camWorldMatrix);
 	}
+	// 敵ヒット時のカメラシェイク：ReflexEnemyComponent::OnTriggerEnter等がHitEffect::RequestShakeで
+	// 積んだ要求を消費し、ランダムなオフセットをカメラ位置に加算する。isPlaying_中のみ（Stop中の
+	// エディタ編集画面が揺れると作業しづらいため）。実時間（deltaTime）で減衰させるため、
+	// ヒットストップでdeltaTimeを書き換える前のここで呼ぶ。
+	// view行列を直接並進させる式を組み立てる代わりに、view行列の逆行列（＝カメラのワールド行列）の
+	// 並進成分へオフセットを加算してから再度逆行列を取ることで、Scene/Gameどちらのカメラでも
+	// 回転成分を気にせず同じ式で処理できるようにしている
+	if (isPlaying_) {
+		Vector3 shakeOffset = HitEffect::ConsumeShakeOffset(deltaTime);
+		if (shakeOffset.x != 0.0f || shakeOffset.y != 0.0f || shakeOffset.z != 0.0f) {
+			Matrix4x4 camWorld = MatrixMath::Inverse(activeView);
+			camWorld.m[3][0] += shakeOffset.x;
+			camWorld.m[3][1] += shakeOffset.y;
+			camWorld.m[3][2] += shakeOffset.z;
+			activeView = MatrixMath::Inverse(camWorld);
+			activeCamPos = activeCamPos + shakeOffset;
+		}
+	}
 	renderer_->SetCamera(activeView, activeProj, activeCamPos);
+
+	// 敵ヒット時のヒットストップ：残り時間中はコンポーネントに渡すdeltaTimeを0にして
+	// 見た目上の動きを止める（実時間でのタイマー消化はHitEffect::IsHitStopActive内で行う）
+	float gameplayDeltaTime = deltaTime;
+	if (isPlaying_ && HitEffect::IsHitStopActive(deltaTime)) {
+		gameplayDeltaTime = 0.0f;
+	}
+
+	// isPlaying_中のみコンポーネント更新（Stop中はGizmoで自由に配置できるようにする）。
+	// activeView/activeProj確定後に呼ぶことで、ReflexPlayerComponent等クリック→ワールド座標変換に
+	// Renderer/view/projを要するコンポーネントにもUpdateContext経由で渡せるようにしている
+	// （以前はカメラ計算前の位置で呼んでいたが、Renderer情報を必要としないコンポーネントの
+	// 挙動には影響しない）。isGameViewはGizmoController::UpdatePicking等と同じuseGameCamera値を
+	// 渡す。Sceneビュー表示中はGizmoのオブジェクト選択・矩形選択が同じ左クリックを使うため、
+	// クリックでゲームロジックを動かすコンポーネント側でも二重にガードできるようにする
+	if (isPlaying_) {
+		UpdateContext updateCtx{ renderer_, activeView, activeProj, useGameCamera, &gizmoTargets_ };
+		for (auto* obj : gizmoTargets_) obj->Update(gameplayDeltaTime, updateCtx);
+	}
 
 	// Gizmoのピッキング/操作はScene表示中のみ（Game表示中は選択・編集させない）
 	if (!useGameCamera) {
@@ -609,6 +613,41 @@ void SceneBase::Render(float deltaTime) {
 		gizmoController_.UpdatePicking2D(screenTargets_, renderer_);
 		gizmoController_.UpdateGizmo2D(screenTargets_, renderer_);
 		gizmoController_.UpdateContextMenu(renderer_);
+	}
+
+	// Mirrorを探す（削除されていれば存在しない＝反射パス自体を丸ごとスキップする）。
+	// コンポーネント更新（Update）後のTransformで反射させるため、このタイミングで探して描画する
+	MirrorComponent* mirror = nullptr;
+	GameObject* mirrorObject = nullptr;
+	for (auto& obj : objects_) {
+		if (auto* m = obj->GetComponent<MirrorComponent>()) {
+			mirror = m;
+			mirrorObject = obj.get();
+			break;
+		}
+	}
+
+	if (mirror) {
+		// 鏡の反射視点で、Mirror自身とSprite2D（スクリーン空間UI）以外を全部オフスクリーンへ描画する
+		Collision::Plane mirrorPlane   = mirror->ComputePlane(mirrorObject->GetTransform());
+		Matrix4x4        reflection    = MatrixMath::MakeReflectionMatrix(mirrorPlane);
+		Matrix4x4        reflectedView = reflection * view;
+		Vector3          reflectedCamPos = TransformMath::Transform(camera_->GetCameraData().position, reflection);
+
+		renderer_->BeginMirrorPass(reflectedView, proj, reflectedCamPos);
+		for (auto& obj : objects_) {
+			if (obj->GetComponent<MirrorComponent>()) continue;
+			if (auto* sprite = obj->GetComponent<SpriteRenderComponent>()) {
+				if (!sprite->is3D) continue; // Sprite2Dは反射に映さない
+			}
+			if (auto* r = obj->GetComponent<RenderComponentBase>()) {
+				// deltaTime=0：ModelRenderComponentのアニメーションを通常パスと二重に進めないため
+				r->Draw(renderer_, obj->GetWorldTransform(), 0.0f);
+			}
+		}
+		renderer_->EndMirrorPass();
+		// オフスクリーンパス中にSetCameraの内容が上書きされているため、メインパス用に戻す
+		renderer_->SetCamera(activeView, activeProj, activeCamPos);
 	}
 
 	for (auto& obj : objects_) {
@@ -676,9 +715,9 @@ void SceneBase::Render(float deltaTime) {
 	// HandleSceneTransitionInputと"Objects"パネルの手動切替ボタン、どちらもnextScene_へ代入する
 	// だけなので、ここで一箇所だけ横取りすれば両方をカバーできる
 	if (EditorState::GetInstance().IsUiVisible()) {
-		if (nextScene_ != SceneType::kNone && !showTransitionSavePrompt_) {
+		if (!nextScene_.empty() && !showTransitionSavePrompt_) {
 			pendingTransitionRequest_ = nextScene_;
-			nextScene_ = SceneType::kNone; // 確認が済むまでSceneManagerには見せない
+			nextScene_.clear(); // 確認が済むまでSceneManagerには見せない
 			showTransitionSavePrompt_ = true;
 			ImGui::OpenPopup("シーン遷移の確認##SceneTransitionSavePrompt");
 		}
@@ -708,7 +747,7 @@ void SceneBase::DrawTransitionSavePrompt() {
 		}
 		ImGui::SameLine();
 		if (ImGui::Button("キャンセル", ImVec2(100, 0))) {
-			pendingTransitionRequest_ = SceneType::kNone;
+			pendingTransitionRequest_.clear();
 			showTransitionSavePrompt_ = false;
 			ImGui::CloseCurrentPopup();
 		}
@@ -882,6 +921,17 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		ImGui::TreePop();
 	}
 
+	// ReflexEnemyHealthBar：兄弟のReflexEnemyComponentからhp/maxHpを読んでバーを描く。
+	// ReflexEnemyComponentが無いGameObjectに付けた場合はtarget_がnullptrになり、
+	// ReflexEnemyHealthBarComponent::Updateの先頭ガードにより何も描画されないだけで安全
+	if (ImGui::TreeNode("REFLEX敵HPバー")) {
+		if (ImGui::Button("追加##ReflexEnemyHealthBar")) {
+			ComponentRegistry::Create("ReflexEnemyHealthBar", selected, ctx, nlohmann::json::object());
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::TreePop();
+	}
+
 	// TextRender：HUD（動的、hudDefinitions_のテンプレートから選ぶ）と静的テキスト
 	// （内容を打ち込む）の2種類をここから選択中オブジェクトへ直接アタッチする
 	// （旧ヒエラルキー「HUD/テキストを作成」は専用の新規オブジェクトを作る方式だったが、
@@ -983,6 +1033,35 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		ImGui::TreePop();
 	}
 
+	// HitSound：TextureSelectorと同じ「プロジェクトパネルの一覧からコンボで選ぶ」方式。
+	// パス入力・D&Dは行わず、projectAudioClips_（Resources/配下走査済みの音声一覧）から選ぶだけ
+	if (ImGui::TreeNode("ヒットSE")) {
+		static int  hitSoundIndex = 0;
+		static float hitSoundVolume = 1.0f;
+		if (projectAudioClips_.empty()) {
+			ImGui::TextDisabled("(利用可能な音声がありません)");
+		} else {
+			if (hitSoundIndex >= static_cast<int>(projectAudioClips_.size())) hitSoundIndex = 0;
+			if (ImGui::BeginCombo("SE", projectAudioClips_[hitSoundIndex].displayName.c_str())) {
+				for (int i = 0; i < static_cast<int>(projectAudioClips_.size()); i++) {
+					bool isSelected = (i == hitSoundIndex);
+					if (ImGui::Selectable(projectAudioClips_[i].displayName.c_str(), isSelected)) hitSoundIndex = i;
+					if (isSelected) ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::SliderFloat("音量", &hitSoundVolume, 0.0f, 1.0f);
+			if (ImGui::Button("追加##HitSound")) {
+				nlohmann::json data;
+				data["audioName"] = projectAudioClips_[hitSoundIndex].displayName;
+				data["volume"] = hitSoundVolume;
+				ComponentRegistry::Create("HitSound", selected, ctx, data);
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		ImGui::TreePop();
+	}
+
 	ImGui::EndPopup();
 }
 
@@ -1076,13 +1155,14 @@ void SceneBase::DrawImGui() {
 	// 直接切り替えられるようにする。ボタンはnextScene_へ代入するだけで、実際の切替は
 	// 既存のSceneManager::Render()内（GetNextScene()を見てChangeScene）で行われる
 	ImGui::Text("シーン切替");
-	if (ImGui::Button("タイトル")) nextScene_ = SceneType::kTitle;
-	ImGui::SameLine();
-	if (ImGui::Button("セレクト")) nextScene_ = SceneType::kSelect;
-	ImGui::SameLine();
-	if (ImGui::Button("プレイ")) nextScene_ = SceneType::kPlay;
-	ImGui::SameLine();
-	if (ImGui::Button("ゲームオーバー")) nextScene_ = SceneType::kGameOver;
+	// SceneRegistryに登録済みの全シーン名を動的に列挙してボタン化する（REGISTER_SCENEで
+	// 新しいシーンを追加するだけで、ここを編集しなくても切替ボタンが増える）
+	bool firstSceneButton = true;
+	for (const std::string& sceneName : SceneRegistry::GetAllNames()) {
+		if (!firstSceneButton) ImGui::SameLine();
+		firstSceneButton = false;
+		if (ImGui::Button(sceneName.c_str())) nextScene_ = sceneName;
+	}
 
 	ImGui::End();
 
@@ -1144,6 +1224,56 @@ void SceneBase::DrawInspector() {
 		ImGui::Separator();
 
 		selected->DrawImGui();
+
+		// ReflexEnemySpawnerComponent専用UI：spawnEntries[i].tagはシーン内のテンプレート
+		// （ReflexEnemyComponent::isTemplate=trueのGameObject）のタグから選ぶコンボにする。
+		// 自由入力にするとタグの手打ちミス（例："A"のつもりで"AEnemy"と書く）でテンプレートが
+		// 見つからず、PlayScene::SpawnEnemyAtが既定値にフォールバックしてしまう事故が起きるため
+		if (auto* spawnerConfig = selected->GetComponent<ReflexEnemySpawnerComponent>()) {
+			std::vector<std::string> templateTags;
+			for (auto& obj : objects_) {
+				auto* enemy = obj->GetComponent<ReflexEnemyComponent>();
+				if (enemy && enemy->isTemplate && !obj->tag.empty()) {
+					templateTags.push_back(obj->tag);
+				}
+			}
+
+			ImGui::Text("敵の種類（テンプレートのタグ＋出現数）");
+			if (templateTags.empty()) {
+				ImGui::TextDisabled("  (敵テンプレート（isTemplate=true）を持つGameObjectがありません)");
+			}
+			for (size_t i = 0; i < spawnerConfig->spawnEntries.size(); i++) {
+				ImGui::PushID(static_cast<int>(i));
+				auto& entry = spawnerConfig->spawnEntries[i];
+
+				if (ImGui::BeginCombo("テンプレートのタグ", entry.tag.c_str())) {
+					for (const auto& t : templateTags) {
+						bool isSelected = (entry.tag == t);
+						if (ImGui::Selectable(t.c_str(), isSelected)) entry.tag = t;
+						if (isSelected) ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+				ImGui::DragInt("出現数", &entry.count, 0.2f, 0, 20);
+
+				bool canRemove = spawnerConfig->spawnEntries.size() > 1;
+				ImGui::BeginDisabled(!canRemove);
+				if (ImGui::Button("この種類を削除")) {
+					spawnerConfig->spawnEntries.erase(spawnerConfig->spawnEntries.begin() + i);
+				}
+				ImGui::EndDisabled();
+				ImGui::Separator();
+				ImGui::PopID();
+			}
+			if (ImGui::Button("種類を追加")) {
+				spawnerConfig->spawnEntries.push_back(ReflexEnemySpawnerComponent::SpawnEntry{
+					templateTags.empty() ? "" : templateTags.front(), 4 });
+			}
+
+			ImGui::Separator();
+			ImGui::DragFloat("準備フェーズの補充間隔（秒）", &spawnerConfig->respawnInterval, 0.01f, 0.0f, 5.0f);
+		}
+
 		ImGui::Separator();
 		DrawAddComponentMenu(*selected);
 	} else {
@@ -1385,7 +1515,10 @@ void SceneBase::DrawHierarchy() {
 		// 後段のTreePop要否判定が食い違うとPushID/TreePopの対応が崩れてImGuiがクラッシュするため、
 		// 同じ値を最後まで使い回す
 		bool hasChildren = !obj->GetChildren().empty();
-		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen;
+		// DefaultOpenは付けない：起動直後は全ての親ノード（"Enemies"/"Particles"フォルダ等）が
+		// 閉じた状態から始まる。ユーザーが手動で開閉した状態はImGuiが内部的（ID基準）に覚えているため、
+		// 一度開けばそれ以降はセッション中閉じるまで開いたままになる
+		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
 		if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
 		if (obj == current) flags |= ImGuiTreeNodeFlags_Selected;
 

@@ -1,5 +1,4 @@
 #pragma once
-#include "SceneType.h"
 #include <string>
 
 class Renderer;
@@ -13,14 +12,15 @@ class IScene {
 public:
 	virtual ~IScene() = default;
 
-	// assetFolderはSceneManagerがSceneTypeから決めるシーン専用の素材フォルダ名（例: "Play"）。
+	// assetFolderはSceneManagerがシーン名からそのまま決めるシーン専用の素材フォルダ名（例: "Play"）。
 	// PlayScene等はResources/{assetFolder}/にUI/Object用のJSONを保存・復元することで、
 	// シーンごとに別々の素材セットを切り替えられるようにする
 	virtual void Initialize(Renderer* renderer, Camera* camera, const std::string& assetFolder) = 0;
 	virtual void Render(float deltaTime) = 0;
 
-	// 遷移したい場合は次のSceneTypeを返す。デフォルトは「遷移しない」
-	virtual SceneType GetNextScene() const { return SceneType::kNone; }
+	// 遷移したい場合は次のシーン名（SceneRegistryに登録された名前）を返す。
+	// 空文字列のデフォルトは「遷移しない」を意味する
+	virtual std::string GetNextScene() const { return ""; }
 
 	// アプリ終了確認（Window::IsCloseRequested）等、シーン非依存のコードから「今のシーンを
 	// 保存してほしい」と伝えるためのフック。デフォルトは何もしない（SceneBaseがオーバーライドして

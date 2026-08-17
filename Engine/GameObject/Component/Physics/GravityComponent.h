@@ -15,7 +15,7 @@ public:
 	float maxFallSpeed = 20.0f; // 終端速度（下向きの落下速度の上限）。無制限に加速すると
 	                             // 1フレームの移動量が薄い床の厚みを超えてすり抜ける原因になるため上限を設ける
 
-	void Update(float deltaTime, Transform& transform) override;
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
 
 	// velocityYは実行中の一時状態のため保存しない（ロード時は常に静止状態から再開する）

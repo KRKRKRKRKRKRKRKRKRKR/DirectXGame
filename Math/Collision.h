@@ -82,6 +82,8 @@ bool AABBSegment(const AABB& aabb, const Segment& segment);
 bool AABBLine(const AABB& aabb, const Line& line);
 bool AABBRay(const AABB& aabb, const Ray& ray);
 bool OBBSphere(const OBB& obb, const Sphere& sphere);
+// 線分上の最近点（ClosestPoint）と球中心の距離が半径以内かどうかで判定する
+bool SegmentSphere(const Segment& segment, const Sphere& sphere);
 bool OBBSegment(const OBB& obb, const Segment& segment);
 bool OBBLine(const OBB& obb, const Line& line);
 bool OBBRay(const OBB& obb, const Ray& ray);

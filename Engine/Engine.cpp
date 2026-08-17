@@ -52,6 +52,7 @@ void Engine::Initialize(const std::wstring& windowTitle, int width, int height) 
 bool Engine::Update() {
 	if (!window_.ProcessMessage()) return false;
 	InputDevice::GetInstance().Update();
+	AudioManager::GetInstance().Update(); // OneShotVoice（HitSoundComponent等）の再生完了ボイス破棄
 	deltaTime_.Update();
 
 	// F11でエディタUIの表示/非表示を切り替える（Debugビルドのみ）。何かにテキスト入力中の
@@ -62,6 +63,11 @@ bool Engine::Update() {
 		EditorState::GetInstance().ToggleUiVisible();
 	}
 #endif
+
+	// 前フレームのEndFrame()（WaitForFence込み）が完了した直後のこのタイミングでは、GPUは
+	// 前フレームまでの全コピー操作を完了済みのため、TextureManager::UpdatePixelsが退避していた
+	// 古いintermediateResourceを安全に解放できる（詳細はReleasePendingTextureUpdatesのコメント参照）
+	renderer_.ReleasePendingTextureUpdates();
 
 	directX_.BeginFrame();
 	renderer_.ResetFrameIndex();
@@ -112,4 +118,3 @@ void Engine::Finalize() {
 	InputDevice::GetInstance().Finalize();
 	directX_.Finalize();
 }
-

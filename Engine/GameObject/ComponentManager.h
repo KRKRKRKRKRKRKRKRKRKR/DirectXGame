@@ -42,8 +42,8 @@ public:
 		return false;
 	}
 
-	void Update(float deltaTime, Transform& transform) {
-		for (auto& c : components_) c->Update(deltaTime, transform);
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+		for (auto& c : components_) c->Update(deltaTime, transform, ctx);
 	}
 
 	// 保持している全コンポーネントへOnTriggerEnterを伝える（ColliderSystem::ResolveAndDraw経由。

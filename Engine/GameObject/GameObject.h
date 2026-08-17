@@ -55,7 +55,7 @@ public:
 	template<typename T>
 	bool RemoveComponent() { return components_.RemoveComponent<T>(); }
 
-	void Update(float deltaTime) { components_.Update(deltaTime, transformComponent_->transform); }
+	void Update(float deltaTime, const UpdateContext& ctx) { components_.Update(deltaTime, transformComponent_->transform, ctx); }
 
 	// ColliderSystem::ResolveAndDrawが、Trigger相手と新しく重なった瞬間に呼ぶ。
 	// 自分が持つ全コンポーネントへそのままIComponent::OnTriggerEnterとして伝える

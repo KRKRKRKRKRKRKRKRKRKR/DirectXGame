@@ -2,8 +2,8 @@
 #include "../../Engine/GameObject/ComponentRegistry.h"
 #include "../../Externals/imgui/imgui.h"
 
-void TESTComponent::Update(float deltaTime, Transform& transform) {
-	(void)deltaTime; (void)transform;
+void TESTComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)deltaTime; (void)transform; (void)ctx;
 	// TODO: 毎フレームの処理
 }
 

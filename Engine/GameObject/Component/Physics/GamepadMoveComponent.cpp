@@ -8,7 +8,8 @@
 #include <string>
 #include <algorithm>
 
-void GamepadMoveComponent::Update(float deltaTime, Transform& transform) {
+void GamepadMoveComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled) return;
 	if (!Input::IsGamepadConnected(controllerIndex)) return;
 

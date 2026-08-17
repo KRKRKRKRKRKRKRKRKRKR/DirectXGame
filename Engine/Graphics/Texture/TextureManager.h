@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include <cstdint>
+#include <vector>
 
 using Microsoft::WRL::ComPtr;
 
@@ -55,6 +56,14 @@ public:
 	// モデルのため、同じCommandList上でのin-place更新は前フレームの描画と競合しない）
 	bool UpdatePixels(TextureHandle handle, uint32_t width, uint32_t height, const uint8_t* rgbaPixels);
 
+	// UpdatePixelsが上書きで破棄するはずだった古いintermediateResourceを保持している間、
+	// このフレームのコマンドリストがまだそれを参照している可能性がある（GPUが前回のコピーを
+	// 完了させる前に、同じフレーム内でCreateFromPixels直後にUpdatePixelsを呼んだ場合等）。
+	// エンジンはEndFrame()で毎フレームGPU完了を待つ完全同期モデルのため、破棄はその後（次の
+	// BeginFrame）まで遅らせれば安全。呼び出し側（Renderer/DirectXManager）がフレーム境界で
+	// これを呼ぶ
+	void ReleasePendingIntermediateResources() { pendingIntermediateResources_.clear(); }
+
 	// 深度ステンシルバッファの初期化（エンジン内部用）
 	void InitializeDepthStencil(int32_t width, int32_t height, DescriptorHeaps* heaps);
 
@@ -87,6 +96,8 @@ private:
 	TextureHandle RegisterTexture(ComPtr<ID3D12Resource> resource, const DirectX::TexMetadata& metadata, ComPtr<ID3D12Resource> intermediate, DescriptorHeaps* heaps);
 
 	std::unordered_map<TextureHandle, TextureResource> textures_;
+	// UpdatePixelsで上書きされる直前の古いintermediateResourceの退避先（フレーム境界まで生存させる）
+	std::vector<ComPtr<ID3D12Resource>> pendingIntermediateResources_;
 	std::unordered_map<std::string, TextureHandle> pathToHandle_;  // 同じパスの二重ロード防止
 	ID3D12Device* device_ = nullptr;
 	ID3D12GraphicsCommandList* commandList_ = nullptr;

@@ -3,6 +3,8 @@
 
 void GameOverScene::HandleSceneTransitionInput() {
 	if (Input::IsTriggered(DIK_ESCAPE)) {
-		nextScene_ = SceneType::kTitle;
+		nextScene_ = "Title";
 	}
 }
+
+REGISTER_SCENE(GameOverScene, "GameOver");

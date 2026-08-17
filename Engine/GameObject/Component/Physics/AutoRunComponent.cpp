@@ -3,7 +3,8 @@
 #include "../../../InputDevice/InputDevice.h"
 #include "../../../../Externals/imgui/imgui.h"
 
-void AutoRunComponent::Update(float deltaTime, Transform& transform) {
+void AutoRunComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled) return;
 
 	// 常時前進：入力に関係なく毎フレームZ+方向へ進む

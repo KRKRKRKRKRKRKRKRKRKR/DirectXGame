@@ -20,22 +20,6 @@
                 },
                 {
                     "data": {
-                        "textureName": "t.png"
-                    },
-                    "type": "TextureSelector"
-                },
-                {
-                    "data": {
-                        "direction": "Down",
-                        "enabled": true,
-                        "gravity": 20.0,
-                        "maxDirectionChange": 1,
-                        "maxFallSpeed": 30.0
-                    },
-                    "type": "GravityFlip"
-                },
-                {
-                    "data": {
                         "collidesWith": [
                             true,
                             true,
@@ -59,9 +43,30 @@
                         ]
                     },
                     "type": "OBBCollider"
+                },
+                {
+                    "data": {
+                        "easingType": 10,
+                        "moveSpeed": 35.0,
+                        "obstacleMargin": 0.3440000116825104
+                    },
+                    "type": "ReflexPlayer"
+                },
+                {
+                    "data": {
+                        "attackPower": 100.0
+                    },
+                    "type": "ReflexPlayerAttack"
+                },
+                {
+                    "data": {
+                        "textureName": "t.png"
+                    },
+                    "type": "TextureSelector"
                 }
             ],
             "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
             "name": "Player",
             "parentIndex": -1,
             "tag": "Player",
@@ -78,8 +83,8 @@
                     1.0
                 ],
                 "translation": [
-                    0.0,
-                    0.0,
+                    1.0085452795028687,
+                    3.6918418407440186,
                     0.0
                 ]
             }
@@ -87,6 +92,7 @@
         {
             "components": [],
             "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
             "name": "壁フォルダ",
             "parentIndex": -1,
             "tag": "",
@@ -144,7 +150,7 @@
                         ],
                         "isStatic": true,
                         "isTrigger": false,
-                        "layer": "Environment",
+                        "layer": "Obstacle",
                         "offset": [
                             0.0,
                             0.0,
@@ -155,6 +161,7 @@
                 }
             ],
             "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
             "name": "TopWall",
             "parentIndex": 1,
             "tag": "",
@@ -162,13 +169,13 @@
                 "is2D": false,
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
                     20.0,
-                    1.0,
-                    1.0
+                    0.10000000149011612,
+                    0.10000000149011612
                 ],
                 "translation": [
                     0.0,
@@ -212,7 +219,7 @@
                         ],
                         "isStatic": true,
                         "isTrigger": false,
-                        "layer": "Environment",
+                        "layer": "Obstacle",
                         "offset": [
                             0.0,
                             0.0,
@@ -223,6 +230,7 @@
                 }
             ],
             "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
             "name": "BottomWall",
             "parentIndex": 1,
             "tag": "",
@@ -230,13 +238,13 @@
                 "is2D": false,
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
                     20.0,
-                    1.0,
-                    1.0
+                    0.10000000149011612,
+                    0.10000000149011612
                 ],
                 "translation": [
                     0.0,
@@ -280,7 +288,7 @@
                         ],
                         "isStatic": true,
                         "isTrigger": false,
-                        "layer": "Environment",
+                        "layer": "Obstacle",
                         "offset": [
                             0.0,
                             0.0,
@@ -291,6 +299,7 @@
                 }
             ],
             "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
             "name": "LeftWall",
             "parentIndex": 1,
             "tag": "",
@@ -298,13 +307,13 @@
                 "is2D": false,
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
-                    1.0,
+                    0.10000000149011612,
                     20.0,
-                    1.0
+                    0.10000000149011612
                 ],
                 "translation": [
                     -10.0,
@@ -348,7 +357,7 @@
                         ],
                         "isStatic": true,
                         "isTrigger": false,
-                        "layer": "Environment",
+                        "layer": "Obstacle",
                         "offset": [
                             0.0,
                             0.0,
@@ -359,6 +368,7 @@
                 }
             ],
             "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
             "name": "RightWall",
             "parentIndex": 1,
             "tag": "",
@@ -366,13 +376,13 @@
                 "is2D": false,
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
-                    1.0,
+                    0.10000000149011612,
                     20.0,
-                    1.0
+                    0.10000000149011612
                 ],
                 "translation": [
                     10.0,
@@ -403,6 +413,7 @@
                 }
             ],
             "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
             "name": "カメラ",
             "parentIndex": -1,
             "tag": "",
@@ -410,7 +421,7 @@
                 "is2D": false,
                 "rotation": [
                     0.0,
-                    -0.0,
+                    0.0,
                     0.0
                 ],
                 "scale": [
@@ -422,6 +433,2998 @@
                     0.0,
                     0.0,
                     -27.266754150390625
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "ambient": 0.5080000162124634,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "enabled": true,
+                        "halfLambertPower": 8.0
+                    },
+                    "type": "DirectionalLight"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "ライト",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.006866455078125,
+                    -35.04710006713867
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "respawnInterval": 0.10000000149011612,
+                        "spawnEntries": [
+                            {
+                                "count": 20,
+                                "tag": "AEnemy"
+                            },
+                            {
+                                "count": 0,
+                                "tag": "BEnemy"
+                            }
+                        ]
+                    },
+                    "type": "ReflexEnemySpawner"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "敵スポーン設定",
+            "parentIndex": -1,
+            "tag": "EnemySpawner",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "敵テンプレート",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "敵パーティクル",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.9673206806182861,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
+            "name": "Enemies",
+            "parentIndex": -1,
+            "tag": "Enemies",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
+            "name": "Particles",
+            "parentIndex": -1,
+            "tag": "Particles",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {},
+                    "type": "ParticleTemplate"
+                },
+                {
+                    "data": {
+                        "count": 9,
+                        "enableRotation": true,
+                        "lifeTime": 0.6000000238418579,
+                        "rotationSpeedMax": 360.0,
+                        "rotationSpeedMin": 90.0,
+                        "sizeEasing": 30,
+                        "sizeEndMax": 0.20000000298023224,
+                        "sizeEndMin": 0.20000000298023224,
+                        "sizeStartMax": 1.0,
+                        "sizeStartMin": 1.0,
+                        "speedMax": 8.0,
+                        "speedMin": 3.0
+                    },
+                    "type": "ParticleEmitter"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "敵撃破パーティクル",
+            "parentIndex": 10,
+            "tag": "EnemyDeathParticle",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {},
+                    "type": "ParticleTemplate"
+                },
+                {
+                    "data": {
+                        "count": 12,
+                        "enableRotation": true,
+                        "lifeTime": 0.6000000238418579,
+                        "rotationSpeedMax": 360.0,
+                        "rotationSpeedMin": 90.0,
+                        "sizeEasing": 30,
+                        "sizeEndMax": 0.0,
+                        "sizeEndMin": 0.0,
+                        "sizeStartMax": 0.0,
+                        "sizeStartMin": 0.0,
+                        "speedMax": 8.0,
+                        "speedMin": 3.0
+                    },
+                    "type": "ParticleEmitter"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "敵ヒットパーティクル",
+            "parentIndex": 10,
+            "tag": "EnemyHitParticle",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 15.0,
+                        "isTemplate": true,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": ""
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Enemy",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 50.20000076293945
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 0.0,
+                        "speedY": 0.0,
+                        "speedZ": 0.0
+                    },
+                    "type": "Rotator"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "敵A",
+            "parentIndex": 9,
+            "tag": "AEnemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    1.5864150524139404,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 16.68400001525879,
+                        "speedY": 11.519311904907227,
+                        "speedZ": 18.093727111816406
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.8498189449310303,
+                    -1.3582713603973389,
+                    1.4525282382965088
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    2.5,
+                    -2.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 16.485374450683594,
+                        "speedY": 15.582411766052246,
+                        "speedZ": -16.651220321655273
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -2.690031051635742,
+                    -2.886833667755127,
+                    2.6538784503936768
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -6.5,
+                    -3.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -20.970956802368164,
+                        "speedY": 13.153311729431152,
+                        "speedZ": -13.326440811157227
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    1.8652212619781494,
+                    2.771012544631958,
+                    -2.807490110397339
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    1.0,
+                    -3.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -12.13182258605957,
+                        "speedY": -10.361387252807617,
+                        "speedZ": 20.863441467285156
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -1.5960910320281982,
+                    -1.363171100616455,
+                    2.7448408603668213
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -5.0,
+                    -0.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -19.794889450073242,
+                        "speedY": -20.975128173828125,
+                        "speedZ": 13.957908630371094
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -2.4962198734283447,
+                    -2.645052671432495,
+                    1.7601501941680908
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    4.0,
+                    -2.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -20.784404754638672,
+                        "speedY": -19.498470306396484,
+                        "speedZ": -12.208986282348633
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -2.58296799659729,
+                    -2.423161268234253,
+                    -1.5172654390335083
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -0.5,
+                    5.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 11.595069885253906,
+                        "speedY": -20.0498046875,
+                        "speedZ": -14.553738594055176
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    1.398768663406372,
+                    -2.418700933456421,
+                    -1.755685567855835
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -0.5,
+                    -3.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -20.624971389770508,
+                        "speedY": 13.269672393798828,
+                        "speedZ": 11.669175148010254
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -2.3753774166107178,
+                    1.5282680988311768,
+                    1.3439366817474365
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -5.0,
+                    1.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -14.185630798339844,
+                        "speedY": -20.67978858947754,
+                        "speedZ": 21.437971115112305
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -0.7706217765808105,
+                    -1.1234135627746582,
+                    1.1646034717559814
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -8.0,
+                    -2.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 20.596332550048828,
+                        "speedY": -16.526569366455078,
+                        "speedZ": 12.430211067199707
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    1.081467866897583,
+                    -0.8677740097045898,
+                    0.6526837348937988
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    4.0,
+                    1.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 18.72208023071289,
+                        "speedY": 21.75130844116211,
+                        "speedZ": -21.671213150024414
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.9490377902984619,
+                    1.1025917530059814,
+                    -1.0985307693481445
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -5.0,
+                    7.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -17.516128540039063,
+                        "speedY": 20.003986358642578,
+                        "speedZ": -15.619064331054688
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -0.8557803630828857,
+                    0.9773318767547607,
+                    -0.7630965709686279
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -2.0,
+                    -3.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 15.706480026245117,
+                        "speedY": 19.246042251586914,
+                        "speedZ": 18.745643615722656
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.7388830184936523,
+                    0.9053971767425537,
+                    0.881854772567749
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    2.5,
+                    5.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 18.855743408203125,
+                        "speedY": -10.357277870178223,
+                        "speedZ": -18.737545013427734
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.8529067039489746,
+                    -0.4684925079345703,
+                    -0.8475615978240967
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -8.0,
+                    -6.5,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -19.976760864257813,
+                        "speedY": 20.832069396972656,
+                        "speedZ": 17.38009262084961
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -0.8673102855682373,
+                    0.9044430255889893,
+                    0.7545733451843262
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    4.0,
+                    -5.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 17.37320899963379,
+                        "speedY": -16.586801528930664,
+                        "speedZ": -20.26362419128418
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.7225425243377686,
+                    -0.6898362636566162,
+                    -0.8427531719207764
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    5.5,
+                    1.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 10.929424285888672,
+                        "speedY": 12.790236473083496,
+                        "speedZ": -13.246977806091309
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.43542003631591797,
+                    0.5095531940460205,
+                    -0.5277483463287354
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    7.0,
+                    7.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 17.108642578125,
+                        "speedY": -10.686312675476074,
+                        "speedZ": -18.583728790283203
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.6506147384643555,
+                    -0.40638160705566406,
+                    -0.7067105770111084
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -0.5,
+                    -5.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": 17.932262420654297,
+                        "speedY": -20.131244659423828,
+                        "speedZ": 12.641386032104492
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.6504902839660645,
+                    -0.7302589416503906,
+                    0.45856642723083496
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    5.5,
+                    4.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "duration": 0.5,
+                        "easing": 27,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                },
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "hitShakeDuration": 0.15000000596046448,
+                        "hitShakeStrength": 0.25,
+                        "hitStopDuration": 0.009999999776482582,
+                        "hp": 100.0,
+                        "isTemplate": false,
+                        "maxHp": 100.0,
+                        "spawnedFromTag": "AEnemy"
+                    },
+                    "type": "ReflexEnemy"
+                },
+                {
+                    "data": {
+                        "backgroundColor": [
+                            0.8610038757324219,
+                            0.1396222710609436,
+                            0.1396222710609436,
+                            0.800000011920929
+                        ],
+                        "fillColor": [
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            0.5945945978164673,
+                            1.0
+                        ],
+                        "height": 0.03999999910593033,
+                        "heightOffset": -0.800000011920929,
+                        "width": 0.699999988079071
+                    },
+                    "type": "ReflexEnemyHealthBar"
+                },
+                {
+                    "data": {
+                        "enabled": true,
+                        "randomSpeedMax": 10.0,
+                        "randomSpeedMin": 22.0,
+                        "randomizeOnSpawn": true,
+                        "speedX": -12.091684341430664,
+                        "speedY": 16.8685302734375,
+                        "speedZ": -18.192392349243164
+                    },
+                    "type": "Rotator"
+                },
+                {
+                    "data": {
+                        "audioName": "glass-ball-broken.mp3",
+                        "volume": 1.0
+                    },
+                    "type": "HitSound"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.5,
+                            0.5,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Default",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Enemy",
+            "parentIndex": 11,
+            "tag": "Enemy",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    -0.41631126403808594,
+                    0.5807778835296631,
+                    -0.6263580322265625
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    5.5,
+                    5.5,
+                    0.0
                 ]
             }
         }

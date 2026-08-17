@@ -65,6 +65,8 @@
     <ClCompile Include="Engine\Graphics\DescriptorHeaps\DescriptorHeaps.cpp" />
     <ClCompile Include="Engine\GameObject\Systems\ColliderSystem.cpp" />
     <ClCompile Include="Engine\GameObject\Systems\GizmoController.cpp" />
+    <ClCompile Include="Engine\GameObject\Systems\ScreenRay.cpp" />
+    <ClCompile Include="Engine\GameObject\Systems\HitEffect.cpp" />
     <ClCompile Include="Engine\GameObject\GameObject.cpp" />
     <ClCompile Include="Engine\GameObject\ComponentManager.cpp" />
     <ClCompile Include="Engine\GameObject\ComponentRegistry.cpp" />
@@ -86,15 +88,26 @@
     <ClCompile Include="Engine\GameObject\Component\Physics\SphereColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\OBBColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GravityComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\RotatorComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ParticleComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\SpawnMoveComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\PlayerControllerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GamepadControllerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GamepadMoveComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\HealthComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\AutoRunComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ReflexPlayerComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ReflexPlayerAttackComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ReflexEnemyComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ReflexEnemyHealthBarComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ReflexEnemySpawnerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\DirectionalLightComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\PointLightComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Lighting\SpotLightComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Audio\AudioSourceComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Audio\HitSoundComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraFollowComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\GamepadCameraLookComponent.cpp" />
@@ -112,6 +125,7 @@
     <ClCompile Include="Game\SceneObjectStore.cpp" />
     <ClCompile Include="Game\GameSession.cpp" />
     <ClCompile Include="Game\PlayScene.cpp" />
+    <ClCompile Include="Game\SceneRegistry.cpp" />
     <ClCompile Include="Game\SceneManager.cpp" />
     <ClCompile Include="Game\TitleScene.cpp" />
     <ClCompile Include="Game\SelectScene.cpp" />
@@ -133,9 +147,11 @@
     <ClCompile Include="Engine\Graphics\SwapChainManager\SwapChainManager.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Cube\Cube.cpp" />
     <ClCompile Include="Math\Collision.cpp" />
+    <ClCompile Include="Math\Easing.cpp" />
     <ClCompile Include="Engine\Graphics\Lighting\SceneLight.cpp" />
     <ClCompile Include="Engine\Audio\AudioManager.cpp" />
     <ClCompile Include="Engine\Audio\Sound.cpp" />
+    <ClCompile Include="Engine\Audio\OneShotVoice.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model_ObjLoader.cpp" />
     <ClCompile Include="Engine\Graphics\Object\Model\Model_AssimpLoader.cpp" />
@@ -160,6 +176,9 @@
       <Filter>Math</Filter>
     </ClInclude>
     <ClInclude Include="Math\EaseUtil.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\EasingPreview.h">
       <Filter>Math</Filter>
     </ClInclude>
     <ClInclude Include="Externals\imgui\imconfig.h">
@@ -209,6 +228,8 @@
     <ClInclude Include="Engine\GameObject\ObjectArchetypes.h" />
     <ClInclude Include="Engine\GameObject\Systems\ColliderSystem.h" />
     <ClInclude Include="Engine\GameObject\Systems\GizmoController.h" />
+    <ClInclude Include="Engine\GameObject\Systems\ScreenRay.h" />
+    <ClInclude Include="Engine\GameObject\Systems\HitEffect.h" />
     <ClInclude Include="Engine\GameObject\Component\TransformComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\RenderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\CubeRenderComponent.h" />
@@ -227,6 +248,11 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\CollisionLayer.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ColliderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\RotatorComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ParticleComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\SpawnMoveComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityDirection.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityFlipComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\EnemyBounceComponent.h" />
@@ -236,6 +262,11 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\GamepadMoveComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\HealthComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\AutoRunComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ReflexPlayerComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ReflexPlayerAttackComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ReflexEnemyComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ReflexEnemyHealthBarComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ReflexEnemySpawnerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\Physics.h" />
     <ClInclude Include="Engine\GameObject\Component\Lighting\ILightComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Lighting\DirectionalLightComponent.h" />
@@ -243,6 +274,8 @@
     <ClInclude Include="Engine\GameObject\Component\Lighting\SpotLightComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Lighting\Lighting.h" />
     <ClInclude Include="Engine\GameObject\Component\Audio\AudioSourceComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Audio\HitSoundComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Audio\ProjectAssetEntry.h" />
     <ClInclude Include="Engine\GameObject\Component\Audio\Audio.h" />
     <ClInclude Include="Engine\GameObject\Component\Camera\CameraComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Camera\GamepadCameraLookComponent.h" />
@@ -260,7 +293,7 @@
     <ClInclude Include="Game\SceneObjectStore.h" />
     <ClInclude Include="Game\GameSession.h" />
     <ClInclude Include="Game\PlayScene.h" />
-    <ClInclude Include="Game\SceneType.h" />
+    <ClInclude Include="Game\SceneRegistry.h" />
     <ClInclude Include="Game\IScene.h" />
     <ClInclude Include="Game\SceneManager.h" />
     <ClInclude Include="Game\TitleScene.h" />
@@ -284,9 +317,11 @@
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Math\Collision.h" />
+    <ClInclude Include="Math\Easing.h" />
     <ClInclude Include="Engine\Graphics\Lighting\SceneLight.h" />
     <ClInclude Include="Engine\Audio\AudioManager.h" />
     <ClInclude Include="Engine\Audio\Sound.h" />
+    <ClInclude Include="Engine\Audio\OneShotVoice.h" />
     <ClInclude Include="Engine\Graphics\Object\Model\Model.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\SkinnedPipeline.h" />
     <ClInclude Include="Engine\Graphics\Pipeline\PipelineCommandHelper.h" />

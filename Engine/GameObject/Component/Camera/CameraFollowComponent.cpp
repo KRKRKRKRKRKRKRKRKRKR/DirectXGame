@@ -8,7 +8,8 @@
 #include <cmath>
 #include <string>
 
-void CameraFollowComponent::Update(float deltaTime, Transform& transform) {
+void CameraFollowComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled || !target) return;
 
 	Vector3 targetPos = target->GetWorldTransform().translation;

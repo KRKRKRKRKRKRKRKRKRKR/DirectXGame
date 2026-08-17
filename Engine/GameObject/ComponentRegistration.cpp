@@ -3,6 +3,7 @@
 #include "GameObject.h"
 #include "Component/Render/Render.h"
 #include "Component/Audio/Audio.h"
+#include "Component/Physics/Physics.h"
 #include "../Utils/Logger.h"
 
 void RegisterEngineComponents() {
@@ -109,6 +110,16 @@ void RegisterEngineComponents() {
 		[](GameObject& obj) { return obj.RemoveComponent<MirrorComponent>(); },
 		"鏡");
 
+	// ReflexEnemyHealthBarComponent：固有データなし。同じGameObjectの兄弟ReflexEnemyComponentに
+	// 紐付けるだけ（MirrorComponentと同じパターン）
+	ComponentRegistry::Register<ReflexEnemyHealthBarComponent>("ReflexEnemyHealthBar",
+		[](GameObject& obj, const ComponentLoadContext&, const nlohmann::json& data) {
+			ReflexEnemyHealthBarComponent* c = obj.AddComponent<ReflexEnemyHealthBarComponent>(obj.GetComponent<ReflexEnemyComponent>());
+			c->FromJson(data);
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<ReflexEnemyHealthBarComponent>(); },
+		"REFLEX敵HPバー");
+
 	// AudioSourceComponent：コンストラクタ引数一式をJSONから読んで呼び直す
 	ComponentRegistry::Register<AudioSourceComponent>("AudioSource",
 		[](GameObject& obj, const ComponentLoadContext&, const nlohmann::json& data) {
@@ -122,4 +133,21 @@ void RegisterEngineComponents() {
 		},
 		[](GameObject& obj) { return obj.RemoveComponent<AudioSourceComponent>(); },
 		"オーディオソース");
+
+	// HitSoundComponent：ComponentLoadContext.audioClips（名前→現在のindex変換用）が必要。
+	// TextureSelectorComponentと同じ「保存時は名前、復元時に現在の一覧から探し直す」パターン
+	ComponentRegistry::Register<HitSoundComponent>("HitSound",
+		[](GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {
+			std::string name = data.value("audioName", std::string());
+			int index = -1;
+			if (ctx.audioClips) {
+				for (size_t i = 0; i < ctx.audioClips->size(); i++) {
+					if ((*ctx.audioClips)[i].displayName == name) { index = static_cast<int>(i); break; }
+				}
+			}
+			float volume = data.value("volume", 1.0f);
+			obj.AddComponent<HitSoundComponent>(ctx.audioClips, index, volume);
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<HitSoundComponent>(); },
+		"ヒットSE");
 }

@@ -1,11 +1,13 @@
 #include "Sound.h"
 #include "AudioManager.h"
 #include "../Utils/StringUtils.h"
+#include "../Utils/Logger.h"
 #include <mfidl.h>
 #include <mfreadwrite.h>
 #include <fstream>
 #include <algorithm>
 #include <cassert>
+#include <format>
 
 #pragma comment(lib, "mfreadwrite.lib")
 
@@ -133,6 +135,11 @@ void Sound::Load(const std::string& filePath) {
     }
 }
 
+void Sound::LoadFromDecoded(const WAVEFORMATEX& wfex, const std::vector<BYTE>& audioData) {
+    wfex_ = wfex;
+    audioData_ = audioData; // コピー（PCM実データは共有せず複製する。Unload()で個別に破棄されても安全なため）
+}
+
 void Sound::Play(bool loop, SoundType type) {
     assert(!audioData_.empty() && "Sound::Load を先に呼んでください");
 
@@ -153,7 +160,14 @@ void Sound::Play(bool loop, SoundType type) {
 
     HRESULT hr = xa2->CreateSourceVoice(&sourceVoice_, &wfex_, 0,
         XAUDIO2_DEFAULT_FREQ_RATIO, nullptr, &sends);
-    assert(SUCCEEDED(hr) && "CreateSourceVoice failed");
+    // 診断用：連続ヒット時にSEが鳴らないことがある不具合の切り分け。Releaseビルドではassertが
+    // 無効になり、CreateSourceVoiceが失敗しても気付かず無音のまま処理が続いてしまうため、
+    // Debug/Release問わず必ずログへ残す（原因特定でき次第、この診断ログは削除する）
+    if (FAILED(hr)) {
+        Logger::Log(std::format("[Sound::Play] CreateSourceVoice failed: hr=0x{:08X}\n", static_cast<unsigned long>(hr)));
+        sourceVoice_ = nullptr;
+        return;
+    }
 
     XAUDIO2_BUFFER buf{};
     buf.pAudioData = audioData_.data();
@@ -161,8 +175,14 @@ void Sound::Play(bool loop, SoundType type) {
     buf.Flags      = XAUDIO2_END_OF_STREAM;
     buf.LoopCount  = loop ? XAUDIO2_LOOP_INFINITE : 0;
 
-    sourceVoice_->SubmitSourceBuffer(&buf);
-    sourceVoice_->Start();
+    hr = sourceVoice_->SubmitSourceBuffer(&buf);
+    if (FAILED(hr)) {
+        Logger::Log(std::format("[Sound::Play] SubmitSourceBuffer failed: hr=0x{:08X}\n", static_cast<unsigned long>(hr)));
+    }
+    hr = sourceVoice_->Start();
+    if (FAILED(hr)) {
+        Logger::Log(std::format("[Sound::Play] Start failed: hr=0x{:08X}\n", static_cast<unsigned long>(hr)));
+    }
 }
 
 void Sound::Stop() {

@@ -18,7 +18,7 @@ public:
 	Vector3 boundsCenter = { 0.0f, 0.0f, 0.0f };
 	Vector3 boundsHalfExtent = { 4.0f, 4.0f, 0.5f };
 
-	void Update(float deltaTime, Transform& transform) override;
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
 
 	void ToJson(nlohmann::json& out) const override;

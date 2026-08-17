@@ -5,7 +5,8 @@
 #include <string>
 #include <algorithm>
 
-void GamepadControllerComponent::Update(float deltaTime, Transform& transform) {
+void GamepadControllerComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled) return;
 	if (!Input::IsGamepadConnected(controllerIndex)) return;
 

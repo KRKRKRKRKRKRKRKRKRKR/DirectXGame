@@ -8,7 +8,7 @@ void Game::Initialize(Renderer* renderer, Camera* camera, Window* window) {
 	camera_ = camera;
 	window_ = window;
 	RegisterEngineComponents(); // JSON保存/復元のためのコンポーネント型登録（シーン初期化前に一度だけ）
-	sceneManager_.Initialize(renderer, camera, SceneType::kTitle);
+	sceneManager_.Initialize(renderer, camera, "Title");
 }
 
 void Game::Update(float deltaTime) {

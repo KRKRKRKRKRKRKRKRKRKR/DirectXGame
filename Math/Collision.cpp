@@ -238,6 +238,12 @@ bool OBBSphere(const OBB& obb, const Sphere& sphere) {
 	return VectorMath::Dot(d, d) <= sphere.radius * sphere.radius;
 }
 
+bool SegmentSphere(const Segment& segment, const Sphere& sphere) {
+	Vector3 closest = ClosestPoint(sphere.center, segment);
+	Vector3 d = sphere.center - closest;
+	return VectorMath::Dot(d, d) <= sphere.radius * sphere.radius;
+}
+
 bool OBBLineBase(const OBB& obb, const Vector3& origin, const Vector3& diff, float tMin, float tMax, float& out_tMin, float& out_tMax) {
 	Vector3 d = origin - obb.center;
 	Vector3 localOrigin = {

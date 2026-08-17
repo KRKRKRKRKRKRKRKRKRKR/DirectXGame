@@ -1,5 +1,6 @@
 #include "AudioManager.h"
 #include "Sound.h"  // SoundEntry で Sound* の全定義が必要
+#include "OneShotVoice.h"
 #include "../../Externals/imgui/imgui.h"
 #include <algorithm>
 #include <cassert>
@@ -37,6 +38,10 @@ void AudioManager::Initialize() {
 
     hr = xAudio2_->CreateSubmixVoice(&seSubmix_, details.InputChannels, details.InputSampleRate);
     assert(SUCCEEDED(hr) && "CreateSubmixVoice (SE) failed");
+}
+
+void AudioManager::Update() {
+    OneShotVoice::Update();
 }
 
 void AudioManager::Finalize() {

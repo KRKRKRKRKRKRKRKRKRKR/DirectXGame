@@ -49,6 +49,12 @@ public:
 	// 既存テクスチャの中身だけを同サイズのピクセルで置き換える（HUD等、毎フレーム更新する用途）
 	bool UpdateTextureFromPixels(TextureHandle handle, uint32_t width, uint32_t height, const uint8_t* rgbaPixels);
 
+	// UpdateTextureFromPixelsが上書きで破棄する古いintermediateResourceを、GPUの
+	// コピー完了が保証されるフレーム境界まで生存させていた分をここで解放する。
+	// Engine::Update()がDirectXManager::BeginFrame()の前後で毎フレーム呼ぶ
+	// （TextureManager::ReleasePendingIntermediateResourcesのコメント参照）
+	void ReleasePendingTextureUpdates() { textureManager_.ReleasePendingIntermediateResources(); }
+
 	// OBJ を読み込んでハンドルを返す
 	using ModelHandle = uint32_t;
 	ModelHandle LoadModel(const std::string& directoryPath, const std::string& filename);

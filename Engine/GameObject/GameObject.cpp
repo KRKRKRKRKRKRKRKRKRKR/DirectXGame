@@ -4,7 +4,7 @@
 #include "../../Math/JsonUtil.h"
 #include "../../Math/TransformMath.h"
 #include "../../Math/MatrixMath.h"
-#include "../../Externals/ImGuizmo/src/ImGuizmo.h"
+#include "../../Math/VectorMath.h"
 #include <algorithm>
 #include <unordered_set>
 
@@ -54,16 +54,29 @@ Matrix4x4 GameObject::GetWorldMatrix() const {
 }
 
 Transform GameObject::GetWorldTransform() const {
+	const Transform& local = transformComponent_->transform;
+	if (!parent_) return local;
+
+	// 位置はこれまで通りワールド行列（親の回転・スケールを正しく反映した合成）から取る。
+	// 一方rotationは、行列合成→ImGuizmo::DecomposeMatrixToComponents（atan2ベースの
+	// オイラー角分解）で求めると、複数軸が同時に回転している場合にyaw/pitch/rollの
+	// 取り方が不連続に切り替わり、見た目の回転方向が突然反転して見える不具合があった
+	// （GetWorldMatrix()を直接使うSceneBase::Renderのカメラパスと同じ問題。
+	// 詳細はそちらのコメント参照）。そのため回転だけは行列を経由せず「親のワールド
+	// オイラー角＋自分のローカルオイラー角」をそのまま加算する近似合成にする。
+	// 真のワールド行列とは軸の合成順序が厳密には一致しないが、往復変換由来の
+	// 不連続ジャンプが起きないことを優先する
 	Matrix4x4 world = GetWorldMatrix();
-	float t[3], r[3], s[3];
-	ImGuizmo::DecomposeMatrixToComponents(&world._11, t, r, s);
+	Transform parentWorld = parent_->GetWorldTransform();
+
 	Transform result;
-	result.translation = { t[0], t[1], t[2] };
-	result.rotation = {
-		DirectX::XMConvertToRadians(r[0]),
-		DirectX::XMConvertToRadians(r[1]),
-		DirectX::XMConvertToRadians(r[2]) }; // ImGuizmoは度数法、Transform.rotationはラジアン
-	result.scale = { s[0], s[1], s[2] };
+	result.translation = { world._41, world._42, world._43 };
+	result.rotation = local.rotation + parentWorld.rotation;
+	result.scale = {
+		local.scale.x * parentWorld.scale.x,
+		local.scale.y * parentWorld.scale.y,
+		local.scale.z * parentWorld.scale.z,
+	};
 	return result;
 }
 
@@ -86,6 +99,10 @@ void GameObject::ToJson(nlohmann::json& out) const {
 		if (typeName.empty()) return; // 未登録＝保存対象外
 		nlohmann::json data;
 		c->ToJson(data);
+		// ToJson()が何もフィールドを書き込まない（空実装）コンポーネントの場合、dataはnull型のまま
+		// 残る。null型のままだと次回ロード時にFromJson側のin.value(...)がtype_error(306)で
+		// 例外を投げるため、空オブジェクトへ正規化してから保存する
+		if (data.is_null()) data = nlohmann::json::object();
 		comps.push_back({ {"type", typeName}, {"data", data} });
 	});
 	out["components"] = comps;
@@ -113,15 +130,22 @@ void GameObject::FromJson(const nlohmann::json& in, const ComponentLoadContext& 
 		// Inspectorのドラッグ&ドロップ並び替え（ComponentManager::Move）で保存順が入れ替わりうるため、
 		// 依存する側の型は常に後回しにして2パスで生成する
 		static const std::unordered_set<std::string> kDeferredTypes = { "TextureSelector", "Mirror" };
+		// 過去にToJson()の空実装によって"data":nullとして保存されてしまった古いシーンファイルを
+		// 読み込んだ場合でも、FromJson側のin.value(...)がtype_error(306)で落ちないよう、
+		// "data"キーが無い/null型の場合は空オブジェクトへ正規化してから渡す
+		auto normalizedData = [](const nlohmann::json& entry) -> nlohmann::json {
+			if (!entry.contains("data") || entry["data"].is_null()) return nlohmann::json::object();
+			return entry["data"];
+		};
 		for (const auto& entry : in["components"]) {
 			std::string type = entry.value("type", std::string());
 			if (kDeferredTypes.count(type)) continue;
-			ComponentRegistry::Create(type, *this, ctx, entry["data"]);
+			ComponentRegistry::Create(type, *this, ctx, normalizedData(entry));
 		}
 		for (const auto& entry : in["components"]) {
 			std::string type = entry.value("type", std::string());
 			if (!kDeferredTypes.count(type)) continue;
-			ComponentRegistry::Create(type, *this, ctx, entry["data"]);
+			ComponentRegistry::Create(type, *this, ctx, normalizedData(entry));
 		}
 	}
 }

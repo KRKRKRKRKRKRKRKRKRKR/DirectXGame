@@ -3,7 +3,8 @@
 #include "../../../../Externals/imgui/imgui.h"
 #include <string>
 
-void GravityComponent::Update(float deltaTime, Transform& transform) {
+void GravityComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled) return;
 	velocityY -= gravity * deltaTime;
 	if (velocityY < -maxFallSpeed) velocityY = -maxFallSpeed; // 終端速度でクランプ

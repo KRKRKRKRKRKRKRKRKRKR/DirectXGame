@@ -4,7 +4,8 @@
 #include "../../../../Math/VectorMath.h"
 #include "../../../../Externals/imgui/imgui.h"
 
-void PlayerControllerComponent::Update(float deltaTime, Transform& transform) {
+void PlayerControllerComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
+	(void)ctx;
 	if (!enabled) return;
 
 	Vector3 move{ 0.0f, 0.0f, 0.0f };

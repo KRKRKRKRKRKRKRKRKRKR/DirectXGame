@@ -2,6 +2,7 @@
 #include "../GameObject.h"
 #include "../Component/Physics/ColliderComponentBase.h"
 #include "../Component/Render/RenderComponentBase.h"
+#include "ScreenRay.h"
 #include "../../../Math/Collision.h"
 #include "../../../Math/MatrixMath.h"
 #include "../../../Math/TransformMath.h"
@@ -72,20 +73,9 @@ void GizmoController::UpdatePicking(const std::vector<GameObject*>& targets, Ren
 	const Matrix4x4& view, const Matrix4x4& proj) {
 	if (!IsPickingTriggered(selection3D_, "GizmoController3D")) return;
 
-	// スクリーン座標 → NDC → ワールド空間レイ（Sceneビューの矩形オフセット分を差し引いてから正規化する）
-	ImVec2 mousePos = ToSceneLocal(ImGui::GetMousePos(), renderer);
-	float width  = static_cast<float>(renderer->GetSceneViewportWidth());
-	float height = static_cast<float>(renderer->GetSceneViewportHeight());
-	float ndcX = (mousePos.x / width)  * 2.0f - 1.0f;
-	float ndcY = 1.0f - (mousePos.y / height) * 2.0f;
-
-	Matrix4x4 invViewProj = MatrixMath::Inverse(view * proj);
-	Vector3 nearPoint = TransformMath::Transform({ ndcX, ndcY, 0.0f }, invViewProj);
-	Vector3 farPoint  = TransformMath::Transform({ ndcX, ndcY, 1.0f }, invViewProj);
-
-	Collision::Ray ray;
-	ray.origin = nearPoint;
-	ray.diff   = farPoint - nearPoint;
+	// スクリーン座標 → NDC → ワールド空間レイ（ReflexPlayerComponent等のゲームロジック側の
+	// クリック判定とも共有するため、ScreenRay::FromMouseに抽出済み）
+	Collision::Ray ray = ScreenRay::FromMouse(renderer, view, proj);
 
 	// targets内の全オブジェクトをBounding Sphere（pickingRadiusHint * scaleの最大成分を
 	// 半径とする）とみなし、最もt値が小さい（＝最も手前の）ものを選ぶ。

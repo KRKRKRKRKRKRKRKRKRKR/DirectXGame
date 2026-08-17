@@ -11,7 +11,7 @@ public:
 	float moveSpeed = 5.0f;      // 1秒あたりの移動量
 	int   controllerIndex = 0;   // 0〜3。将来複数コントローラ（マルチプレイヤー）に対応する余地として公開しておく
 
-	void Update(float deltaTime, Transform& transform) override;
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
 
 	void ToJson(nlohmann::json& out) const override {
