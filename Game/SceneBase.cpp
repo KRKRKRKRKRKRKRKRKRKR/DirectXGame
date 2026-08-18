@@ -1,4 +1,5 @@
 #include "SceneBase.h"
+#include "GameTags.h"
 #include "../Externals/imgui/imgui.h"
 #include "../Externals/ImGuizmo/src/ImGuizmo.h"
 #include "../Math/MatrixMath.h"
@@ -232,6 +233,27 @@ ComponentLoadContext SceneBase::MakeComponentLoadContext() {
 	return ctx;
 }
 
+namespace {
+// pathを最後の'/'で「ディレクトリ部（無ければ既定値defaultDirectory）」と「ファイル名部」に分割する。
+// AttachAudioAsset（ファイル名部からさらに拡張子を除いたstemが欲しい）とAttachModelAsset
+// （ディレクトリ部・ファイル名部の両方が欲しい）で同じ分割ロジックが重複していたため共通化した
+struct SplitPathResult {
+	std::string directory;
+	std::string filename;
+};
+SplitPathResult SplitPath(const std::string& path, const std::string& defaultDirectory) {
+	size_t slashPos = path.find_last_of('/');
+	if (slashPos == std::string::npos) return { defaultDirectory, path };
+	return { path.substr(0, slashPos), path.substr(slashPos + 1) };
+}
+
+// filenameから拡張子（最後の'.'以降）を取り除いた部分を返す（拡張子が無ければfilenameのまま）
+std::string StripExtension(const std::string& filename) {
+	size_t dot = filename.find_last_of('.');
+	return (dot == std::string::npos) ? filename : filename.substr(0, dot);
+}
+} // namespace
+
 void SceneBase::AttachTextureAsset(GameObject& obj, const std::string& path) {
 	// Modelはサブメッシュごとのテクスチャ選択をModelRenderComponent自身のInspectorに内蔵した
 	// ため、ドラッグ&ドロップでのTextureSelectorComponent付与は対象外にする
@@ -259,9 +281,8 @@ void SceneBase::AttachTextureAsset(GameObject& obj, const std::string& path) {
 }
 
 void SceneBase::AttachAudioAsset(GameObject& obj, const std::string& path) {
-	std::string filename = path.substr(path.find_last_of('/') + 1);
-	size_t dot = filename.find_last_of('.');
-	std::string stem = (dot == std::string::npos) ? filename : filename.substr(0, dot);
+	std::string filename = SplitPath(path, "").filename;
+	std::string stem = StripExtension(filename);
 
 	ComponentLoadContext ctx = MakeComponentLoadContext();
 	nlohmann::json data;
@@ -286,9 +307,9 @@ void SceneBase::AttachModelAsset(GameObject& obj, const std::string& path) {
 	// path例: "Resources/Model/teapot/teapot.obj" → directoryPath="Resources/Model/teapot"、
 	// filename="teapot.obj"（Model::Initializeの引数形式に合わせる。ModelRenderComponentの
 	// Add Componentメニューと同じ組み立て方）
-	size_t slashPos = path.find_last_of('/');
-	std::string directoryPath = (slashPos == std::string::npos) ? "Resources" : path.substr(0, slashPos);
-	std::string filename      = (slashPos == std::string::npos) ? path : path.substr(slashPos + 1);
+	SplitPathResult split = SplitPath(path, "Resources");
+	std::string directoryPath = split.directory;
+	std::string filename      = split.filename;
 
 	ComponentLoadContext ctx = MakeComponentLoadContext();
 	nlohmann::json data;
@@ -333,6 +354,55 @@ bool AppendScriptToProjectFile(const std::string& filePath, const std::string& i
 	out << content;
 	return true;
 }
+
+// className用のひな形ヘッダ(.h)の中身を組み立てる。IComponent派生の骨組み
+// （Update/DrawImGui/ToJson/FromJson宣言）のみで、実装はソース側に生成する
+std::string BuildScriptHeaderContent(const std::string& className) {
+	return
+		"#pragma once\r\n"
+		"#include \"../../Engine/GameObject/IComponent.h\"\r\n"
+		"\r\n"
+		"// TODO: このコンポーネントの説明を書く\r\n"
+		"class " + className + " : public IComponent {\r\n"
+		"public:\r\n"
+		"\tvoid Update(float deltaTime, Transform& transform) override;\r\n"
+		"\tvoid DrawImGui(const char* namePrefix) override;\r\n"
+		"\tvoid ToJson(nlohmann::json& out) const override;\r\n"
+		"\tvoid FromJson(const nlohmann::json& in) override;\r\n"
+		"};\r\n";
+}
+
+// className用のひな形ソース(.cpp)の中身を組み立てる。各メソッドの空実装＋
+// REGISTER_SIMPLE_COMPONENTマクロによるComponentRegistryへの自動登録を含む
+std::string BuildScriptSourceContent(const std::string& className, const std::string& typeName,
+	const std::string& displayName, const std::string& category) {
+	return
+		"#include \"" + className + ".h\"\r\n"
+		"#include \"../../Engine/GameObject/ComponentRegistry.h\"\r\n"
+		"#include \"../../Externals/imgui/imgui.h\"\r\n"
+		"\r\n"
+		"void " + className + "::Update(float deltaTime, Transform& transform) {\r\n"
+		"\t(void)deltaTime; (void)transform;\r\n"
+		"\t// TODO: 毎フレームの処理\r\n"
+		"}\r\n"
+		"\r\n"
+		"void " + className + "::DrawImGui(const char* namePrefix) {\r\n"
+		"\t(void)namePrefix;\r\n"
+		"\t// TODO: Inspectorに表示する項目\r\n"
+		"}\r\n"
+		"\r\n"
+		"void " + className + "::ToJson(nlohmann::json& out) const {\r\n"
+		"\t(void)out;\r\n"
+		"\t// TODO: 保存するフィールド\r\n"
+		"}\r\n"
+		"\r\n"
+		"void " + className + "::FromJson(const nlohmann::json& in) {\r\n"
+		"\t(void)in;\r\n"
+		"\t// TODO: 読み込むフィールド\r\n"
+		"}\r\n"
+		"\r\n"
+		"REGISTER_SIMPLE_COMPONENT(" + className + ", \"" + typeName + "\", \"" + displayName + "\", \"" + category + "\");\r\n";
+}
 } // namespace
 
 void SceneBase::CreateNewScript(const std::string& baseName, const std::string& displayName, const std::string& category) {
@@ -362,45 +432,8 @@ void SceneBase::CreateNewScript(const std::string& baseName, const std::string& 
 	std::error_code ec;
 	fs::create_directories("Game/Scripts", ec);
 
-	std::string headerContent =
-		"#pragma once\r\n"
-		"#include \"../../Engine/GameObject/IComponent.h\"\r\n"
-		"\r\n"
-		"// TODO: このコンポーネントの説明を書く\r\n"
-		"class " + className + " : public IComponent {\r\n"
-		"public:\r\n"
-		"\tvoid Update(float deltaTime, Transform& transform) override;\r\n"
-		"\tvoid DrawImGui(const char* namePrefix) override;\r\n"
-		"\tvoid ToJson(nlohmann::json& out) const override;\r\n"
-		"\tvoid FromJson(const nlohmann::json& in) override;\r\n"
-		"};\r\n";
-
-	std::string sourceContent =
-		"#include \"" + className + ".h\"\r\n"
-		"#include \"../../Engine/GameObject/ComponentRegistry.h\"\r\n"
-		"#include \"../../Externals/imgui/imgui.h\"\r\n"
-		"\r\n"
-		"void " + className + "::Update(float deltaTime, Transform& transform) {\r\n"
-		"\t(void)deltaTime; (void)transform;\r\n"
-		"\t// TODO: 毎フレームの処理\r\n"
-		"}\r\n"
-		"\r\n"
-		"void " + className + "::DrawImGui(const char* namePrefix) {\r\n"
-		"\t(void)namePrefix;\r\n"
-		"\t// TODO: Inspectorに表示する項目\r\n"
-		"}\r\n"
-		"\r\n"
-		"void " + className + "::ToJson(nlohmann::json& out) const {\r\n"
-		"\t(void)out;\r\n"
-		"\t// TODO: 保存するフィールド\r\n"
-		"}\r\n"
-		"\r\n"
-		"void " + className + "::FromJson(const nlohmann::json& in) {\r\n"
-		"\t(void)in;\r\n"
-		"\t// TODO: 読み込むフィールド\r\n"
-		"}\r\n"
-		"\r\n"
-		"REGISTER_SIMPLE_COMPONENT(" + className + ", \"" + typeName + "\", \"" + displayName + "\", \"" + category + "\");\r\n";
+	std::string headerContent = BuildScriptHeaderContent(className);
+	std::string sourceContent = BuildScriptSourceContent(className, typeName, displayName, category);
 
 	std::ofstream headerFile(headerPath, std::ios::binary);
 	std::ofstream sourceFile(sourcePath, std::ios::binary);
@@ -494,28 +527,88 @@ void SceneBase::Render(float deltaTime) {
 		isPlaying_ = true;
 	}
 
-	// CameraFollowComponentのtarget解決：まずタグ"Player"が付いたオブジェクトを優先し、
-	// 無ければ（今までどおり）シーン内で最初に見つかったAutoRunComponent持ちオブジェクトに
-	// フォールバックする。各オブジェクトのUpdate()より前に解決しておくことで、このフレームの
-	// CameraFollowComponent::Updateが古い/nullのtargetを見ないようにする
 	if (isPlaying_) {
-		GameObject* autoRunTarget = FindObjectByTag("Player");
-		if (!autoRunTarget) {
-			for (auto& obj : objects_) {
-				if (obj->GetComponent<AutoRunComponent>()) { autoRunTarget = obj.get(); break; }
-			}
-		}
-		for (auto& obj : objects_) {
-			if (auto* follow = obj->GetComponent<CameraFollowComponent>()) {
-				follow->target = autoRunTarget;
-			}
-		}
+		UpdateAutoRunCameraFollowTarget();
 	}
 
 	Matrix4x4 view = camera_->GetViewMatrix();
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
 		camera_->GetAspectRatio(renderer_->GetSceneViewportWidth(), renderer_->GetSceneViewportHeight()));
 
+	UpdateDynamicTextComponents();
+
+	GameCameraResolution gameCam = ResolveGameCamera();
+	// カメラが無くなったら（削除された等）強制的にSceneへ戻す
+	if (!gameCam.gameCamera) viewingGameCamera_ = false;
+	// エディタUIを隠している間は常にGameカメラ視点を使う（Sceneの自由カメラ編集は無効化する）
+	if (!EditorState::GetInstance().IsUiVisible() && gameCam.gameCamera) viewingGameCamera_ = true;
+
+	// ---- メインパス：Scene（エディタカメラ+Gizmo）とGame（配置カメラ、Gizmoなし）は
+	// 画面全体を共有し、ボタンでの選択に応じてどちらか一方だけを描画する ----
+	ActiveCameraState activeCam = ResolveActiveCamera(view, proj, gameCam, deltaTime);
+	renderer_->SetCamera(activeCam.view, activeCam.proj, activeCam.camPos);
+
+	float gameplayDeltaTime = ComputeGameplayDeltaTime(deltaTime);
+
+	if (isPlaying_) {
+		UpdateGizmoTargets(gameplayDeltaTime, activeCam);
+	}
+
+	// Gizmoのピッキング/操作はScene表示中のみ（Game表示中は選択・編集させない）
+	if (!activeCam.useGameCamera) {
+		UpdateGizmoPicking(activeCam);
+	}
+
+	// Mirrorを探す（削除されていれば存在しない＝反射パス自体を丸ごとスキップする）。
+	// コンポーネント更新（Update）後のTransformで反射させるため、このタイミングで探して描画する
+	MirrorResolution mirror = FindMirror();
+
+	if (mirror.mirror) {
+		RenderMirrorPass(mirror, view, proj, activeCam);
+	}
+
+	RenderMainPass(deltaTime);
+
+	if (mirror.mirror) {
+		DrawMirrorObject(mirror);
+	}
+
+	// 当たり判定の解決（押し戻し）自体はScene/Gameどちらの表示中でも行うが、
+	// ワイヤーフレームのデバッグ描画はScene表示中のみ（drawDebug引数）
+	colliderSystem_.ResolveAndDraw(gizmoTargets_, isPlaying_, renderer_, activeCam.view, activeCam.proj, !activeCam.useGameCamera);
+
+	SyncLighting(activeCam);
+
+	// CameraComponentにはメッシュが無く、選択しても向き・画角・映る範囲が分からないため、
+	// Blenderのカメラを模したワイヤーフレームで可視化する（Scene表示中のみ。Game表示中は
+	// その視点自体を描いていることになるので不要）
+	if (!activeCam.useGameCamera) {
+		DrawCameraGizmoVisualizations(activeCam);
+	}
+
+	DrawEditorUiIfVisible();
+	ProcessSceneTransitionRequest();
+}
+
+void SceneBase::UpdateAutoRunCameraFollowTarget() {
+	// CameraFollowComponentのtarget解決：まずタグ"Player"が付いたオブジェクトを優先し、
+	// 無ければ（今までどおり）シーン内で最初に見つかったAutoRunComponent持ちオブジェクトに
+	// フォールバックする。各オブジェクトのUpdate()より前に解決しておくことで、このフレームの
+	// CameraFollowComponent::Updateが古い/nullのtargetを見ないようにする
+	GameObject* autoRunTarget = FindObjectByTag(GameTags::kPlayer);
+	if (!autoRunTarget) {
+		for (auto& obj : objects_) {
+			if (obj->GetComponent<AutoRunComponent>()) { autoRunTarget = obj.get(); break; }
+		}
+	}
+	for (auto& obj : objects_) {
+		if (auto* follow = obj->GetComponent<CameraFollowComponent>()) {
+			follow->target = autoRunTarget;
+		}
+	}
+}
+
+void SceneBase::UpdateDynamicTextComponents() {
 	// TextProviderを持つdynamicTextを毎フレーム更新する（Camera座標HUD等）。同じテクスチャの
 	// 中身を書き換えるだけなので、新しいテクスチャハンドルを発行せず毎フレーム呼んでも枯渇しない。
 	// HUDが増えてもこのループは変更不要（各Textが自分のTextProviderを持っているだけ）
@@ -524,48 +617,50 @@ void SceneBase::Render(float deltaTime) {
 			text->UpdateDynamicText(renderer_);
 		}
 	}
+}
 
+SceneBase::GameCameraResolution SceneBase::ResolveGameCamera() {
 	// Gameモード用カメラの候補を探す：まずタグ"MainCamera"が付いたオブジェクトを優先し、
 	// 無ければ（今までどおり）シーン内で最初に見つかったCameraComponentにフォールバックする。
 	// 複数カメラがある場合にどれを使うか明示的に選べるように、Unityの「MainCameraタグ」相当を追加した
-	CameraComponent* gameCamera = nullptr;
-	GameObject* gameCameraObject = nullptr;
-	if (GameObject* tagged = FindObjectByTag("MainCamera")) {
+	GameCameraResolution result;
+	if (GameObject* tagged = FindObjectByTag(GameTags::kMainCamera)) {
 		if (auto* c = tagged->GetComponent<CameraComponent>()) {
-			gameCamera = c;
-			gameCameraObject = tagged;
+			result.gameCamera = c;
+			result.gameCameraObject = tagged;
 		}
 	}
-	if (!gameCamera) {
+	if (!result.gameCamera) {
 		for (auto& obj : objects_) {
 			if (auto* c = obj->GetComponent<CameraComponent>()) {
-				gameCamera = c;
-				gameCameraObject = obj.get();
+				result.gameCamera = c;
+				result.gameCameraObject = obj.get();
 				break;
 			}
 		}
 	}
-	// カメラが無くなったら（削除された等）強制的にSceneへ戻す
-	if (!gameCamera) viewingGameCamera_ = false;
-	// エディタUIを隠している間は常にGameカメラ視点を使う（Sceneの自由カメラ編集は無効化する）
-	if (!EditorState::GetInstance().IsUiVisible() && gameCamera) viewingGameCamera_ = true;
-	bool useGameCamera = viewingGameCamera_ && gameCamera != nullptr;
+	return result;
+}
 
-	// ---- メインパス：Scene（エディタカメラ+Gizmo）とGame（配置カメラ、Gizmoなし）は
-	// 画面全体を共有し、ボタンでの選択に応じてどちらか一方だけを描画する ----
-	Matrix4x4 activeView = view;
-	Matrix4x4 activeProj = proj;
-	Vector3   activeCamPos = camera_->GetCameraData().position;
+SceneBase::ActiveCameraState SceneBase::ResolveActiveCamera(const Matrix4x4& view, const Matrix4x4& proj,
+	const GameCameraResolution& gameCam, float deltaTime) {
+	bool useGameCamera = viewingGameCamera_ && gameCam.gameCamera != nullptr;
+
+	ActiveCameraState result;
+	result.view = view;
+	result.proj = proj;
+	result.camPos = camera_->GetCameraData().position;
+	result.useGameCamera = useGameCamera;
 	if (useGameCamera) {
 		// GetWorldTransform()（ImGuizmoのatan2ベースEuler分解経由）ではなくGetWorldMatrix()を
 		// 直接渡す。Euler往復変換だとyawが±180度付近を通過する瞬間に分解結果が不連続にジャンプし、
 		// カメラの向きが突然反転して見える不具合があったため（GamepadCameraLookComponent参照）
-		Matrix4x4 camWorldMatrix = gameCameraObject->GetWorldMatrix();
-		activeView = gameCamera->GetViewMatrixFromWorld(camWorldMatrix);
-		activeProj = gameCamera->GetProjectionMatrix(
+		Matrix4x4 camWorldMatrix = gameCam.gameCameraObject->GetWorldMatrix();
+		result.view = gameCam.gameCamera->GetViewMatrixFromWorld(camWorldMatrix);
+		result.proj = gameCam.gameCamera->GetProjectionMatrix(
 			camera_->GetAspectRatio(renderer_->GetSceneViewportWidth(), renderer_->GetSceneViewportHeight()));
 		// positionOffset込みの実際の視点位置（ライティングの鏡面反射計算等で使われる）
-		activeCamPos = gameCamera->GetEffectiveWorldPositionFromWorld(camWorldMatrix);
+		result.camPos = gameCam.gameCamera->GetEffectiveWorldPositionFromWorld(camWorldMatrix);
 	}
 	// 敵ヒット時のカメラシェイク：ReflexEnemyComponent::OnTriggerEnter等がHitEffect::RequestShakeで
 	// 積んだ要求を消費し、ランダムなオフセットをカメラ位置に加算する。isPlaying_中のみ（Stop中の
@@ -577,23 +672,27 @@ void SceneBase::Render(float deltaTime) {
 	if (isPlaying_) {
 		Vector3 shakeOffset = HitEffect::ConsumeShakeOffset(deltaTime);
 		if (shakeOffset.x != 0.0f || shakeOffset.y != 0.0f || shakeOffset.z != 0.0f) {
-			Matrix4x4 camWorld = MatrixMath::Inverse(activeView);
+			Matrix4x4 camWorld = MatrixMath::Inverse(result.view);
 			camWorld.m[3][0] += shakeOffset.x;
 			camWorld.m[3][1] += shakeOffset.y;
 			camWorld.m[3][2] += shakeOffset.z;
-			activeView = MatrixMath::Inverse(camWorld);
-			activeCamPos = activeCamPos + shakeOffset;
+			result.view = MatrixMath::Inverse(camWorld);
+			result.camPos = result.camPos + shakeOffset;
 		}
 	}
-	renderer_->SetCamera(activeView, activeProj, activeCamPos);
+	return result;
+}
 
+float SceneBase::ComputeGameplayDeltaTime(float deltaTime) const {
 	// 敵ヒット時のヒットストップ：残り時間中はコンポーネントに渡すdeltaTimeを0にして
 	// 見た目上の動きを止める（実時間でのタイマー消化はHitEffect::IsHitStopActive内で行う）
-	float gameplayDeltaTime = deltaTime;
 	if (isPlaying_ && HitEffect::IsHitStopActive(deltaTime)) {
-		gameplayDeltaTime = 0.0f;
+		return 0.0f;
 	}
+	return deltaTime;
+}
 
+void SceneBase::UpdateGizmoTargets(float gameplayDeltaTime, const ActiveCameraState& activeCam) {
 	// isPlaying_中のみコンポーネント更新（Stop中はGizmoで自由に配置できるようにする）。
 	// activeView/activeProj確定後に呼ぶことで、ReflexPlayerComponent等クリック→ワールド座標変換に
 	// Renderer/view/projを要するコンポーネントにもUpdateContext経由で渡せるようにしている
@@ -601,70 +700,68 @@ void SceneBase::Render(float deltaTime) {
 	// 挙動には影響しない）。isGameViewはGizmoController::UpdatePicking等と同じuseGameCamera値を
 	// 渡す。Sceneビュー表示中はGizmoのオブジェクト選択・矩形選択が同じ左クリックを使うため、
 	// クリックでゲームロジックを動かすコンポーネント側でも二重にガードできるようにする
-	if (isPlaying_) {
-		UpdateContext updateCtx{ renderer_, activeView, activeProj, useGameCamera, &gizmoTargets_ };
-		for (auto* obj : gizmoTargets_) obj->Update(gameplayDeltaTime, updateCtx);
-	}
+	UpdateContext updateCtx{ renderer_, activeCam.view, activeCam.proj, activeCam.useGameCamera, &gizmoTargets_ };
+	for (auto* obj : gizmoTargets_) obj->Update(gameplayDeltaTime, updateCtx);
+}
 
-	// Gizmoのピッキング/操作はScene表示中のみ（Game表示中は選択・編集させない）
-	if (!useGameCamera) {
-		gizmoController_.UpdatePicking(gizmoTargets_, renderer_, activeView, activeProj);
-		gizmoController_.UpdateGizmo(gizmoTargets_, renderer_, activeView, activeProj);
-		gizmoController_.UpdatePicking2D(screenTargets_, renderer_);
-		gizmoController_.UpdateGizmo2D(screenTargets_, renderer_);
-		gizmoController_.UpdateContextMenu(renderer_);
-	}
+void SceneBase::UpdateGizmoPicking(const ActiveCameraState& activeCam) {
+	gizmoController_.UpdatePicking(gizmoTargets_, renderer_, activeCam.view, activeCam.proj);
+	gizmoController_.UpdateGizmo(gizmoTargets_, renderer_, activeCam.view, activeCam.proj);
+	gizmoController_.UpdatePicking2D(screenTargets_, renderer_);
+	gizmoController_.UpdateGizmo2D(screenTargets_, renderer_);
+	gizmoController_.UpdateContextMenu(renderer_);
+}
 
-	// Mirrorを探す（削除されていれば存在しない＝反射パス自体を丸ごとスキップする）。
-	// コンポーネント更新（Update）後のTransformで反射させるため、このタイミングで探して描画する
-	MirrorComponent* mirror = nullptr;
-	GameObject* mirrorObject = nullptr;
+SceneBase::MirrorResolution SceneBase::FindMirror() {
+	MirrorResolution result;
 	for (auto& obj : objects_) {
 		if (auto* m = obj->GetComponent<MirrorComponent>()) {
-			mirror = m;
-			mirrorObject = obj.get();
+			result.mirror = m;
+			result.mirrorObject = obj.get();
 			break;
 		}
 	}
+	return result;
+}
 
-	if (mirror) {
-		// 鏡の反射視点で、Mirror自身とSprite2D（スクリーン空間UI）以外を全部オフスクリーンへ描画する
-		Collision::Plane mirrorPlane   = mirror->ComputePlane(mirrorObject->GetTransform());
-		Matrix4x4        reflection    = MatrixMath::MakeReflectionMatrix(mirrorPlane);
-		Matrix4x4        reflectedView = reflection * view;
-		Vector3          reflectedCamPos = TransformMath::Transform(camera_->GetCameraData().position, reflection);
+void SceneBase::RenderMirrorPass(const MirrorResolution& mirror, const Matrix4x4& view, const Matrix4x4& proj,
+	const ActiveCameraState& activeCam) {
+	// 鏡の反射視点で、Mirror自身とSprite2D（スクリーン空間UI）以外を全部オフスクリーンへ描画する
+	Collision::Plane mirrorPlane   = mirror.mirror->ComputePlane(mirror.mirrorObject->GetTransform());
+	Matrix4x4        reflection    = MatrixMath::MakeReflectionMatrix(mirrorPlane);
+	Matrix4x4        reflectedView = reflection * view;
+	Vector3          reflectedCamPos = TransformMath::Transform(camera_->GetCameraData().position, reflection);
 
-		renderer_->BeginMirrorPass(reflectedView, proj, reflectedCamPos);
-		for (auto& obj : objects_) {
-			if (obj->GetComponent<MirrorComponent>()) continue;
-			if (auto* sprite = obj->GetComponent<SpriteRenderComponent>()) {
-				if (!sprite->is3D) continue; // Sprite2Dは反射に映さない
-			}
-			if (auto* r = obj->GetComponent<RenderComponentBase>()) {
-				// deltaTime=0：ModelRenderComponentのアニメーションを通常パスと二重に進めないため
-				r->Draw(renderer_, obj->GetWorldTransform(), 0.0f);
-			}
+	renderer_->BeginMirrorPass(reflectedView, proj, reflectedCamPos);
+	for (auto& obj : objects_) {
+		if (obj->GetComponent<MirrorComponent>()) continue;
+		if (auto* sprite = obj->GetComponent<SpriteRenderComponent>()) {
+			if (!sprite->is3D) continue; // Sprite2Dは反射に映さない
 		}
-		renderer_->EndMirrorPass();
-		// オフスクリーンパス中にSetCameraの内容が上書きされているため、メインパス用に戻す
-		renderer_->SetCamera(activeView, activeProj, activeCamPos);
+		if (auto* r = obj->GetComponent<RenderComponentBase>()) {
+			// deltaTime=0：ModelRenderComponentのアニメーションを通常パスと二重に進めないため
+			r->Draw(renderer_, obj->GetWorldTransform(), 0.0f);
+		}
 	}
+	renderer_->EndMirrorPass();
+	// オフスクリーンパス中にSetCameraの内容が上書きされているため、メインパス用に戻す
+	renderer_->SetCamera(activeCam.view, activeCam.proj, activeCam.camPos);
+}
 
+void SceneBase::RenderMainPass(float deltaTime) {
 	for (auto& obj : objects_) {
 		if (obj->GetComponent<MirrorComponent>()) continue; // Mirrorは反射テクスチャ確定後に描画する
 		if (auto* r = obj->GetComponent<RenderComponentBase>()) {
 			r->Draw(renderer_, obj->GetWorldTransform(), deltaTime);
 		}
 	}
+}
 
-	if (mirror) {
-		mirror->Draw(renderer_, mirrorObject->GetWorldTransform());
-	}
+void SceneBase::DrawMirrorObject(const MirrorResolution& mirror) {
+	mirror.mirror->Draw(renderer_, mirror.mirrorObject->GetWorldTransform());
+}
 
-	// 当たり判定の解決（押し戻し）自体はScene/Gameどちらの表示中でも行うが、
-	// ワイヤーフレームのデバッグ描画はScene表示中のみ（drawDebug引数）
-	colliderSystem_.ResolveAndDraw(gizmoTargets_, isPlaying_, renderer_, activeView, activeProj, !useGameCamera);
-
+void SceneBase::SyncLighting(const ActiveCameraState& activeCam) {
 	// 各ライトコンポーネントが自分のSetter呼び出しとデバッグ表示を行う（ILightComponent経由で汎用処理）。
 	// SyncToRenderer（実際のライティング反映）はどちらの表示中でも必要、デバッグ可視化はScene表示中のみ。
 	// ループ前に一旦Directional/Point/Spotの有効フラグを全部リセットしておく（削除されたコンポーネントの
@@ -678,31 +775,32 @@ void SceneBase::Render(float deltaTime) {
 			uint32_t& slot = lightSlotCounters[static_cast<int>(light->GetLightType())];
 			light->SyncToRenderer(renderer_, obj->GetWorldTransform(), slot);
 			slot++;
-			if (!useGameCamera) {
-				light->DrawGizmoVisualization(renderer_, obj->GetWorldTransform(), activeView, activeProj);
+			if (!activeCam.useGameCamera) {
+				light->DrawGizmoVisualization(renderer_, obj->GetWorldTransform(), activeCam.view, activeCam.proj);
 			}
 		}
 	}
+}
 
-	// CameraComponentにはメッシュが無く、選択しても向き・画角・映る範囲が分からないため、
-	// Blenderのカメラを模したワイヤーフレームで可視化する（Scene表示中のみ。Game表示中は
-	// その視点自体を描いていることになるので不要）
-	if (!useGameCamera) {
-		float cameraGizmoAspect = camera_->GetAspectRatio(renderer_->GetSceneViewportWidth(), renderer_->GetSceneViewportHeight());
-		for (auto& obj : objects_) {
-			if (auto* cam = obj->GetComponent<CameraComponent>()) {
-				// positionOffset/rotationOffset込みの「実際に見ている位置」にアイコンを描く
-				// （オーナーの生のTransformのまま描くと、オフセットで実際の視点とズレて表示される）
-				Transform effective = cam->GetEffectiveWorldTransform(obj->GetWorldTransform());
-				cam->DrawGizmoVisualization(renderer_, effective, activeView, activeProj, cameraGizmoAspect);
-			}
+void SceneBase::DrawCameraGizmoVisualizations(const ActiveCameraState& activeCam) {
+	float cameraGizmoAspect = camera_->GetAspectRatio(renderer_->GetSceneViewportWidth(), renderer_->GetSceneViewportHeight());
+	for (auto& obj : objects_) {
+		if (auto* cam = obj->GetComponent<CameraComponent>()) {
+			// positionOffset/rotationOffset込みの「実際に見ている位置」にアイコンを描く
+			// （オーナーの生のTransformのまま描くと、オフセットで実際の視点とズレて表示される）
+			Transform effective = cam->GetEffectiveWorldTransform(obj->GetWorldTransform());
+			cam->DrawGizmoVisualization(renderer_, effective, activeCam.view, activeCam.proj, cameraGizmoAspect);
 		}
 	}
+}
 
+void SceneBase::DrawEditorUiIfVisible() {
 	if (EditorState::GetInstance().IsUiVisible()) {
 		DrawImGui();
 	}
+}
 
+void SceneBase::ProcessSceneTransitionRequest() {
 	// シーン遷移条件は派生クラスごとに異なるため、ここでフックへ委譲する。
 	// ImGuiのテキスト入力欄等がキーボードを掴んでいる間はEnter/Escape等のホットキーを
 	// 無視する（Inspectorの名前欄でEnterを押しただけでシーン遷移してしまう等を防ぐ）
@@ -831,6 +929,23 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 	// ここで既に1個持っていたら「モデル描画」「スプライト描画」の追加自体をブロックする
 	bool alreadyHasRenderComponent = selected.GetComponent<RenderComponentBase>() != nullptr;
 
+	DrawAddModelRenderNode(selected, ctx, alreadyHasRenderComponent);
+	DrawAddSpriteRenderNode(selected, ctx, alreadyHasRenderComponent);
+	DrawAddTextureSelectorNode(selected, ctx);
+	DrawAddMirrorNode(selected, ctx);
+	DrawAddReflexEnemyHealthBarNode(selected, ctx);
+	DrawAddTextRenderNode(selected, ctx, alreadyHasRenderComponent);
+
+	// ---- オーディオ ----
+	ImGui::SeparatorText("オーディオ");
+
+	DrawAddAudioSourceNode(selected, ctx);
+	DrawAddHitSoundNode(selected, ctx);
+
+	ImGui::EndPopup();
+}
+
+void SceneBase::DrawAddModelRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent) {
 	// ModelRender：directoryPath/filenameを指定してLoadModelを呼び直す必要がある
 	if (ImGui::TreeNode("モデル描画")) {
 		static char modelDirBuf[256] = "Resources";
@@ -856,7 +971,9 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		if (!canAdd) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
+}
 
+void SceneBase::DrawAddSpriteRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent) {
 	// SpriteRender：is3Dのみコンストラクタ引数。テクスチャ自体はTextureSelectorComponentを
 	// 別途追加して選ぶ運用（RenderComponentBase::textureHandleは初期値kTextureNoneのまま）。
 	// is3D/TransformComponent::is2Dは常に逆の関係になるよう両方向で同期する（is3D=falseなら
@@ -886,7 +1003,9 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		if (alreadyHasRenderComponent) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
+}
 
+void SceneBase::DrawAddTextureSelectorNode(GameObject& selected, const ComponentLoadContext& ctx) {
 	// TextureSelector：同じGameObjectに既にRenderComponentBase系（CubeRender/SphereRender/
 	// SpriteRender等）が付いていることが前提。無ければ追加できないようにする。
 	// Modelはサブメッシュごとのテクスチャ選択をModelRenderComponent自身のInspectorに内蔵した
@@ -908,7 +1027,9 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		}
 		ImGui::TreePop();
 	}
+}
 
+void SceneBase::DrawAddMirrorNode(GameObject& selected, const ComponentLoadContext& ctx) {
 	// Mirror：同じGameObjectに既にCubeRenderComponentが付いていることが前提
 	if (ImGui::TreeNode("鏡")) {
 		bool hasCubeRender = selected.GetComponent<CubeRenderComponent>() != nullptr;
@@ -920,7 +1041,9 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		}
 		ImGui::TreePop();
 	}
+}
 
+void SceneBase::DrawAddReflexEnemyHealthBarNode(GameObject& selected, const ComponentLoadContext& ctx) {
 	// ReflexEnemyHealthBar：兄弟のReflexEnemyComponentからhp/maxHpを読んでバーを描く。
 	// ReflexEnemyComponentが無いGameObjectに付けた場合はtarget_がnullptrになり、
 	// ReflexEnemyHealthBarComponent::Updateの先頭ガードにより何も描画されないだけで安全
@@ -931,7 +1054,9 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		}
 		ImGui::TreePop();
 	}
+}
 
+void SceneBase::DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent) {
 	// TextRender：HUD（動的、hudDefinitions_のテンプレートから選ぶ）と静的テキスト
 	// （内容を打ち込む）の2種類をここから選択中オブジェクトへ直接アタッチする
 	// （旧ヒエラルキー「HUD/テキストを作成」は専用の新規オブジェクトを作る方式だったが、
@@ -995,10 +1120,9 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		if (alreadyHasRenderComponent) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
+}
 
-	// ---- オーディオ ----
-	ImGui::SeparatorText("オーディオ");
-
+void SceneBase::DrawAddAudioSourceNode(GameObject& selected, const ComponentLoadContext& ctx) {
 	// AudioSource：filePath/registeredName/type/loopを指定してSound::Loadを呼び直す必要がある
 	if (ImGui::TreeNode("オーディオソース")) {
 		static char audioPathBuf[256] = "";
@@ -1032,7 +1156,9 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		if (!canAdd) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
+}
 
+void SceneBase::DrawAddHitSoundNode(GameObject& selected, const ComponentLoadContext& ctx) {
 	// HitSound：TextureSelectorと同じ「プロジェクトパネルの一覧からコンボで選ぶ」方式。
 	// パス入力・D&Dは行わず、projectAudioClips_（Resources/配下走査済みの音声一覧）から選ぶだけ
 	if (ImGui::TreeNode("ヒットSE")) {
@@ -1061,13 +1187,41 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 		}
 		ImGui::TreePop();
 	}
-
-	ImGui::EndPopup();
 }
 
 void SceneBase::DrawImGui() {
 	ImGui::Begin("ギズモ##Gizmo");
 
+	DrawPlayStopControls();
+	DrawSceneGameViewToggle();
+
+	// Edit Collider/操作モードはGizmoControllerが描画（オブジェクト選択自体はHierarchyパネルへ一本化済み）
+	gizmoController_.DrawImGui(gizmoTargets_);
+
+	if (ImGui::Button("選択を削除")) DeleteSelectedObject();
+
+	ImGui::Separator();
+	DrawSceneSaveLoadControls();
+
+	ImGui::Separator();
+	DrawSceneTransitionButtons();
+
+	ImGui::End();
+
+	DrawHierarchy();
+	DrawInspector();
+	DrawProjectPanel();
+
+	// 共有メッシュのグローバル設定はRenderer自身が描画する
+	renderer_->DrawImGui();
+
+	AudioManager::GetInstance().DrawImGui();
+
+	// シーン全体の設定はSceneLight自身が描画する
+	renderer_->GetLight().DrawImGui();
+}
+
+void SceneBase::DrawPlayStopControls() {
 	// Stop中はGravityComponent等の更新と押し戻しを止める
 	if (isPlaying_) {
 		if (ImGui::Button("停止")) isPlaying_ = false;
@@ -1076,7 +1230,9 @@ void SceneBase::DrawImGui() {
 	}
 	ImGui::SameLine();
 	ImGui::Text(isPlaying_ ? "（再生中）" : "（停止中）");
+}
 
+void SceneBase::DrawSceneGameViewToggle() {
 	// Scene/Gameビュー切替（Unityのタブ相当をボタンで実現）。画面全体はどちらか一方しか
 	// 表示しない設計のため、シーン内にCameraComponentが無ければGameボタンは無効化する
 	bool hasGameCamera = false;
@@ -1097,13 +1253,9 @@ void SceneBase::DrawImGui() {
 		ImGui::TextDisabled("（カメラなし）");
 	}
 	ImGui::Separator();
+}
 
-	// Edit Collider/操作モードはGizmoControllerが描画（オブジェクト選択自体はHierarchyパネルへ一本化済み）
-	gizmoController_.DrawImGui(gizmoTargets_);
-
-	if (ImGui::Button("選択を削除")) DeleteSelectedObject();
-
-	ImGui::Separator();
+void SceneBase::DrawSceneSaveLoadControls() {
 	// UI（is2D）とObject（3D）をResources/{assetFolder_}/ui.json・scene.jsonの2ファイルに分けて保存/復元する。
 	// 引数なしのSaveScene()/LoadScene()は常にこの既定ファイルを指す（起動時の自動ロードもこれ）
 	if (ImGui::Button("保存")) SaveScene();
@@ -1149,8 +1301,9 @@ void SceneBase::DrawImGui() {
 		ImGui::SameLine();
 		if (ImGui::Button("選択したスナップショットを読み込み")) LoadScene(savedSnapshotNames_[selectedSnapshotIndex_]);
 	}
+}
 
-	ImGui::Separator();
+void SceneBase::DrawSceneTransitionButtons() {
 	// シーン遷移。今まではキーボード（Enter/Escape/F1等）のみだったため、ImGuiからも
 	// 直接切り替えられるようにする。ボタンはnextScene_へ代入するだけで、実際の切替は
 	// 既存のSceneManager::Render()内（GetNextScene()を見てChangeScene）で行われる
@@ -1163,20 +1316,6 @@ void SceneBase::DrawImGui() {
 		firstSceneButton = false;
 		if (ImGui::Button(sceneName.c_str())) nextScene_ = sceneName;
 	}
-
-	ImGui::End();
-
-	DrawHierarchy();
-	DrawInspector();
-	DrawProjectPanel();
-
-	// 共有メッシュのグローバル設定はRenderer自身が描画する
-	renderer_->DrawImGui();
-
-	AudioManager::GetInstance().DrawImGui();
-
-	// シーン全体の設定はSceneLight自身が描画する
-	renderer_->GetLight().DrawImGui();
 }
 
 // 全オブジェクトを名前クリックで選べる一覧パネル。選択状態の実体はGizmoControllerの
@@ -1225,54 +1364,7 @@ void SceneBase::DrawInspector() {
 
 		selected->DrawImGui();
 
-		// ReflexEnemySpawnerComponent専用UI：spawnEntries[i].tagはシーン内のテンプレート
-		// （ReflexEnemyComponent::isTemplate=trueのGameObject）のタグから選ぶコンボにする。
-		// 自由入力にするとタグの手打ちミス（例："A"のつもりで"AEnemy"と書く）でテンプレートが
-		// 見つからず、PlayScene::SpawnEnemyAtが既定値にフォールバックしてしまう事故が起きるため
-		if (auto* spawnerConfig = selected->GetComponent<ReflexEnemySpawnerComponent>()) {
-			std::vector<std::string> templateTags;
-			for (auto& obj : objects_) {
-				auto* enemy = obj->GetComponent<ReflexEnemyComponent>();
-				if (enemy && enemy->isTemplate && !obj->tag.empty()) {
-					templateTags.push_back(obj->tag);
-				}
-			}
-
-			ImGui::Text("敵の種類（テンプレートのタグ＋出現数）");
-			if (templateTags.empty()) {
-				ImGui::TextDisabled("  (敵テンプレート（isTemplate=true）を持つGameObjectがありません)");
-			}
-			for (size_t i = 0; i < spawnerConfig->spawnEntries.size(); i++) {
-				ImGui::PushID(static_cast<int>(i));
-				auto& entry = spawnerConfig->spawnEntries[i];
-
-				if (ImGui::BeginCombo("テンプレートのタグ", entry.tag.c_str())) {
-					for (const auto& t : templateTags) {
-						bool isSelected = (entry.tag == t);
-						if (ImGui::Selectable(t.c_str(), isSelected)) entry.tag = t;
-						if (isSelected) ImGui::SetItemDefaultFocus();
-					}
-					ImGui::EndCombo();
-				}
-				ImGui::DragInt("出現数", &entry.count, 0.2f, 0, 20);
-
-				bool canRemove = spawnerConfig->spawnEntries.size() > 1;
-				ImGui::BeginDisabled(!canRemove);
-				if (ImGui::Button("この種類を削除")) {
-					spawnerConfig->spawnEntries.erase(spawnerConfig->spawnEntries.begin() + i);
-				}
-				ImGui::EndDisabled();
-				ImGui::Separator();
-				ImGui::PopID();
-			}
-			if (ImGui::Button("種類を追加")) {
-				spawnerConfig->spawnEntries.push_back(ReflexEnemySpawnerComponent::SpawnEntry{
-					templateTags.empty() ? "" : templateTags.front(), 4 });
-			}
-
-			ImGui::Separator();
-			ImGui::DragFloat("準備フェーズの補充間隔（秒）", &spawnerConfig->respawnInterval, 0.01f, 0.0f, 5.0f);
-		}
+		DrawSceneSpecificInspectorExtensions(*selected);
 
 		ImGui::Separator();
 		DrawAddComponentMenu(*selected);
@@ -1357,24 +1449,53 @@ void SceneBase::DrawProjectPanel() {
 		ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoDragDrop;
 	int columnCount = (std::max)(1, static_cast<int>(ImGui::GetContentRegionAvail().x / kTileWidth));
 
-	// ---- 画像：Resources/配下から見つかった画像ファイルを実テクスチャのサムネイルで表示する ----
-	ImGui::SeparatorText("画像");
-	int col = 0;
-	for (const auto& asset : projectImages_) {
-		ImGui::PushID(asset.path.c_str());
-		ImGui::BeginGroup();
+	// 画像：Resources/配下から見つかった画像ファイルを実テクスチャのサムネイルで表示する
+	auto drawImageIcon = [this](const ProjectAssetEntry& asset, float iconSize) {
 		// LoadTextureは同じパスを二重ロードしない（TextureManagerがパスでキャッシュする）ため、
 		// 毎フレーム呼んでもコストは無視できる
 		TextureHandle handle = renderer_->LoadTexture(asset.path);
 		D3D12_GPU_DESCRIPTOR_HANDLE gpu = renderer_->GetTextureSrvGpuHandle(handle);
-		ImGui::Image((ImTextureID)gpu.ptr, ImVec2(kIconSize, kIconSize));
-		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + kTileWidth - 4.0f);
+		ImGui::Image((ImTextureID)gpu.ptr, ImVec2(iconSize, iconSize));
+	};
+	ImGui::SeparatorText("画像");
+	DrawProjectAssetGrid(projectImages_, kProjectImageDragDropId, kIconSize, kTileWidth, columnCount, drawImageIcon);
+
+	// 音声：波形サムネイル等は無いため、種別を示す固定色のアイコンにする
+	auto drawAudioIcon = [kIconFlags](const ProjectAssetEntry&, float iconSize) {
+		ImGui::ColorButton("##icon", ImVec4(0.35f, 0.55f, 0.9f, 1.0f), kIconFlags, ImVec2(iconSize, iconSize));
+	};
+	ImGui::SeparatorText("音声");
+	DrawProjectAssetGrid(projectAudioClips_, kProjectAudioDragDropId, kIconSize, kTileWidth, columnCount, drawAudioIcon);
+
+	// モデル：サムネイル描画（オフスクリーンレンダリング）は無いため、音声と同じく
+	// 種別を示す固定色のアイコンにする。「まだ描画コンポーネントが付いていないGameObjectに
+	// ドラッグすると新規にModelRenderComponentが付く」点だけ画像/音声と挙動が異なる
+	// （AttachModelAsset参照）
+	auto drawModelIcon = [kIconFlags](const ProjectAssetEntry&, float iconSize) {
+		ImGui::ColorButton("##icon", ImVec4(0.85f, 0.55f, 0.25f, 1.0f), kIconFlags, ImVec2(iconSize, iconSize));
+	};
+	ImGui::SeparatorText("モデル");
+	DrawProjectAssetGrid(projectModels_, kProjectModelDragDropId, kIconSize, kTileWidth, columnCount, drawModelIcon);
+
+	ImGui::End();
+}
+
+void SceneBase::DrawProjectAssetGrid(
+	const std::vector<ProjectAssetEntry>& assets, const char* dragDropId,
+	float iconSize, float tileWidth, int columnCount,
+	const std::function<void(const ProjectAssetEntry&, float iconSize)>& drawIcon) {
+	int col = 0;
+	for (const auto& asset : assets) {
+		ImGui::PushID(asset.path.c_str());
+		ImGui::BeginGroup();
+		drawIcon(asset, iconSize);
+		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + tileWidth - 4.0f);
 		ImGui::TextWrapped("%s", asset.displayName.c_str());
 		ImGui::PopTextWrapPos();
 		ImGui::EndGroup();
 		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
 			const std::string* pathPtr = &asset.path;
-			ImGui::SetDragDropPayload(kProjectImageDragDropId, &pathPtr, sizeof(const std::string*));
+			ImGui::SetDragDropPayload(dragDropId, &pathPtr, sizeof(const std::string*));
 			ImGui::Text("%s", asset.displayName.c_str());
 			ImGui::EndDragDropSource();
 		}
@@ -1386,59 +1507,6 @@ void SceneBase::DrawProjectPanel() {
 	// 最後の行が列を埋めきらなかった場合、直前のSameLine()でカーソルがまだ同じ行に
 	// 残っている。そのままだと次のSeparatorTextがこの行の続きに描かれてしまうため改行する
 	if (col != 0) ImGui::NewLine();
-
-	// ---- 音声：波形サムネイル等は無いため、種別を示す固定色のアイコンにする ----
-	ImGui::SeparatorText("音声");
-	col = 0;
-	for (const auto& asset : projectAudioClips_) {
-		ImGui::PushID(asset.path.c_str());
-		ImGui::BeginGroup();
-		ImGui::ColorButton("##icon", ImVec4(0.35f, 0.55f, 0.9f, 1.0f), kIconFlags, ImVec2(kIconSize, kIconSize));
-		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + kTileWidth - 4.0f);
-		ImGui::TextWrapped("%s", asset.displayName.c_str());
-		ImGui::PopTextWrapPos();
-		ImGui::EndGroup();
-		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-			const std::string* pathPtr = &asset.path;
-			ImGui::SetDragDropPayload(kProjectAudioDragDropId, &pathPtr, sizeof(const std::string*));
-			ImGui::Text("%s", asset.displayName.c_str());
-			ImGui::EndDragDropSource();
-		}
-		ImGui::PopID();
-		col++;
-		if (col < columnCount) ImGui::SameLine(0.0f, 12.0f);
-		else col = 0;
-	}
-	if (col != 0) ImGui::NewLine();
-
-	// ---- モデル：サムネイル描画（オフスクリーンレンダリング）は無いため、音声と同じく
-	// 種別を示す固定色のアイコンにする。「まだ描画コンポーネントが付いていないGameObjectに
-	// ドラッグすると新規にModelRenderComponentが付く」点だけ画像/音声と挙動が異なる
-	// （AttachModelAsset参照）
-	ImGui::SeparatorText("モデル");
-	col = 0;
-	for (const auto& asset : projectModels_) {
-		ImGui::PushID(asset.path.c_str());
-		ImGui::BeginGroup();
-		ImGui::ColorButton("##icon", ImVec4(0.85f, 0.55f, 0.25f, 1.0f), kIconFlags, ImVec2(kIconSize, kIconSize));
-		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + kTileWidth - 4.0f);
-		ImGui::TextWrapped("%s", asset.displayName.c_str());
-		ImGui::PopTextWrapPos();
-		ImGui::EndGroup();
-		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-			const std::string* pathPtr = &asset.path;
-			ImGui::SetDragDropPayload(kProjectModelDragDropId, &pathPtr, sizeof(const std::string*));
-			ImGui::Text("%s", asset.displayName.c_str());
-			ImGui::EndDragDropSource();
-		}
-		ImGui::PopID();
-		col++;
-		if (col < columnCount) ImGui::SameLine(0.0f, 12.0f);
-		else col = 0;
-	}
-	if (col != 0) ImGui::NewLine();
-
-	ImGui::End();
 }
 
 void SceneBase::ReorderRootObject(GameObject* dropped, size_t visibleIndex) {
@@ -1474,20 +1542,18 @@ void SceneBase::ReorderRootObject(GameObject* dropped, size_t visibleIndex) {
 	objects_.insert(objects_.begin() + to, std::move(moved));
 }
 
-void SceneBase::DrawHierarchy() {
-	ImGui::Begin("ヒエラルキー##Hierarchy");
-
-	GameObject* current = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
-
-	// 右クリックメニューで「削除」が押された対象。drawNode（再帰中）でその場でobjects_.erase()すると、
-	// 削除したobjを使い続けている呼び出し元スタック（hasChildren判定・子の再帰描画・TreePop等）が
-	// 解放済みポインタに触れてしまうため、木構造の描画が全部終わってから実際に削除する
-	GameObject* pendingHierarchyDelete = nullptr;
+// DrawHierarchyの木構造描画（旧drawNode/drawInsertionGapラムダ）を切り出したヘルパー。
+// 1回のDrawHierarchy呼び出しの間だけ生存する一時状態（選択中オブジェクトcurrent_、
+// 右クリック削除の保留先pendingDelete_）をメンバに持つ。drawNodeの自己再帰は
+// std::functionを介さず、DrawNode()からDrawNode()を直接呼ぶ形にする（挙動は同一）
+class SceneBase::HierarchyTreeDrawer {
+public:
+	HierarchyTreeDrawer(SceneBase* scene, GameObject* current) : scene_(scene), current_(current) {}
 
 	// 兄弟同士の「境目」に挟む薄い透明なドロップターゲット。ここへドロップすると、
 	// onDropが指定した位置への挿入（並べ替え・別の親への移動）になる。ノード本体へのドロップ
-	// （drawNode内の既存のBeginDragDropTarget）は「子として末尾に追加」のまま変更しない
-	auto drawInsertionGap = [&](const std::function<void(GameObject*)>& onDrop) {
+	// （DrawNode内の既存のBeginDragDropTarget）は「子として末尾に追加」のまま変更しない
+	void DrawInsertionGap(const std::function<void(GameObject*)>& onDrop) {
 		// GetContentRegionAvail().xは深い階層のインデントやウィンドウ幅次第で0以下になり得る。
 		// InvisibleButtonはx/yどちらかが0だとIM_ASSERT(size_arg.x != 0.0f && size_arg.y != 0.0f)で
 		// 落ちる（Hierarchyの余白ドロップボタンで踏んだのと同じ既知のクラッシュパターン）ため、
@@ -1499,16 +1565,16 @@ void SceneBase::DrawHierarchy() {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kHierarchyDragDropId)) {
 				GameObject* dropped = *static_cast<GameObject**>(payload->Data);
 				onDrop(dropped);
-				RebuildDerivedLists();
+				scene_->RebuildDerivedLists();
 			}
 			ImGui::EndDragDropTarget();
 		}
-	};
+	}
 
 	// 1オブジェクト分のノードを描画し、GetChildren()を再帰的に描画する。
 	// 選択はis2Dで実際の所属を見て正しいSetSelected/SetSelected2Dへ振り分ける
 	// （どちらのセクションから辿り着いたかに関係なく、子は親と異なるis2Dを持つ可能性があるため）
-	std::function<void(GameObject*)> drawNode = [&](GameObject* obj) {
+	void DrawNode(GameObject* obj) {
 		ImGui::PushID(obj);
 		// hasChildrenはこのノードを開く前に1回だけ確定する。ドロップ処理（下のBeginDragDropTarget）
 		// でこのノードの子が増減する可能性があり、TreeNodeExへ渡したフラグ（Leaf/NoTreePushOnOpen）と
@@ -1520,13 +1586,13 @@ void SceneBase::DrawHierarchy() {
 		// 一度開けばそれ以降はセッション中閉じるまで開いたままになる
 		ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
 		if (!hasChildren) flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-		if (obj == current) flags |= ImGuiTreeNodeFlags_Selected;
+		if (obj == current_) flags |= ImGuiTreeNodeFlags_Selected;
 
 		bool opened = ImGui::TreeNodeEx(obj->name.c_str(), flags);
 		if (ImGui::IsItemClicked()) {
 			bool is2D = obj->GetComponent<TransformComponent>()->is2D;
-			if (is2D) gizmoController_.SetSelected2D(obj, screenTargets_);
-			else      gizmoController_.SetSelected(obj, gizmoTargets_);
+			if (is2D) scene_->gizmoController_.SetSelected2D(obj, scene_->screenTargets_);
+			else      scene_->gizmoController_.SetSelected(obj, scene_->gizmoTargets_);
 		}
 
 		// 右クリックでこのノード専用の削除メニューをマウスカーソル付近に出す（Unityの
@@ -1535,11 +1601,11 @@ void SceneBase::DrawHierarchy() {
 		if (ImGui::BeginPopupContextItem("HierarchyNodeContext")) {
 			// 右クリックした時点でこのオブジェクトを選択状態にし、操作対象をInspector等でも明確にする
 			bool is2D = obj->GetComponent<TransformComponent>()->is2D;
-			if (is2D) gizmoController_.SetSelected2D(obj, screenTargets_);
-			else      gizmoController_.SetSelected(obj, gizmoTargets_);
+			if (is2D) scene_->gizmoController_.SetSelected2D(obj, scene_->screenTargets_);
+			else      scene_->gizmoController_.SetSelected(obj, scene_->gizmoTargets_);
 
 			if (ImGui::MenuItem("削除")) {
-				pendingHierarchyDelete = obj;
+				pendingDelete_ = obj;
 			}
 			ImGui::EndPopup();
 		}
@@ -1556,21 +1622,21 @@ void SceneBase::DrawHierarchy() {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kHierarchyDragDropId)) {
 				GameObject* dropped = *static_cast<GameObject**>(payload->Data);
 				dropped->SetParent(obj);
-				RebuildDerivedLists();
+				scene_->RebuildDerivedLists();
 			}
 			// プロジェクトパネルからのドロップ：このオブジェクトへ画像/音声を付与する
 			// （Unityの「アセットをHierarchyのオブジェクトへドラッグ」に相当）
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kProjectImageDragDropId)) {
 				const std::string& path = *(*static_cast<const std::string* const*>(payload->Data));
-				AttachTextureAsset(*obj, path);
+				scene_->AttachTextureAsset(*obj, path);
 			}
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kProjectAudioDragDropId)) {
 				const std::string& path = *(*static_cast<const std::string* const*>(payload->Data));
-				AttachAudioAsset(*obj, path);
+				scene_->AttachAudioAsset(*obj, path);
 			}
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kProjectModelDragDropId)) {
 				const std::string& path = *(*static_cast<const std::string* const*>(payload->Data));
-				AttachModelAsset(*obj, path);
+				scene_->AttachModelAsset(*obj, path);
 			}
 			ImGui::EndDragDropTarget();
 		}
@@ -1582,18 +1648,36 @@ void SceneBase::DrawHierarchy() {
 			for (size_t i = 0; i < childrenSnapshot.size(); i++) {
 				// 各子の直前に「ここへ挿入」ゾーンを置く。ドロップされたらi番目の位置へ並べ替える
 				ImGui::PushID(static_cast<int>(i));
-				drawInsertionGap([&, i](GameObject* dropped) { obj->ReparentAt(dropped, i); });
+				DrawInsertionGap([&, i](GameObject* dropped) { obj->ReparentAt(dropped, i); });
 				ImGui::PopID();
-				drawNode(childrenSnapshot[i]);
+				DrawNode(childrenSnapshot[i]);
 			}
 			// 子リストの末尾にも1つ置く（末尾へ挿入するため）
 			ImGui::PushID(static_cast<int>(childrenSnapshot.size()));
-			drawInsertionGap([&, count = childrenSnapshot.size()](GameObject* dropped) { obj->ReparentAt(dropped, count); });
+			DrawInsertionGap([&, count = childrenSnapshot.size()](GameObject* dropped) { obj->ReparentAt(dropped, count); });
 			ImGui::PopID();
 			ImGui::TreePop();
 		}
 		ImGui::PopID();
-	};
+	}
+
+	// 木構造の描画がすべて終わった後、右クリック削除の対象を取り出す（無ければnullptr）
+	GameObject* TakePendingDelete() const { return pendingDelete_; }
+
+private:
+	SceneBase* scene_;
+	GameObject* current_;
+	// 右クリックメニューで「削除」が押された対象。DrawNode（再帰中）でその場でobjects_.erase()すると、
+	// 削除したobjを使い続けている呼び出し元スタック（hasChildren判定・子の再帰描画・TreePop等）が
+	// 解放済みポインタに触れてしまうため、木構造の描画が全部終わってから実際に削除する
+	GameObject* pendingDelete_ = nullptr;
+};
+
+void SceneBase::DrawHierarchy() {
+	ImGui::Begin("ヒエラルキー##Hierarchy");
+
+	GameObject* current = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
+	HierarchyTreeDrawer treeDrawer(this, current);
 
 	if (ImGui::SmallButton("+ 新規追加")) {
 		CreateObject("新規追加 " + std::to_string(objects_.size() + 1));
@@ -1616,16 +1700,16 @@ void SceneBase::DrawHierarchy() {
 		// ルート表示順でrootVisibleIdx番目の位置へ並べ替える
 		ImGui::PushID(static_cast<int>(rootVisibleIdx));
 		ImGui::PushID("RootGap");
-		drawInsertionGap([&, rootVisibleIdx](GameObject* dropped) { ReorderRootObject(dropped, rootVisibleIdx); });
+		treeDrawer.DrawInsertionGap([&, rootVisibleIdx](GameObject* dropped) { ReorderRootObject(dropped, rootVisibleIdx); });
 		ImGui::PopID();
 		ImGui::PopID();
-		drawNode(obj);
+		treeDrawer.DrawNode(obj);
 		rootVisibleIdx++;
 	}
 	// ルート直下リストの末尾にも1つ置く（末尾へ挿入するため）
 	ImGui::PushID(static_cast<int>(rootVisibleIdx));
 	ImGui::PushID("RootGap");
-	drawInsertionGap([&, rootVisibleIdx](GameObject* dropped) { ReorderRootObject(dropped, rootVisibleIdx); });
+	treeDrawer.DrawInsertionGap([&, rootVisibleIdx](GameObject* dropped) { ReorderRootObject(dropped, rootVisibleIdx); });
 	ImGui::PopID();
 	ImGui::PopID();
 
@@ -1672,8 +1756,8 @@ void SceneBase::DrawHierarchy() {
 	}
 
 	// 右クリックメニューで「削除」が押されていれば、木構造の描画が全部終わった今ここで実際に消す
-	if (pendingHierarchyDelete) {
-		DeleteObjects({ pendingHierarchyDelete });
+	if (GameObject* pendingDelete = treeDrawer.TakePendingDelete()) {
+		DeleteObjects({ pendingDelete });
 	}
 
 	ImGui::End();

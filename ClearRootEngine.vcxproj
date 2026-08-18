@@ -329,6 +329,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\InputDevice\InputDevice.h" />
     <ClInclude Include="Game\Game.h" />
+    <ClInclude Include="Game\GameTags.h" />
     <ClInclude Include="Game\SceneBase.h" />
     <ClInclude Include="Game\SceneObjectStore.h" />
     <ClInclude Include="Game\GameSession.h" />

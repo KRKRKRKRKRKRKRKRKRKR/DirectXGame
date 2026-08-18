@@ -1,4 +1,5 @@
 #include "PlayScene.h"
+#include "GameTags.h"
 #include "../Engine/InputDevice/InputDevice.h"
 #include "../Engine/GameObject/ComponentRegistry.h"
 #include "../Math/VectorMath.h"
@@ -37,6 +38,61 @@ namespace {
 	// ヒエラルキー上でスポーン物をまとめるフォルダ代わりのGameObjectのtag名
 	constexpr const char* kEnemyFolderTag = "Enemies";
 	constexpr const char* kParticleFolderTag = "Particles";
+
+	// 全方位ランダム方向を一様抽選する際、方位角theta（SpawnParticleBurstAt参照）の範囲として使う一周分
+	constexpr float kTwoPi = 6.2831853f;
+}
+
+void PlayScene::DrawSceneSpecificInspectorExtensions(GameObject& selected) {
+	// ReflexEnemySpawnerComponent専用UI：spawnEntries[i].tagはシーン内のテンプレート
+	// （ReflexEnemyComponent::isTemplate=trueのGameObject）のタグから選ぶコンボにする。
+	// 自由入力にするとタグの手打ちミス（例："A"のつもりで"AEnemy"と書く）でテンプレートが
+	// 見つからず、PlayScene::SpawnEnemyAtが既定値にフォールバックしてしまう事故が起きるため
+	auto* spawnerConfig = selected.GetComponent<ReflexEnemySpawnerComponent>();
+	if (!spawnerConfig) return;
+
+	std::vector<std::string> templateTags;
+	for (auto& obj : objects_) {
+		auto* enemy = obj->GetComponent<ReflexEnemyComponent>();
+		if (enemy && enemy->isTemplate && !obj->tag.empty()) {
+			templateTags.push_back(obj->tag);
+		}
+	}
+
+	ImGui::Text("敵の種類（テンプレートのタグ＋出現数）");
+	if (templateTags.empty()) {
+		ImGui::TextDisabled("  (敵テンプレート（isTemplate=true）を持つGameObjectがありません)");
+	}
+	for (size_t i = 0; i < spawnerConfig->spawnEntries.size(); i++) {
+		ImGui::PushID(static_cast<int>(i));
+		auto& entry = spawnerConfig->spawnEntries[i];
+
+		if (ImGui::BeginCombo("テンプレートのタグ", entry.tag.c_str())) {
+			for (const auto& t : templateTags) {
+				bool isSelected = (entry.tag == t);
+				if (ImGui::Selectable(t.c_str(), isSelected)) entry.tag = t;
+				if (isSelected) ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::DragInt("出現数", &entry.count, 0.2f, 0, 20);
+
+		bool canRemove = spawnerConfig->spawnEntries.size() > 1;
+		ImGui::BeginDisabled(!canRemove);
+		if (ImGui::Button("この種類を削除")) {
+			spawnerConfig->spawnEntries.erase(spawnerConfig->spawnEntries.begin() + i);
+		}
+		ImGui::EndDisabled();
+		ImGui::Separator();
+		ImGui::PopID();
+	}
+	if (ImGui::Button("種類を追加")) {
+		spawnerConfig->spawnEntries.push_back(ReflexEnemySpawnerComponent::SpawnEntry{
+			templateTags.empty() ? "" : templateTags.front(), 4 });
+	}
+
+	ImGui::Separator();
+	ImGui::DragFloat("準備フェーズの補充間隔（秒）", &spawnerConfig->respawnInterval, 0.01f, 0.0f, 5.0f);
 }
 
 void PlayScene::OnInitialize() {
@@ -72,6 +128,12 @@ void PlayScene::OnInitialize() {
 	// 実際の初回スポーンはHandleSceneTransitionInput側の初回フレーム判定（needsInitialSpawn_）で行う
 }
 
+ReflexPlayerComponent* PlayScene::GetReflexPlayer() {
+	GameObject* player = FindObjectByTag(GameTags::kPlayer);
+	if (!player) return nullptr;
+	return player->GetComponent<ReflexPlayerComponent>();
+}
+
 void PlayScene::HandleSceneTransitionInput() {
 	// 初回フレームのみ：OnInitialize()の時点ではまだLoadScene()が済んでおらず
 	// EnemySpawner/テンプレートが存在しないため、ここ（LoadScene()完了後に必ず呼ばれる
@@ -88,14 +150,12 @@ void PlayScene::HandleSceneTransitionInput() {
 	// タグ"Player"のReflexPlayerComponentが実行フェーズを完了して準備フェーズに入った瞬間だけ、
 	// 直前の実行フェーズ中に倒した敵の補充スポーンを開始する（毎フレーム判定ではなく、
 	// 実行フェーズが完全に終わったタイミングに揃える）
-	if (GameObject* player = FindObjectByTag("Player")) {
-		if (auto* reflexPlayer = player->GetComponent<ReflexPlayerComponent>()) {
-			if (reflexPlayer->ConsumeExecutionFinished()) {
-				BeginPreparingPhase();
-			}
-			if (reflexPlayer->GetPhase() == ReflexPlayerComponent::Phase::kPreparing) {
-				UpdatePreparingPhase(lastDeltaTime_);
-			}
+	if (auto* reflexPlayer = GetReflexPlayer()) {
+		if (reflexPlayer->ConsumeExecutionFinished()) {
+			BeginPreparingPhase();
+		}
+		if (reflexPlayer->GetPhase() == ReflexPlayerComponent::Phase::kPreparing) {
+			UpdatePreparingPhase(lastDeltaTime_);
 		}
 	}
 
@@ -105,7 +165,7 @@ void PlayScene::HandleSceneTransitionInput() {
 
 	// タグ"Player"のオブジェクトを毎フレーム見に行き、HealthComponentのHPが0になっていたら
 	// GameOverへ遷移する（ポーリング方式。AutoRun/CameraFollowの対象探しと同じやり方に揃えている）
-	if (GameObject* player = FindObjectByTag("Player")) {
+	if (GameObject* player = FindObjectByTag(GameTags::kPlayer)) {
 		if (auto* hp = player->GetComponent<HealthComponent>()) {
 			if (hp->IsDead()) nextScene_ = "GameOver";
 		}
@@ -174,12 +234,12 @@ void PlayScene::ProcessPendingDestroys() {
 
 void PlayScene::RespawnEnemiesIfCleared() {
 	for (auto& obj : objects_) {
-		if (obj->tag == "Enemy") return; // まだ生存している敵がいるので何もしない
+		if (obj->tag == GameTags::kEnemy) return; // まだ生存している敵がいるので何もしない
 	}
 
 	// タグ"EnemySpawner"のGameObjectにReflexEnemySpawnerComponentを付けておくと、
 	// Inspectorで設定した「タグ＋出現数」のリストがここで反映される。見つからない場合は何も出さない
-	GameObject* spawner = FindObjectByTag("EnemySpawner");
+	GameObject* spawner = FindObjectByTag(GameTags::kEnemySpawner);
 	if (!spawner) return;
 	auto* config = spawner->GetComponent<ReflexEnemySpawnerComponent>();
 	if (!config) return;
@@ -206,10 +266,8 @@ void PlayScene::BeginPreparingPhase() {
 	// 倒した敵が1体もいなかった場合（何もせず実行フェーズを終えた等）は補充するものが無いため、
 	// 準備フェーズの演出をスキップして即座に計画フェーズへ戻す
 	if (respawnQueue_.empty()) {
-		if (GameObject* player = FindObjectByTag("Player")) {
-			if (auto* reflexPlayer = player->GetComponent<ReflexPlayerComponent>()) {
-				reflexPlayer->FinishPreparing();
-			}
+		if (auto* reflexPlayer = GetReflexPlayer()) {
+			reflexPlayer->FinishPreparing();
 		}
 	}
 }
@@ -220,7 +278,7 @@ void PlayScene::UpdatePreparingPhase(float deltaTime) {
 	// 補充間隔はEnemySpawnerのInspectorで調整できるrespawnIntervalを使う。
 	// EnemySpawnerが見つからない場合のみ既定値kRespawnIntervalにフォールバックする
 	float interval = kRespawnInterval;
-	if (GameObject* spawner = FindObjectByTag("EnemySpawner")) {
+	if (GameObject* spawner = FindObjectByTag(GameTags::kEnemySpawner)) {
 		if (auto* config = spawner->GetComponent<ReflexEnemySpawnerComponent>()) {
 			interval = config->respawnInterval;
 		}
@@ -239,10 +297,8 @@ void PlayScene::UpdatePreparingPhase(float deltaTime) {
 
 	// このタイミングで最後の1体を出し終えたなら、準備フェーズを終えて計画フェーズへ戻す
 	if (respawnQueue_.empty()) {
-		if (GameObject* player = FindObjectByTag("Player")) {
-			if (auto* reflexPlayer = player->GetComponent<ReflexPlayerComponent>()) {
-				reflexPlayer->FinishPreparing();
-			}
+		if (auto* reflexPlayer = GetReflexPlayer()) {
+			reflexPlayer->FinishPreparing();
 		}
 	}
 }
@@ -261,7 +317,7 @@ std::vector<Vector3> PlayScene::BuildShuffledSpawnGrid() {
 	struct OccupiedPoint { Vector3 pos; float radius; };
 	std::vector<OccupiedPoint> occupied;
 	for (auto& obj : objects_) {
-		if (obj->tag != "Enemy") continue;
+		if (obj->tag != GameTags::kEnemy) continue;
 		// SpawnMoveComponentが付いていて演出中（finished==false）の敵は、現在位置がまだ
 		// startPos→targetPosの移動途中にあり、本来の着地マスにいない。ここで現在位置だけを
 		// 占有マスとして報告すると、その敵の「本来の着地マス」がまだ空いていると誤判定され、
@@ -275,7 +331,7 @@ std::vector<Vector3> PlayScene::BuildShuffledSpawnGrid() {
 		}
 		occupied.push_back({ obj->GetTransform().translation, kSpawnGridCellSize * 0.5f });
 	}
-	if (GameObject* player = FindObjectByTag("Player")) {
+	if (GameObject* player = FindObjectByTag(GameTags::kPlayer)) {
 		occupied.push_back({ player->GetTransform().translation, kMinSpawnDistance });
 	}
 	auto isOccupied = [&](const Vector3& cell) {
@@ -317,12 +373,12 @@ Vector3 PlayScene::PickEnemySpawnPosition(std::vector<Vector3>& cells) {
 		candidate = { dist(rng), dist(rng), 0.0f };
 
 		bool tooClose = false;
-		if (GameObject* player = FindObjectByTag("Player")) {
+		if (GameObject* player = FindObjectByTag(GameTags::kPlayer)) {
 			if (VectorMath::Length(candidate - player->GetTransform().translation) < kMinSpawnDistance) tooClose = true;
 		}
 		if (!tooClose) {
 			for (auto& obj : objects_) {
-				if (obj->tag != "Enemy") continue;
+				if (obj->tag != GameTags::kEnemy) continue;
 				if (VectorMath::Length(candidate - obj->GetTransform().translation) < kMinSpawnDistance) {
 					tooClose = true;
 					break;
@@ -334,143 +390,105 @@ Vector3 PlayScene::PickEnemySpawnPosition(std::vector<Vector3>& cells) {
 	return candidate; // 上限回数まで条件を満たせなかった場合は最後の候補をそのまま使う
 }
 
-namespace {
-	// テンプレートの描画形状（Cube/Sphere/Triangle）を表す。RenderComponentBaseはcolor等の
-	// 共通項目しか持たないため、複製先に同じ具体型をAddComponentするには種類の判定が要る
-	enum class TemplateShape { kCube, kSphere, kTriangle };
-
-	// テンプレートのコライダー形状（OBB/Sphere）。サイズはhalfSize.x/radiusという別名の
-	// スカラー値だが、どちらも「中心からの片側の長さ」という同じ意味として1つのfloatに統一する
-	enum class TemplateColliderShape { kNone, kObb, kSphere };
+PlayScene::TemplateShape PlayScene::DetermineTemplateShape(GameObject& templateObj) {
+	if (templateObj.GetComponent<SphereRenderComponent>()) return TemplateShape::kSphere;
+	if (templateObj.GetComponent<TriangleRenderComponent>()) return TemplateShape::kTriangle;
+	return TemplateShape::kCube;
 }
 
 void PlayScene::SpawnEnemyAt(const Vector3& position, const std::string& templateTag) {
+	EnemyTemplateData data = ReadEnemyTemplateData(templateTag);
+	BuildEnemyFromTemplateData(position, templateTag, data);
+}
+
+PlayScene::EnemyTemplateData PlayScene::ReadEnemyTemplateData(const std::string& templateTag) {
 	// templateTagを持つテンプレートGameObjectから見た目（形状＋色）・当たり判定（形状＋サイズ）・
 	// ReflexEnemyComponentのパラメータを複製する。見つからない場合は赤い立方体
-	// （既定サイズ・既定パラメータ）にフォールバックする
-	Vector4 color = { 0.9f, 0.2f, 0.2f, 1.0f };
-	TemplateShape shape = TemplateShape::kCube;
-	TemplateColliderShape colliderShape = TemplateColliderShape::kObb;
-	float size = kFallbackHalfSize;
-	float hitShakeStrength = 0.25f;
-	float hitShakeDuration = 0.15f;
-	float hitStopDuration = 0.05f;
-	float maxHp = 10.0f;
-	std::string textureName; // 空ならテンプレートにTextureSelectorComponentが無い（複製先にも付けない）
-
-	// HPバー：テンプレートにReflexEnemyHealthBarComponentが付いている場合のみ、その設定値
-	// （幅・高さ・浮かせる高さ・色）を複製して付ける。付いていなければ複製先にも付けない
-	bool hasHealthBar = false;
-	float healthBarWidth = 1.2f;
-	float healthBarHeight = 0.15f;
-	float healthBarHeightOffset = 1.0f;
-	Vector4 healthBarBackgroundColor = { 0.15f, 0.15f, 0.15f, 0.8f };
-	Vector4 healthBarFillColor = { 0.2f, 0.9f, 0.2f, 1.0f };
-
-	// 回転：テンプレートにRotatorComponentが付いている場合のみ、その設定を複製する
-	// （付いていなければ複製先にも付けない＝従来通り回転しない敵になる）。
-	// randomizeOnSpawnがtrueなら固定速度をコピーするのではなく、複製先で毎回Randomize()を
-	// 呼び直すことで、スポーンする敵ごとに軸・速度・回転方向がバラバラになる
-	bool hasRotator = false;
-	bool rotatorRandomizeOnSpawn = false;
-	float rotatorSpeedX = 0.0f;
-	float rotatorSpeedY = 90.0f;
-	float rotatorSpeedZ = 0.0f;
-	float rotatorRandomSpeedMin = 30.0f;
-	float rotatorRandomSpeedMax = 180.0f;
-
-	// ヒットSE：テンプレートにHitSoundComponentが付いている場合のみ複製する
-	// （index_等はprivateのため、TextureSelectorComponentと同じくToJson経由で名前を読む）
-	bool hasHitSound = false;
-	std::string hitSoundAudioName;
-	float hitSoundVolume = 1.0f;
-
-	// スポーン移動演出：テンプレートにSpawnMoveComponentが付いている場合のみ複製する。
-	// startPos/targetPosはテンプレートの値ではなく、このスポーン個体の実際の座標から
-	// 都度計算し直す（zOffset/duration/easingだけをテンプレートから引き継ぐ）
-	bool hasSpawnMove = false;
-	float spawnMoveZOffset = 10.0f;
-	float spawnMoveDuration = 0.5f;
-	Easing::Type spawnMoveEasing = Easing::Type::kOutCubic;
+	// （既定サイズ・既定パラメータ）にフォールバックする（EnemyTemplateDataのメンバ初期化子が
+	// そのままフォールバック値になる。sizeだけはkFallbackHalfSizeという名前付き定数を使う）
+	EnemyTemplateData data;
+	data.size = kFallbackHalfSize;
 
 	if (GameObject* templateObj = FindObjectByTag(templateTag)) {
 		// 見た目：具体型を判定して形状を決め、共通基底（color等）から色を取る
 		if (auto* templateRender = templateObj->GetComponent<RenderComponentBase>()) {
-			color = templateRender->color;
-			if (templateObj->GetComponent<SphereRenderComponent>()) shape = TemplateShape::kSphere;
-			else if (templateObj->GetComponent<TriangleRenderComponent>()) shape = TemplateShape::kTriangle;
-			else shape = TemplateShape::kCube;
+			data.color = templateRender->color;
+			data.shape = DetermineTemplateShape(*templateObj);
 		}
 		// テクスチャ：TextureSelectorComponentはtextureHandleを実行時ハンドルとしてしか
 		// 持たない（保存対象外）ため、ToJsonが書き出す「登録済みテクスチャ名」経由で複製する
 		if (auto* textureSelector = templateObj->GetComponent<TextureSelectorComponent>()) {
 			nlohmann::json textureJson;
 			textureSelector->ToJson(textureJson);
-			textureName = textureJson.value("textureName", std::string());
+			data.textureName = textureJson.value("textureName", std::string());
 		}
 		// 当たり判定：OBB/Sphereどちらが付いているかを判定し、サイズを1つのfloatに正規化する
 		if (auto* obbCollider = templateObj->GetComponent<OBBColliderComponent>()) {
-			colliderShape = TemplateColliderShape::kObb;
-			size = obbCollider->halfSize.x;
+			data.colliderShape = TemplateColliderShape::kObb;
+			data.size = obbCollider->halfSize.x;
 		} else if (auto* sphereCollider = templateObj->GetComponent<SphereColliderComponent>()) {
-			colliderShape = TemplateColliderShape::kSphere;
-			size = sphereCollider->radius;
+			data.colliderShape = TemplateColliderShape::kSphere;
+			data.size = sphereCollider->radius;
 		} else {
-			colliderShape = TemplateColliderShape::kNone;
+			data.colliderShape = TemplateColliderShape::kNone;
 		}
 		if (auto* templateEnemy = templateObj->GetComponent<ReflexEnemyComponent>()) {
-			hitShakeStrength = templateEnemy->hitShakeStrength;
-			hitShakeDuration = templateEnemy->hitShakeDuration;
-			hitStopDuration = templateEnemy->hitStopDuration;
-			maxHp = templateEnemy->maxHp;
+			data.hitShakeStrength = templateEnemy->hitShakeStrength;
+			data.hitShakeDuration = templateEnemy->hitShakeDuration;
+			data.hitStopDuration = templateEnemy->hitStopDuration;
+			data.maxHp = templateEnemy->maxHp;
 		}
 		if (auto* templateHealthBar = templateObj->GetComponent<ReflexEnemyHealthBarComponent>()) {
-			hasHealthBar = true;
-			healthBarWidth = templateHealthBar->width;
-			healthBarHeight = templateHealthBar->height;
-			healthBarHeightOffset = templateHealthBar->heightOffset;
-			healthBarBackgroundColor = templateHealthBar->backgroundColor;
-			healthBarFillColor = templateHealthBar->fillColor;
+			data.hasHealthBar = true;
+			data.healthBarWidth = templateHealthBar->width;
+			data.healthBarHeight = templateHealthBar->height;
+			data.healthBarHeightOffset = templateHealthBar->heightOffset;
+			data.healthBarBackgroundColor = templateHealthBar->backgroundColor;
+			data.healthBarFillColor = templateHealthBar->fillColor;
 		}
 		if (auto* templateRotator = templateObj->GetComponent<RotatorComponent>()) {
-			hasRotator = true;
-			rotatorRandomizeOnSpawn = templateRotator->randomizeOnSpawn;
-			rotatorSpeedX = templateRotator->speedX;
-			rotatorSpeedY = templateRotator->speedY;
-			rotatorSpeedZ = templateRotator->speedZ;
-			rotatorRandomSpeedMin = templateRotator->randomSpeedMin;
-			rotatorRandomSpeedMax = templateRotator->randomSpeedMax;
+			data.hasRotator = true;
+			data.rotatorRandomizeOnSpawn = templateRotator->randomizeOnSpawn;
+			data.rotatorSpeedX = templateRotator->speedX;
+			data.rotatorSpeedY = templateRotator->speedY;
+			data.rotatorSpeedZ = templateRotator->speedZ;
+			data.rotatorRandomSpeedMin = templateRotator->randomSpeedMin;
+			data.rotatorRandomSpeedMax = templateRotator->randomSpeedMax;
 		}
 		if (auto* templateHitSound = templateObj->GetComponent<HitSoundComponent>()) {
-			hasHitSound = true;
+			data.hasHitSound = true;
 			nlohmann::json hitSoundJson;
 			templateHitSound->ToJson(hitSoundJson);
-			hitSoundAudioName = hitSoundJson.value("audioName", std::string());
-			hitSoundVolume = hitSoundJson.value("volume", 1.0f);
+			data.hitSoundAudioName = hitSoundJson.value("audioName", std::string());
+			data.hitSoundVolume = hitSoundJson.value("volume", 1.0f);
 		}
 		if (auto* templateSpawnMove = templateObj->GetComponent<SpawnMoveComponent>()) {
-			hasSpawnMove = true;
-			spawnMoveZOffset = templateSpawnMove->zOffset;
-			spawnMoveDuration = templateSpawnMove->duration;
-			spawnMoveEasing = templateSpawnMove->easing;
+			data.hasSpawnMove = true;
+			data.spawnMoveZOffset = templateSpawnMove->zOffset;
+			data.spawnMoveDuration = templateSpawnMove->duration;
+			data.spawnMoveEasing = templateSpawnMove->easing;
 		}
 	}
 
+	return data;
+}
+
+void PlayScene::BuildEnemyFromTemplateData(const Vector3& position, const std::string& templateTag, const EnemyTemplateData& data) {
 	GameObject& enemy = CreateObject("Enemy");
-	enemy.tag = "Enemy";
+	enemy.tag = GameTags::kEnemy;
 	enemy.GetTransform().translation = position;
 	// ヒエラルキーが敵だらけでフラットに埋まらないよう、"Enemies"フォルダの子としてぶら下げる
 	// （フォルダはTransformが原点固定のため、子のtranslationはそのままワールド座標として扱われる）
 	enemy.SetParent(&GetOrCreateGroupFolder(kEnemyFolderTag));
 
-	if (hasSpawnMove) {
+	if (data.hasSpawnMove) {
 		// 本来のスポーン地点(position)をtargetPos、そこからZ方向にzOffset離れた地点をstartPosにする。
 		// translationはstartPosから始め、SpawnMoveComponent::Updateが毎フレームtargetPosへ近づける
 		auto* spawnMove = enemy.AddComponent<SpawnMoveComponent>();
 		spawnMove->targetPos = position;
-		spawnMove->startPos = position + Vector3{ 0.0f, 0.0f, spawnMoveZOffset };
-		spawnMove->duration = spawnMoveDuration;
-		spawnMove->easing = spawnMoveEasing;
+		spawnMove->startPos = position + Vector3{ 0.0f, 0.0f, data.spawnMoveZOffset };
+		spawnMove->duration = data.spawnMoveDuration;
+		spawnMove->easing = data.spawnMoveEasing;
 		spawnMove->elapsed = 0.0f;
 		spawnMove->finished = false; // SpawnMoveComponentの既定値はtrue（保存シーン安全側）のため、
 		                             // 動的スポーン時はここで明示的にfalseへ戻して演出を開始する
@@ -478,70 +496,70 @@ void PlayScene::SpawnEnemyAt(const Vector3& position, const std::string& templat
 	}
 
 	RenderComponentBase* render = nullptr;
-	switch (shape) {
+	switch (data.shape) {
 		case TemplateShape::kSphere:   render = enemy.AddComponent<SphereRenderComponent>(); break;
 		case TemplateShape::kTriangle: render = enemy.AddComponent<TriangleRenderComponent>(); break;
 		default:                       render = enemy.AddComponent<CubeRenderComponent>(); break;
 	}
-	render->color = color;
+	render->color = data.color;
 
 	// テンプレートにテクスチャが設定されていれば、同じテクスチャ名でTextureSelectorComponentを
 	// 作り直す（AttachTextureAsset同様、コンストラクタ引数必須のためComponentRegistry::Create経由）
-	if (!textureName.empty()) {
+	if (!data.textureName.empty()) {
 		ComponentLoadContext ctx = MakeComponentLoadContext();
 		nlohmann::json textureData;
-		textureData["textureName"] = textureName;
+		textureData["textureName"] = data.textureName;
 		ComponentRegistry::Create("TextureSelector", enemy, ctx, textureData);
 	}
 
 	auto* enemyComponent = enemy.AddComponent<ReflexEnemyComponent>();
-	enemyComponent->hitShakeStrength = hitShakeStrength;
-	enemyComponent->hitShakeDuration = hitShakeDuration;
-	enemyComponent->hitStopDuration = hitStopDuration;
-	enemyComponent->maxHp = maxHp;
-	enemyComponent->hp = maxHp; // 複製時は必ず満タンのHPでスポーンする
+	enemyComponent->hitShakeStrength = data.hitShakeStrength;
+	enemyComponent->hitShakeDuration = data.hitShakeDuration;
+	enemyComponent->hitStopDuration = data.hitStopDuration;
+	enemyComponent->maxHp = data.maxHp;
+	enemyComponent->hp = data.maxHp; // 複製時は必ず満タンのHPでスポーンする
 	enemyComponent->spawnedFromTag = templateTag; // 撃破時、同じ種類を1体補充するために覚えておく
 
-	if (hasHealthBar) {
+	if (data.hasHealthBar) {
 		auto* healthBar = enemy.AddComponent<ReflexEnemyHealthBarComponent>(enemyComponent);
-		healthBar->width = healthBarWidth;
-		healthBar->height = healthBarHeight;
-		healthBar->heightOffset = healthBarHeightOffset;
-		healthBar->backgroundColor = healthBarBackgroundColor;
-		healthBar->fillColor = healthBarFillColor;
+		healthBar->width = data.healthBarWidth;
+		healthBar->height = data.healthBarHeight;
+		healthBar->heightOffset = data.healthBarHeightOffset;
+		healthBar->backgroundColor = data.healthBarBackgroundColor;
+		healthBar->fillColor = data.healthBarFillColor;
 	}
 
-	if (hasRotator) {
+	if (data.hasRotator) {
 		auto* rotator = enemy.AddComponent<RotatorComponent>();
-		if (rotatorRandomizeOnSpawn) {
+		if (data.rotatorRandomizeOnSpawn) {
 			// テンプレートの固定速度ではなく、このスポーン個体専用にXYZ軸・速度・回転方向を
 			// 毎回引き直す（テンプレート自体の値は変えず、複製先のインスタンスだけを乱数化する）
 			rotator->randomizeOnSpawn = true;
-			rotator->randomSpeedMin = rotatorRandomSpeedMin;
-			rotator->randomSpeedMax = rotatorRandomSpeedMax;
+			rotator->randomSpeedMin = data.rotatorRandomSpeedMin;
+			rotator->randomSpeedMax = data.rotatorRandomSpeedMax;
 			rotator->Randomize();
 		} else {
-			rotator->speedX = rotatorSpeedX;
-			rotator->speedY = rotatorSpeedY;
-			rotator->speedZ = rotatorSpeedZ;
+			rotator->speedX = data.rotatorSpeedX;
+			rotator->speedY = data.rotatorSpeedY;
+			rotator->speedZ = data.rotatorSpeedZ;
 		}
 	}
 
-	if (hasHitSound && !hitSoundAudioName.empty()) {
+	if (data.hasHitSound && !data.hitSoundAudioName.empty()) {
 		// TextureSelectorComponent復元（ComponentRegistration.cpp）と同じく、名前から
 		// projectAudioClips_内の現在のインデックスを探し直す
 		int audioIndex = -1;
 		for (size_t i = 0; i < projectAudioClips_.size(); i++) {
-			if (projectAudioClips_[i].displayName == hitSoundAudioName) { audioIndex = static_cast<int>(i); break; }
+			if (projectAudioClips_[i].displayName == data.hitSoundAudioName) { audioIndex = static_cast<int>(i); break; }
 		}
-		enemy.AddComponent<HitSoundComponent>(&projectAudioClips_, audioIndex, hitSoundVolume);
+		enemy.AddComponent<HitSoundComponent>(&projectAudioClips_, audioIndex, data.hitSoundVolume);
 	}
 
-	switch (colliderShape) {
+	switch (data.colliderShape) {
 		case TemplateColliderShape::kSphere: {
 			auto* collider = enemy.AddComponent<SphereColliderComponent>();
 			collider->isTrigger = true;
-			collider->radius = size;
+			collider->radius = data.size;
 			break;
 		}
 		case TemplateColliderShape::kNone:
@@ -549,7 +567,7 @@ void PlayScene::SpawnEnemyAt(const Vector3& position, const std::string& templat
 		default: {
 			auto* collider = enemy.AddComponent<OBBColliderComponent>();
 			collider->isTrigger = true;
-			collider->halfSize = { size, size, size };
+			collider->halfSize = { data.size, data.size, data.size };
 			break;
 		}
 	}
@@ -565,19 +583,17 @@ void PlayScene::SpawnParticleBurstAt(const Vector3& position, const std::string&
 	if (!emitterConfig) return;
 
 	// 見た目：テンプレートの具体型を判定して形状を決め、共通基底（color等）から色を取る
-	// （SpawnEnemyAtの見た目複製と同じロジック）
+	// （SpawnEnemyAtの見た目複製と同じロジック。判定自体はDetermineTemplateShapeを共有する）
 	Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 	TemplateShape shape = TemplateShape::kCube;
 	if (auto* templateRender = templateObj->GetComponent<RenderComponentBase>()) {
 		color = templateRender->color;
-		if (templateObj->GetComponent<SphereRenderComponent>()) shape = TemplateShape::kSphere;
-		else if (templateObj->GetComponent<TriangleRenderComponent>()) shape = TemplateShape::kTriangle;
-		else shape = TemplateShape::kCube;
+		shape = DetermineTemplateShape(*templateObj);
 	}
 
 	static std::mt19937 rng{ std::random_device{}() };
 	std::uniform_real_distribution<float> zDist(-1.0f, 1.0f);
-	std::uniform_real_distribution<float> thetaDist(0.0f, 6.2831853f); // 0〜2π
+	std::uniform_real_distribution<float> thetaDist(0.0f, kTwoPi);
 	std::uniform_real_distribution<float> sizeStartDist(emitterConfig->sizeStartMin, emitterConfig->sizeStartMax);
 	std::uniform_real_distribution<float> sizeEndDist(emitterConfig->sizeEndMin, emitterConfig->sizeEndMax);
 	std::uniform_real_distribution<float> speedDist(emitterConfig->speedMin, emitterConfig->speedMax);

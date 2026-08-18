@@ -1,5 +1,6 @@
 #pragma once
 #include "SceneBase.h"
+#include "../Math/Easing.h"
 
 // ゲームプレイ画面。GameObjectエディタ機能一式はSceneBaseが提供し、本クラスは
 // 「初期HUDとしてCamera Coordを1つ置く」「ESCでTitle・F1でGameOverへ遷移する」
@@ -13,6 +14,18 @@ class PlayScene : public SceneBase {
 protected:
 	void OnInitialize() override;
 	void HandleSceneTransitionInput() override;
+
+	// SceneBase::DrawInspector()が汎用UI描画の直後に呼ぶ拡張フック。ReflexEnemySpawnerComponent
+	// （敵の種類＋出現数のリストUI）はシーン内のテンプレート一覧を参照する必要があり
+	// IComponent::DrawImGui単体では描画できないため、PlayScene固有の拡張としてここに実装する
+	// （SceneBase.cpp側はReflexEnemySpawnerComponent/ReflexEnemyComponentという具体型を知らずに済む）
+	void DrawSceneSpecificInspectorExtensions(GameObject& selected) override;
+
+	// タグ"Player"のGameObjectを探し、そのReflexPlayerComponentを返す（どちらか一方でも
+	// 見つからなければnullptr）。HandleSceneTransitionInput/BeginPreparingPhase/
+	// UpdatePreparingPhaseで同一の「Player検索→nullチェック→コンポーネント取得」パターンが
+	// 重複していたため共通化した
+	ReflexPlayerComponent* GetReflexPlayer();
 
 	// EnemyComponent::pendingDestroy==trueのオブジェクトをまとめて回収する。
 	// ColliderSystem::ResolveAndDrawのループ中（OnTriggerEnterの中）ではGameObjectを
@@ -67,6 +80,67 @@ protected:
 	// SpawnEnemyAt/SpawnParticleBurstAtが生成物をこの下にぶら下げることで、大量にスポーンしても
 	// ヒエラルキーがフラットに埋まらないようにする
 	GameObject& GetOrCreateGroupFolder(const std::string& tag);
+
+	// テンプレートの描画形状（Cube/Sphere/Triangle）を表す。RenderComponentBaseはcolor等の
+	// 共通項目しか持たないため、複製先に同じ具体型をAddComponentするには種類の判定が要る
+	enum class TemplateShape { kCube, kSphere, kTriangle };
+
+	// テンプレートのコライダー形状（OBB/Sphere）。サイズはhalfSize.x/radiusという別名の
+	// スカラー値だが、どちらも「中心からの片側の長さ」という同じ意味として1つのfloatに統一する
+	enum class TemplateColliderShape { kNone, kObb, kSphere };
+
+	// RenderComponentBaseの具体型からTemplateShapeを判定する。SpawnEnemyAt/SpawnParticleBurstAtの
+	// 両方が同じ判定を必要とするため共通化した
+	static TemplateShape DetermineTemplateShape(GameObject& templateObj);
+
+	// テンプレートGameObjectから読み取ったスポーンパラメータの集約。SpawnEnemyAtが
+	// 「読み取り」と「組み立て」の2段階に分かれるようにするための橋渡し役。
+	// 既定値は「テンプレートが見つからなかった場合のフォールバック値」（従来のSpawnEnemyAt
+	// ローカル変数の初期値と同一）
+	struct EnemyTemplateData {
+		Vector4 color = { 0.9f, 0.2f, 0.2f, 1.0f };
+		TemplateShape shape = TemplateShape::kCube;
+		TemplateColliderShape colliderShape = TemplateColliderShape::kObb;
+		float size = 0.5f; // kFallbackHalfSize相当（PlayScene.cpp冒頭の無名namespace定数と同じ値）
+		float hitShakeStrength = 0.25f;
+		float hitShakeDuration = 0.15f;
+		float hitStopDuration = 0.05f;
+		float maxHp = 10.0f;
+		std::string textureName; // 空ならテンプレートにTextureSelectorComponentが無い（複製先にも付けない）
+
+		bool hasHealthBar = false;
+		float healthBarWidth = 1.2f;
+		float healthBarHeight = 0.15f;
+		float healthBarHeightOffset = 1.0f;
+		Vector4 healthBarBackgroundColor = { 0.15f, 0.15f, 0.15f, 0.8f };
+		Vector4 healthBarFillColor = { 0.2f, 0.9f, 0.2f, 1.0f };
+
+		bool hasRotator = false;
+		bool rotatorRandomizeOnSpawn = false;
+		float rotatorSpeedX = 0.0f;
+		float rotatorSpeedY = 90.0f;
+		float rotatorSpeedZ = 0.0f;
+		float rotatorRandomSpeedMin = 30.0f;
+		float rotatorRandomSpeedMax = 180.0f;
+
+		bool hasHitSound = false;
+		std::string hitSoundAudioName;
+		float hitSoundVolume = 1.0f;
+
+		bool hasSpawnMove = false;
+		float spawnMoveZOffset = 10.0f;
+		float spawnMoveDuration = 0.5f;
+		Easing::Type spawnMoveEasing = Easing::Type::kOutCubic;
+	};
+
+	// templateTagを持つテンプレートGameObjectから見た目・当たり判定・ReflexEnemyComponent
+	// パラメータ等を読み取る（見つからない場合はEnemyTemplateDataの既定値＝従来のフォールバック
+	// 値のまま返す）。SpawnEnemyAtの「読み取り」部分を独立させたもの
+	EnemyTemplateData ReadEnemyTemplateData(const std::string& templateTag);
+
+	// ReadEnemyTemplateDataの結果から実際にEnemy GameObjectを組み立てる。SpawnEnemyAtの
+	// 「組み立て」部分を独立させたもの
+	void BuildEnemyFromTemplateData(const Vector3& position, const std::string& templateTag, const EnemyTemplateData& data);
 
 	// 準備フェーズ用のスポーン待ちキュー（テンプレートタグの列）。BeginPreparingPhaseが
 	// pendingRespawnTags_から構築し、UpdatePreparingPhaseが先頭から1つずつ消費する

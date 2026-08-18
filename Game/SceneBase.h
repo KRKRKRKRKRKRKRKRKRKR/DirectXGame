@@ -45,6 +45,12 @@ protected:
 	// nextScene_への代入で表現する（デフォルトは何もしない＝遷移しない）
 	virtual void HandleSceneTransitionInput() {}
 
+	// SceneBase::DrawInspector()が selected->DrawImGui() の直後、DrawAddComponentMenu()の前に呼ぶ
+	// 拡張フック。SceneBase.cppが知るべきでない派生シーン固有の具体型（例：PlayScene固有の
+	// ReflexEnemySpawnerComponent専用UI）を追加したい派生シーンはこれをオーバーライドする。
+	// デフォルトは何もしない（TitleScene/GameOverScene等はオーバーライド不要）
+	virtual void DrawSceneSpecificInspectorExtensions(GameObject& selected) {}
+
 	Renderer* renderer_ = nullptr;
 	Camera* camera_ = nullptr;
 	std::string nextScene_;
@@ -96,6 +102,19 @@ protected:
 	// Cube等の完成形をArchetypeから1発生成する既存フローとは別に、空のGameObjectへ
 	// 後から機能を積み上げていく生成スタイルを提供する
 	void DrawAddComponentMenu(GameObject& selected);
+
+	// DrawAddComponentMenuの「描画」「オーディオ」カテゴリ配下、8種のTreeNodeブロックを
+	// それぞれ抽出したもの。各関数は自分のTreeNode内のstatic入力バッファを保持し、
+	// ComponentRegistry::Createまでを完結させる。ctxはDrawAddComponentMenuがMakeComponentLoadContext()
+	// で1回だけ作った値を全ブロックで使い回す（既存の挙動を維持するため引数で渡す）
+	void DrawAddModelRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
+	void DrawAddSpriteRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
+	void DrawAddTextureSelectorNode(GameObject& selected, const ComponentLoadContext& ctx);
+	void DrawAddMirrorNode(GameObject& selected, const ComponentLoadContext& ctx);
+	void DrawAddReflexEnemyHealthBarNode(GameObject& selected, const ComponentLoadContext& ctx);
+	void DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
+	void DrawAddAudioSourceNode(GameObject& selected, const ComponentLoadContext& ctx);
+	void DrawAddHitSoundNode(GameObject& selected, const ComponentLoadContext& ctx);
 
 	// objects_の保存/復元自体はSceneObjectStoreに委譲する（ファイルパス組み立て・
 	// is2D振り分け・SceneSerializer呼び出しはそちらの責務）。ここではLoad後に必要な
@@ -161,12 +180,36 @@ protected:
 
 	void DrawGrid();
 	void DrawImGui();
+
+	// DrawImGui()（ギズモウィンドウ）のセクション分割。呼び出し順序はウィンドウ内の表示順序と
+	// 一致させる（挙動・条件分岐は元のDrawImGuiと同一、コメント区切り単位で抽出しただけ）
+	void DrawPlayStopControls();       // Play/Stopボタンと状態テキスト
+	void DrawSceneGameViewToggle();    // Scene/Gameビュー切替ボタン（カメラの有無で活性/非活性を制御）
+	void DrawSceneSaveLoadControls();  // 保存/読み込みボタン、「名前を付けて保存」ポップアップ、保存済みスナップショットのコンボ
+	void DrawSceneTransitionButtons(); // SceneRegistryへ登録済みの全シーン名を列挙したシーン切替ボタン群
+
 	void DrawHierarchy();
+
+	// DrawHierarchyの木構造描画（旧drawNode/drawInsertionGapラムダ）を切り出したヘルパー。
+	// 1回のDrawHierarchy呼び出しの間だけ生存する一時状態（選択中オブジェクト、右クリック削除の
+	// 保留先）を持つため、SceneBaseのメンバ変数ではなくこのネストクラスのメンバとして
+	// スコープを最小限に保つ。定義はSceneBase.cpp（DrawHierarchy専用、外部から使わない）
+	class HierarchyTreeDrawer;
+
 	void DrawInspector();
 
 	// Unityの「Projectビュー」相当。ユーザーが追加した画像・音声・モデルをアイコンの一覧として
 	// 表示し、ドラッグ&ドロップでオブジェクトへ付与できるようにする
 	void DrawProjectPanel();
+
+	// DrawProjectPanelの画像/音声/モデルグリッド共通処理。PushID→BeginGroup→アイコン描画
+	// （drawIconに委譲）→ラベル→EndGroup→BeginDragDropSource→列送り改行、という3カテゴリで
+	// 完全に同一の手順をここへ集約する。kIconSize/kTileWidth/columnCountは呼び出し元が
+	// 1回だけ計算した値を渡す（3回計算し直さないため）
+	void DrawProjectAssetGrid(
+		const std::vector<ProjectAssetEntry>& assets, const char* dragDropId,
+		float iconSize, float tileWidth, int columnCount,
+		const std::function<void(const ProjectAssetEntry&, float iconSize)>& drawIcon);
 
 	// Resources/配下を走査してprojectImages_/projectAudioClips_/projectModels_を作り直す。
 	// Initialize()で1回、以降はプロジェクトパネルの「更新」ボタンから呼ばれる
@@ -209,4 +252,78 @@ protected:
 	// Unityの Scene/Game タブ相当。falseはエディタ自由カメラ+Gizmo（Scene）、
 	// trueはシーン内カメラ視点でGizmoなし（Game）。ボタンでの切替はDrawImGui()内で行う
 	bool viewingGameCamera_ = false;
+
+	// ==== Render()の分割ヘルパー（処理順序・条件分岐はRender本体と完全に同一。
+	// 可読性のためコメント区切り単位で抽出しただけで、挙動は一切変えていない） ====
+
+	// Gameモード用カメラの解決結果（見つからなければgameCamera==nullptr）
+	struct GameCameraResolution {
+		CameraComponent* gameCamera = nullptr;
+		GameObject* gameCameraObject = nullptr;
+	};
+
+	// そのフレームで実際に使うview/proj/カメラ位置と、Game/Sceneどちらを見ているかのフラグ。
+	// シェイク適用後の値（Mirrorパスが必要とする「生」のview/projとは別物）
+	struct ActiveCameraState {
+		Matrix4x4 view;
+		Matrix4x4 proj;
+		Vector3   camPos;
+		bool      useGameCamera = false;
+	};
+
+	// Mirrorコンポーネントの解決結果（見つからなければmirror==nullptr）
+	struct MirrorResolution {
+		MirrorComponent* mirror = nullptr;
+		GameObject* mirrorObject = nullptr;
+	};
+
+	// CameraFollowComponentのtarget解決（タグ"Player"優先、無ければAutoRunComponent持ちにフォールバック）
+	void UpdateAutoRunCameraFollowTarget();
+
+	// TextProviderを持つdynamicTextなTextRenderComponentを毎フレーム更新する
+	void UpdateDynamicTextComponents();
+
+	// タグ"MainCamera"優先、無ければシーン内最初のCameraComponentにフォールバックしてGameカメラを探す
+	GameCameraResolution ResolveGameCamera();
+
+	// view/proj（Sceneフリーカメラの生値）とgameCamの解決結果から、そのフレームで実際に使う
+	// view/proj/camPos/useGameCameraを確定させる。isPlaying_中はカメラシェイクもここで適用する
+	ActiveCameraState ResolveActiveCamera(const Matrix4x4& view, const Matrix4x4& proj,
+		const GameCameraResolution& gameCam, float deltaTime);
+
+	// 敵ヒット時のヒットストップ中はgameplayDeltaTimeを0にする（実時間でのタイマー消化とは別）
+	float ComputeGameplayDeltaTime(float deltaTime) const;
+
+	// isPlaying_中のみ、gizmoTargets_の各GameObjectへUpdateを配る
+	void UpdateGizmoTargets(float gameplayDeltaTime, const ActiveCameraState& activeCam);
+
+	// Scene表示中のみ、Gizmoのオブジェクト選択・操作・右クリックメニューを更新する
+	void UpdateGizmoPicking(const ActiveCameraState& activeCam);
+
+	// シーン内のMirrorComponentを探す（複数あっても最初の1つのみ対応）
+	MirrorResolution FindMirror();
+
+	// 鏡の反射視点でオフスクリーンへ描画する（Mirror自身とSprite2Dは映さない）。
+	// view/projは反射計算に使う生のカメラ行列、activeCamはパス終了後にSetCameraへ戻す値
+	void RenderMirrorPass(const MirrorResolution& mirror, const Matrix4x4& view, const Matrix4x4& proj,
+		const ActiveCameraState& activeCam);
+
+	// 通常の描画ループ（Mirror自身は反射テクスチャ確定後に別途描画するためスキップする）
+	void RenderMainPass(float deltaTime);
+
+	// Mirror自身の描画（反射テクスチャが確定した後に描く）
+	void DrawMirrorObject(const MirrorResolution& mirror);
+
+	// 各ライトコンポーネントのSyncToRenderer呼び出し（デバッグ可視化はScene表示中のみ）
+	void SyncLighting(const ActiveCameraState& activeCam);
+
+	// CameraComponentのワイヤーフレーム可視化（Scene表示中のみ）
+	void DrawCameraGizmoVisualizations(const ActiveCameraState& activeCam);
+
+	// エディタUI表示中のみDrawImGui()を呼ぶ
+	void DrawEditorUiIfVisible();
+
+	// シーン遷移要求（nextScene_）を検知し、エディタUI表示中なら保存確認を挟んでから
+	// pendingTransitionRequest_へ退避する
+	void ProcessSceneTransitionRequest();
 };

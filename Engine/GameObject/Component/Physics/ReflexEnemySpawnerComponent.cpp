@@ -5,7 +5,8 @@
 void ReflexEnemySpawnerComponent::DrawImGui(const char* namePrefix) {
 	// テンプレートのタグ選択（シーン内のReflexEnemyComponent::isTemplate=true一覧からのコンボ）は
 	// このコンポーネント単体では描画できない（IComponent::DrawImGuiはシーン全体を参照できないため）。
-	// SceneBase::DrawInspectorが選択中オブジェクトがこのコンポーネントを持つか判定し、
+	// PlayScene::DrawSceneSpecificInspectorExtensions（SceneBase::DrawSceneSpecificInspectorExtensions
+	// フックのPlayScene側オーバーライド）が選択中オブジェクトがこのコンポーネントを持つか判定し、
 	// DrawImGui呼び出しの直後にコンボ・出現数・追加/削除ボタンを一括で描画する
 	(void)namePrefix;
 }
