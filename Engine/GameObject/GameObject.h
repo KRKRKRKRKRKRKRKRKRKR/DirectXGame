@@ -41,6 +41,14 @@ public:
 	// 候補の一覧）に含めない。Sprite2D（スクリーン空間UI）やBGM（3D位置を持たない）用
 	bool excludeFromGizmoList = false;
 
+	// trueにすると、SceneObjectStore::Save（SceneSerializer::Saveのfilter経由）がこのGameObjectを
+	// scene.json/ui.jsonへ書き出さない。パーティクルのようにコード側が実行時に大量生成し、
+	// 短い寿命で自動的に消えていく一時的なGameObjectに使う。セーブ操作のタイミングによっては
+	// まだ消える前のインスタンスが混ざっていることがあり、それをそのまま保存してしまうと
+	// 次回ロード時にParticleComponent（保存対象外）を持たない、見た目だけの静止オブジェクトとして
+	// シーンに残ってしまう問題があった
+	bool excludeFromSave = false;
+
 	// TransformComponentが実際に持つTransformへの参照を返す（既存の.transformアクセスの代替）
 	Transform& GetTransform() { return transformComponent_->transform; }
 
@@ -49,6 +57,11 @@ public:
 
 	template<typename T>
 	T* GetComponent() { return components_.GetComponent<T>(); }
+
+	// 型Tに一致する全コンポーネントを返す（TextRenderComponent等、1GameObjectに複数付けられる
+	// 型向け。詳しくはComponentManager::GetComponents参照）
+	template<typename T>
+	std::vector<T*> GetComponents() { return components_.GetComponents<T>(); }
 
 	// 型Tのコンポーネントを1個破棄する。TransformComponentは常にコンストラクタで
 	// 自動アタッチされる必須コンポーネントのため、呼び出し側で対象から除外すること

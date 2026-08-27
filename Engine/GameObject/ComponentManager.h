@@ -27,6 +27,19 @@ public:
 		return nullptr;
 	}
 
+	// 型Tに一致する全コンポーネントを返す（TextRenderComponentのように1GameObjectに複数付けられる
+	// 型向け。多くの呼び出し元は「主となる1個」だけで十分なためGetComponent<T>()のままでよいが、
+	// 描画ループ（RenderMainPass/RenderMirrorPass）のようにRenderComponentBase派生を漏れなく
+	// 描画したい場合はこちらを使う）
+	template<typename T>
+	std::vector<T*> GetComponents() {
+		std::vector<T*> result;
+		for (auto& c : components_) {
+			if (T* ptr = dynamic_cast<T*>(c.get())) result.push_back(ptr);
+		}
+		return result;
+	}
+
 	// 型Tに一致する最初の1個を破棄する（Add Componentメニューからの取り消し用）。
 	// 見つかった場合はtrueを返す。TextureSelectorComponent/MirrorComponent等、他コンポーネントへの
 	// 生ポインタを持つものが依存先を指している状態で依存先だけを消すとダングリングポインタになるため、
@@ -40,6 +53,16 @@ public:
 			}
 		}
 		return false;
+	}
+
+	// index番目（At/Countと同じ添字）のコンポーネントを1個破棄する。TextRenderComponentのように
+	// 同じ型が複数並びうる場合、型名だけを頼りにRemoveByTypeName（常に「最初の1個」を消す）を使うと
+	// 右クリックで狙った方ではなく常に1個目が消えてしまうため、Inspectorの「コンポーネントを削除」
+	// メニューはこちらのインデックス指定版を使う。index==0（Transform）は呼び出し側で除外すること
+	bool RemoveAt(size_t index) {
+		if (index >= components_.size()) return false;
+		components_.erase(components_.begin() + static_cast<ptrdiff_t>(index));
+		return true;
 	}
 
 	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {

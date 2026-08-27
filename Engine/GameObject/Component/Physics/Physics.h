@@ -23,3 +23,4 @@
 #include "ParticleEmitterComponent.h"
 #include "ParticleTemplateComponent.h"
 #include "SpawnMoveComponent.h"
+#include "PlayButtonComponent.h"

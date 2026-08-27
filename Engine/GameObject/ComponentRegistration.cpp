@@ -150,4 +150,38 @@ void RegisterEngineComponents() {
 		},
 		[](GameObject& obj) { return obj.RemoveComponent<HitSoundComponent>(); },
 		"ヒットSE");
+
+	// SpawnSoundComponent：HitSoundComponentと完全に同じ登録パターン（敵がスポーンした瞬間に鳴らすSE）
+	ComponentRegistry::Register<SpawnSoundComponent>("SpawnSound",
+		[](GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {
+			std::string name = data.value("audioName", std::string());
+			int index = -1;
+			if (ctx.audioClips) {
+				for (size_t i = 0; i < ctx.audioClips->size(); i++) {
+					if ((*ctx.audioClips)[i].displayName == name) { index = static_cast<int>(i); break; }
+				}
+			}
+			float volume = data.value("volume", 1.0f);
+			obj.AddComponent<SpawnSoundComponent>(ctx.audioClips, index, volume);
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<SpawnSoundComponent>(); },
+		"スポーンSE");
+
+	// PlayButtonComponent：HitSoundComponentと同じ「名前→現在のindex変換」パターンに加え、
+	// 色・スケール倍率の保存/復元があるためFromJsonも呼ぶ
+	ComponentRegistry::Register<PlayButtonComponent>("PlayButton",
+		[](GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {
+			std::string name = data.value("audioName", std::string());
+			int index = -1;
+			if (ctx.audioClips) {
+				for (size_t i = 0; i < ctx.audioClips->size(); i++) {
+					if ((*ctx.audioClips)[i].displayName == name) { index = static_cast<int>(i); break; }
+				}
+			}
+			float volume = data.value("volume", 1.0f);
+			auto* button = obj.AddComponent<PlayButtonComponent>(ctx.audioClips, index, volume);
+			button->FromJson(data);
+		},
+		[](GameObject& obj) { return obj.RemoveComponent<PlayButtonComponent>(); },
+		"PLAYボタン");
 }

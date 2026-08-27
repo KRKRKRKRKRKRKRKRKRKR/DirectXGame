@@ -23,6 +23,7 @@
 #include <string>
 #include <functional>
 #include <utility>
+#include <unordered_map>
 
 // GameObjectエディタ機能一式（生成・削除・Gizmo編集・当たり判定・UI/Object分割Save/Load・
 // HUD/説明文テキスト作成・ライティング）を持つIScene実装の共通基底。PlayScene/TitleScene等は
@@ -112,9 +113,11 @@ protected:
 	void DrawAddTextureSelectorNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddMirrorNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddReflexEnemyHealthBarNode(GameObject& selected, const ComponentLoadContext& ctx);
-	void DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
+	void DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool hasNonTextRenderComponent);
 	void DrawAddAudioSourceNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddHitSoundNode(GameObject& selected, const ComponentLoadContext& ctx);
+	void DrawAddSpawnSoundNode(GameObject& selected, const ComponentLoadContext& ctx);
+	void DrawAddPlayButtonNode(GameObject& selected, const ComponentLoadContext& ctx);
 
 	// objects_の保存/復元自体はSceneObjectStoreに委譲する（ファイルパス組み立て・
 	// is2D振り分け・SceneSerializer呼び出しはそちらの責務）。ここではLoad後に必要な
@@ -143,8 +146,11 @@ protected:
 	// インスタンスメソッドとして組み立てる。新しいHUDを追加したい場合はSceneBase.cppの
 	// BuildHudDefinitions()に1エントリ足すだけでよく、CreateHud/RebindDynamicTextProvidersの
 	// 分岐を増やす必要はない。呼び出し側はInitialize()で一度構築されるhudDefinitions_を使う
-	// （毎回vector/ラムダを作り直さないように、テーブル自体はキャッシュする）
-	std::vector<std::pair<std::string, HudDefinition>> BuildHudDefinitions();
+	// （毎回vector/ラムダを作り直さないように、テーブル自体はキャッシュする）。
+	// virtual化してあるのは、PlayScene等の派生シーンが自分だけが持つ値（実行タイマー・撃破数等）を
+	// キャプチャするHUDエントリを追加できるようにするため。派生側はSceneBase::BuildHudDefinitions()の
+	// 戻り値に自分のエントリをpush_backして返す（基底のCamera Coord/FPSは維持する）
+	virtual std::vector<std::pair<std::string, HudDefinition>> BuildHudDefinitions();
 
 	// BuildHudDefinitions()の結果をInitialize()で一度だけ構築してキャッシュしたもの
 	std::vector<std::pair<std::string, HudDefinition>> hudDefinitions_;
@@ -277,11 +283,70 @@ protected:
 		GameObject* mirrorObject = nullptr;
 	};
 
+	// Render()がResolveActiveCamera()で毎フレーム計算した最新値を控えておいたもの。
+	// HandleSceneTransitionInput（ProcessSceneTransitionRequest経由でRender()の後半から呼ばれる）は
+	// 引数を持たない仮想関数のため、3Dレイキャストが必要な派生シーン（RankingScene::
+	// UpdateScrollBarのつまみドラッグ判定等）がScreenRay::FromMouse用のview/projを得る手段として使う
+	ActiveCameraState lastActiveCameraState_;
+
 	// CameraFollowComponentのtarget解決（タグ"Player"優先、無ければAutoRunComponent持ちにフォールバック）
 	void UpdateAutoRunCameraFollowTarget();
 
 	// TextProviderを持つdynamicTextなTextRenderComponentを毎フレーム更新する
 	void UpdateDynamicTextComponents();
+
+	// AlphabetTextComponentを持つ全GameObjectについて、text（今回表示したい文字列）が
+	// lastBuiltText（前回子GameObjectを組み立てた時点の文字列）と食い違っていたら、
+	// 既存の文字の子GameObjectを全部削除してtextに応じて作り直す。Render()から毎フレーム呼ぶ
+	// （UpdateDynamicTextComponentsと対になる仕組み。詳しくはAlphabetTextComponent.h参照）
+	void UpdateAlphabetTextComponents();
+
+	// ownerの子のうちtag==kAlphabetCharTagのものを全部削除する（RebuildAlphabetTextChildrenが
+	// 作り直す前の後始末、およびLoadScene直後の「保存されてしまった古い子」の掃除に使う）
+	void ClearAlphabetTextChildren(GameObject& owner);
+
+	// ownerの下にcomp.textの内容に応じた文字の子GameObjectを新規生成する。1文字ごとに
+	// Resources/Alphabet/{文字}.objをModelRenderComponentとして読み込み、charSpacing間隔で
+	// X軸方向に等間隔に並べる（全体の横幅の中心がownerのtranslationに来るよう左右対称に配置する）。
+	// 対応する.objが無い文字（A〜Z・0〜9・半角スペース以外）は、その1文字分の間隔だけ空けて
+	// 何も生成しない
+	void RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextComponent& comp);
+
+	// 'A'〜'Z'（大文字化して引数に渡す）・'0'〜'9'のRenderer::ModelHandleをキャッシュする。
+	// 同じ文字が文字列内で繰り返し使われても、Renderer::LoadModelを呼び直さず使い回す
+	// （LoadModelは呼ぶたびに新しいModelHandle/SRVスロットを消費するため）
+	Renderer::ModelHandle GetOrLoadAlphabetModel(char upperLetter);
+	std::unordered_map<char, Renderer::ModelHandle> alphabetModelCache_;
+
+	// DashedLineComponentを持つ全GameObjectについて、dashCount/dashWidth/dashThickness/
+	// dashSpacingが前回組み立てた時点の値と食い違っていたら、既存のダッシュの子GameObjectを
+	// 全部削除して作り直す。Render()から毎フレーム呼ぶ（UpdateAlphabetTextComponentsと同じパターン）
+	void UpdateDashedLineComponents();
+
+	// ownerの子のうちtag==kDashedLineSegmentのものを全部削除する
+	void ClearDashedLineSegments(GameObject& owner);
+
+	// ownerの下にcomp.dashCount本ぶんのダッシュ（薄いCube）を、中心がownerのtranslationに
+	// 来るよう左右対称にdashSpacing間隔で並べる
+	void RebuildDashedLineSegments(GameObject& owner, DashedLineComponent& comp);
+
+	// ComboPopupComponentを持つ全GameObject（通常はPlayer）について、
+	// 1) ConsumePendingRequest()で新しいコンボ値のリクエストがあれば、表示中のポップアップを
+	//    即座に破棄して新しい値でポップインをやり直す（キルカウントHUDと同じ「1つの表示が
+	//    値の更新に合わせて差し替わる」方式）、
+	// 2) ConsumeClearRequested()が立っていれば表示中のポップアップを即座に破棄、
+	// 3) 表示中のポップアップのelapsedを進め、ポップイン/静止/フェードアウトの現在フェーズに
+	//    応じてscale・alphaをイージングで更新する。静止表示中にholdDurationを超えたら
+	//    自動的にフェードアウトへ移行し、フェードアウトが終わったら破棄する。
+	// Render()から毎フレーム呼ぶ（UpdateAlphabetTextComponentsと同様の「シーン側が実体を管理する」パターン）
+	void UpdateComboPopupComponents(float deltaTime);
+
+	// comboValue（1個の整数値、複数桁ありうる）を表示する1個のポップアップを新規生成する。
+	// ownerの下に「1個のポップアップ全体を表す」空の親GameObject（グループ）を作り、その下に
+	// 数字を1桁ずつAlphabetTextComponentと同じ要領でModelRenderComponent付き子として並べる。
+	// グループGameObject自身をComboPopupComponent::ActivePopup::modelObjectとして登録することで、
+	// UpdateComboPopupComponentsが桁ごとの子を意識せず、グループ単位でscale/alpha・破棄を扱える
+	void SpawnComboPopup(GameObject& owner, ComboPopupComponent& comp, int comboValue);
 
 	// タグ"MainCamera"優先、無ければシーン内最初のCameraComponentにフォールバックしてGameカメラを探す
 	GameCameraResolution ResolveGameCamera();
@@ -297,8 +362,13 @@ protected:
 	// isPlaying_中のみ、gizmoTargets_の各GameObjectへUpdateを配る
 	void UpdateGizmoTargets(float gameplayDeltaTime, const ActiveCameraState& activeCam);
 
-	// Scene表示中のみ、Gizmoのオブジェクト選択・操作・右クリックメニューを更新する
+	// Scene表示中のみ、Gizmoの操作（ドラッグ編集）・右クリックメニューを更新する。
+	// クリックによる選択変更はUpdateGizmoPickingLateClickに分離されている（そちらのコメント参照）
 	void UpdateGizmoPicking(const ActiveCameraState& activeCam);
+
+	// Scene表示中のみ、DrawImGui()の後でクリックによる選択変更を判定する
+	// （UpdateGizmoPickingLateClickの実装コメント参照）
+	void UpdateGizmoPickingLateClick(const ActiveCameraState& activeCam);
 
 	// シーン内のMirrorComponentを探す（複数あっても最初の1つのみ対応）
 	MirrorResolution FindMirror();

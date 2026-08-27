@@ -143,6 +143,15 @@ bool Renderer::UpdateTextureFromPixels(TextureHandle handle, uint32_t width, uin
 }
 
 Renderer::ModelHandle Renderer::LoadModel(const std::string& directoryPath, const std::string& filename) {
+	// 同じパスを二重ロードしない（LoadTextureと同じ方針）。SceneBase::alphabetModelCache_のような
+	// シーンローカルなキャッシュだけでは、シーンを切り替えるたびに同じ文字モデルを何度も
+	// LoadModelし直してSRVディスクリプタを浪費してしまう（AllocateSRVIndexは解放されない単調増加の
+	// ため、シーンの出入りを繰り返すとヒープが枯渇してクラッシュする）。Rendererはアプリ全体で
+	// 1つだけ生存するため、ここでキャッシュすれば実際のロード・SRV確保は初回の1回だけになる
+	std::string cacheKey = directoryPath + "/" + filename;
+	auto cached = modelPathCache_.find(cacheKey);
+	if (cached != modelPathCache_.end()) return cached->second;
+
 	auto model = std::make_unique<Model>();
 	// wvp, 色, ボーン行列パレット用に3枠払い出してもらう
 	uint32_t srvBase = heaps_->AllocateSRVIndex(3);
@@ -155,6 +164,7 @@ Renderer::ModelHandle Renderer::LoadModel(const std::string& directoryPath, cons
 
 	ModelHandle handle = static_cast<ModelHandle>(models_.size());
 	models_.push_back(std::move(model));
+	modelPathCache_[cacheKey] = handle;
 	return handle;
 }
 

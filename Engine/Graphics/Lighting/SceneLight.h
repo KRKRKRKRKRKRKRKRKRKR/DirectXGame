@@ -42,7 +42,13 @@ public:
 
         float    rimStrength      = 1.0f;
         uint32_t enableRim        = 0;
-        float    pad1[2]          = {};
+
+        // 有効な点光源・スポットライトのうち最大のindex+1（SetPointLight/SetSpotLightが
+        // 呼ばれるたびに更新する）。Object3d.PS.hlslのforループ上限をkMaxPointLights/
+        // kMaxSpotLights固定ではなくこの値にすることで、実際に使っているライト数だけ
+        // ループするようにする。以前はpad1[2]（未使用の詰め物）だった16バイト行を転用した
+        uint32_t pointLightCount  = 0;
+        uint32_t spotLightCount   = 0;
 
         // --- Point Light（複数対応。固定長配列＋種類ごとに何番目かで場所を決める）---
         // 配列は各要素がそのまま16バイトの倍数になるようフィールドを並べている。HLSL側は
@@ -114,7 +120,11 @@ public:
     void SetRimStrength(float strength)    { data_.rimStrength = strength; Upload(); }
 
     // Point Light（複数対応）。indexがkMaxPointLights以上の場合は何もしない
-    // （シーンに置ける点光源の実質上限。超えた分は静かに無視される）
+    // （シーンに置ける点光源の実質上限。超えた分は静かに無視される）。
+    // pointLightCountを「今フレームSetPointLightが呼ばれた最大index+1」に更新することで、
+    // Object3d.PS.hlsl側のforループを実際に使っているぶんだけに絞れるようにする
+    // （ResetPerFrameEnableFlagsが毎フレーム0に戻し、各ILightComponentが自分のindexで
+    // 呼び直すpush方式のため、この最大値追跡だけで「今フレーム実在するライトの範囲」を表せる）
     void SetPointLight(uint32_t index, bool enabled, const Vector3& position, const Vector3& color,
         float intensity, float radius, float decay) {
         if (index >= LightData::kMaxPointLights) return;
@@ -125,6 +135,7 @@ public:
         pl.intensity = intensity;
         pl.radius    = radius;
         pl.decay     = decay;
+        if (enabled && index + 1 > data_.pointLightCount) data_.pointLightCount = index + 1;
         Upload();
     }
 
@@ -142,6 +153,7 @@ public:
         sl.decay           = decay;
         sl.cosAngle        = cosAngle;
         sl.cosFalloffStart = cosFalloffStart;
+        if (enabled && index + 1 > data_.spotLightCount) data_.spotLightCount = index + 1;
         Upload();
     }
 
@@ -159,6 +171,8 @@ public:
         data_.enableDirectional = 0;
         for (auto& pl : data_.pointLights) pl.enabled = 0;
         for (auto& sl : data_.spotLights) sl.enabled = 0;
+        data_.pointLightCount = 0;
+        data_.spotLightCount = 0;
         Upload();
     }
 

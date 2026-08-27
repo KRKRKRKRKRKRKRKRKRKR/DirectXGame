@@ -9,6 +9,17 @@ void SpawnMoveComponent::Update(float deltaTime, Transform& transform, const Upd
 	(void)ctx;
 	if (finished) return;
 
+	// startDelay秒が経過するまではstartDelay自体を減らすだけで、elapsed（移動の進み具合）は
+	// 進めない。この間はtransform.translationをstartPosに固定しておく（AlphabetTextComponentの
+	// 文字ごと登場演出で、後の文字ほど長く「まだ奥にいる」状態を保つため）。animateScale中は
+	// 同様にscaleも0のまま（＝待機中はまだ何も見えていない）に固定する
+	if (startDelay > 0.0f) {
+		startDelay -= deltaTime;
+		transform.translation = startPos;
+		if (animateScale) transform.scale = { 0.0f, 0.0f, 0.0f };
+		return;
+	}
+
 	elapsed += deltaTime;
 	if (elapsed >= duration) {
 		elapsed = duration;
@@ -18,6 +29,15 @@ void SpawnMoveComponent::Update(float deltaTime, Transform& transform, const Upd
 	float t = EaseUtil::Clamp01(duration > 0.0f ? elapsed / duration : 1.0f);
 	float easedT = Easing::Apply(easing, t);
 	transform.translation = EaseUtil::Lerp(startPos, targetPos, easedT);
+
+	// 移動と全く同じt・easingを使ってscaleも0⇔targetScaleへ変化させる。reverseScale==falseなら
+	// 「その場に何も無い状態から徐々に大きくなって現れる」（登場）、trueなら
+	// 「だんだん小さくなって消える」（退場、Backspaceでの文字削除演出）になる
+	if (animateScale) {
+		transform.scale = reverseScale
+			? EaseUtil::Lerp(targetScale, Vector3{ 0.0f, 0.0f, 0.0f }, easedT)
+			: EaseUtil::Lerp(Vector3{ 0.0f, 0.0f, 0.0f }, targetScale, easedT);
+	}
 }
 
 void SpawnMoveComponent::DrawImGui(const char* namePrefix) {

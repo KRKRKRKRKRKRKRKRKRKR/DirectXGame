@@ -80,7 +80,10 @@ void ComponentManager::DrawImGui(GameObject& owner) {
 
 		if (!isTransform && !structuralChange && ImGui::BeginPopupContextItem()) {
 			if (ImGui::MenuItem("コンポーネントを削除")) {
-				ComponentRegistry::RemoveByTypeName(typeName, owner);
+				// 型名ベースのRemoveByTypeName（常に「最初の1個」を消す）だと、TextRenderComponentの
+				// ように同じ型が複数並ぶ場合に右クリックした方ではなく常に1個目が消えてしまうため、
+				// このインデックスiをそのまま指定して削除する
+				RemoveAt(i);
 				structuralChange = true;
 			}
 			if (ImGui::MenuItem("上へ移動", nullptr, false, i > 1)) {

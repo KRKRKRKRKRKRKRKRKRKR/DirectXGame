@@ -2,6 +2,7 @@
 #include "../../Externals/Json/json.hpp"
 #include "../Utils/Logger.h"
 #include <fstream>
+#include <filesystem>
 #include <format>
 #include <unordered_map>
 
@@ -32,7 +33,19 @@ void SceneSerializer::Save(const std::string& path, const std::vector<std::uniqu
 	}
 	root["objects"] = objs;
 
+	// Resources/{assetFolder}/ フォルダがまだ一度も作られていない（新規シーンの初回保存等）場合、
+	// std::ofstreamは存在しないディレクトリへは書き込めず、エラーも出さずに何も保存しないまま
+	// 終わってしまう。保存直前に親ディレクトリを作っておくことでこれを防ぐ
+	std::filesystem::path filePath(path);
+	if (filePath.has_parent_path()) {
+		std::filesystem::create_directories(filePath.parent_path());
+	}
+
 	std::ofstream file(path);
+	if (!file) {
+		Logger::Log(std::format("SceneSerializer::Save: failed to open '{}' for writing\n", path));
+		return;
+	}
 	file << root.dump(4);
 }
 

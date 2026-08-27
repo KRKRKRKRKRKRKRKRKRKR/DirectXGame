@@ -115,7 +115,13 @@ private:
 
 	// UpdateGizmo/UpdateGizmo2D共通の後始末：ImGuizmo::Manipulateがtrueを返した後の
 	// DecomposeMatrixToComponents→Transformへの書き戻し（度数法→ラジアン変換込み）
-	static void ApplyDecomposedMatrix(const Matrix4x4& world, Transform* target);
+	// operationに応じて、行列分解した結果のうち対応する成分だけをtargetへ書き戻す
+	// （TRANSLATEならtranslationだけ、ROTATEならrotationだけ、SCALEならscaleだけ）。
+	// 3成分すべてを毎回上書きすると、回転済みオブジェクトをTRANSLATE操作でワールド軸方向に
+	// ドラッグしただけのつもりでも、ImGuizmo::DecomposeMatrixToComponentsの内部的な
+	// オイラー角再分解の数値誤差でrotationがわずかに変化し、それに伴ってtranslationの
+	// 意図しない軸まで動いて見える不具合があったため
+	static void ApplyDecomposedMatrix(const Matrix4x4& world, Transform* target, ImGuizmo::OPERATION operation);
 
 	// PowerPoint/Keynote等の「スマートガイド」相当。draggedをtargets2D内の他オブジェクトと比較し、
 	// 左端/右端/水平中心・上端/下端/垂直中心のうちkSnapThresholdPx以内で一致する軸があれば

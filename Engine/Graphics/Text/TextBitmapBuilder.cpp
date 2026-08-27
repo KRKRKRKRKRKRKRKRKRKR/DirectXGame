@@ -96,17 +96,12 @@ bool TextBitmapBuilder::LoadFont(const std::string& fontPath) {
 	return impl_->loaded;
 }
 
-bool TextBitmapBuilder::Build(const std::vector<char32_t>& text, float pixelHeight, float lineSpacing, TextBitmap& out) const {
-	if (!impl_->loaded) return false;
+namespace {
 
-	const stbtt_fontinfo& font = impl_->fontInfo;
-	float scale = stbtt_ScaleForPixelHeight(&font, pixelHeight);
-	int ascent = 0, descent = 0, lineGap = 0;
-	stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
-	float lineAdvance   = (static_cast<float>(ascent - descent + lineGap)) * scale * lineSpacing;
-	float baselineFirst = static_cast<float>(ascent) * scale;
-
-	// 1パス目：改行を反映したキャンバス全体のサイズを求める
+// Build/MeasureText共通の1パス目：改行を反映したテキスト全体の占有サイズ(px、kGlyphPaddingPx込み)を求める。
+// scale/lineAdvance/baselineFirstはstbtt_ScaleForPixelHeight等から呼び出し側が計算済みのものを渡す
+void ComputeTextExtent(const stbtt_fontinfo& font, const std::vector<char32_t>& text,
+	float scale, float lineAdvance, int ascent, int descent, uint32_t& outWidth, uint32_t& outHeight) {
 	float cursorX  = 0.0f;
 	float maxWidth = 0.0f;
 	int   lineCount = 1;
@@ -123,8 +118,24 @@ bool TextBitmapBuilder::Build(const std::vector<char32_t>& text, float pixelHeig
 	}
 	maxWidth = std::max(maxWidth, cursorX);
 
-	auto width  = static_cast<uint32_t>(std::ceil(maxWidth))  + kGlyphPaddingPx * 2;
-	auto height = static_cast<uint32_t>(std::ceil(lineAdvance * static_cast<float>(lineCount - 1) + static_cast<float>(ascent - descent) * scale)) + kGlyphPaddingPx * 2;
+	outWidth  = static_cast<uint32_t>(std::ceil(maxWidth))  + kGlyphPaddingPx * 2;
+	outHeight = static_cast<uint32_t>(std::ceil(lineAdvance * static_cast<float>(lineCount - 1) + static_cast<float>(ascent - descent) * scale)) + kGlyphPaddingPx * 2;
+}
+
+} // namespace
+
+bool TextBitmapBuilder::Build(const std::vector<char32_t>& text, float pixelHeight, float lineSpacing, TextBitmap& out) const {
+	if (!impl_->loaded) return false;
+
+	const stbtt_fontinfo& font = impl_->fontInfo;
+	float scale = stbtt_ScaleForPixelHeight(&font, pixelHeight);
+	int ascent = 0, descent = 0, lineGap = 0;
+	stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
+	float lineAdvance   = (static_cast<float>(ascent - descent + lineGap)) * scale * lineSpacing;
+	float baselineFirst = static_cast<float>(ascent) * scale;
+
+	uint32_t width = 0, height = 0;
+	ComputeTextExtent(font, text, scale, lineAdvance, ascent, descent, width, height);
 	if (width <= static_cast<uint32_t>(kGlyphPaddingPx * 2) || height <= static_cast<uint32_t>(kGlyphPaddingPx * 2)) return false;
 
 	out.width  = width;
@@ -133,6 +144,20 @@ bool TextBitmapBuilder::Build(const std::vector<char32_t>& text, float pixelHeig
 
 	RenderGlyphsInto(font, text, scale, lineAdvance, baselineFirst, out, kGlyphPaddingPx, kGlyphPaddingPx);
 	return true;
+}
+
+bool TextBitmapBuilder::MeasureText(const std::vector<char32_t>& text, float pixelHeight, float lineSpacing,
+	uint32_t& outWidth, uint32_t& outHeight) const {
+	if (!impl_->loaded || text.empty()) return false;
+
+	const stbtt_fontinfo& font = impl_->fontInfo;
+	float scale = stbtt_ScaleForPixelHeight(&font, pixelHeight);
+	int ascent = 0, descent = 0, lineGap = 0;
+	stbtt_GetFontVMetrics(&font, &ascent, &descent, &lineGap);
+	float lineAdvance = (static_cast<float>(ascent - descent + lineGap)) * scale * lineSpacing;
+
+	ComputeTextExtent(font, text, scale, lineAdvance, ascent, descent, outWidth, outHeight);
+	return outWidth > static_cast<uint32_t>(kGlyphPaddingPx * 2) && outHeight > static_cast<uint32_t>(kGlyphPaddingPx * 2);
 }
 
 bool TextBitmapBuilder::BuildFixed(const std::vector<char32_t>& text, float pixelHeight, float lineSpacing,

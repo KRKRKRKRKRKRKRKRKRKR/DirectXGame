@@ -17,6 +17,34 @@ public:
 	float duration = 0.5f;   // 移動にかける秒数
 	Easing::Type easing = Easing::Type::kOutCubic;
 
+	// Updateがelapsedを進め始めるまでの追加待機時間(秒)。0なら生成直後から即座に動き出す
+	// （従来通り）。AlphabetTextComponent::useCharEntranceAnimationが文字ごとに登場タイミングを
+	// ずらす際、この値へ「文字インデックス × entranceCharDelay」を入れて使う。待機中は
+	// transform.translationをstartPosに固定したままにする（負のtでイージングを評価しないため）
+	float startDelay = 0.0f;
+
+	// trueの間、位置の移動と同じt（duration・easing共通）でtransform.scaleも0→targetScaleへ
+	// 補間する。「奥から手前へ移動してくる」だけでなく「その場に何も無い状態から徐々に
+	// 大きくなって現れる」演出を重ねたい場合に使う（既定false：敵スポーン等、従来通り位置だけ
+	// 動かしたい用途には影響しない）
+	bool animateScale = false;
+
+	// animateScale==trueのとき、t=1（移動完了）時点で到達するscale値。等倍で表示したいなら
+	// {1,1,1}、GameObject::GetTransform().scaleに他の倍率を掛けたい場合はその値を入れる
+	Vector3 targetScale = { 1.0f, 1.0f, 1.0f };
+
+	// trueの間、animateScaleのLerp方向を逆にする（0→targetScaleではなくtargetScale→0）。
+	// 「奥から手前へ登場しながら拡大」ではなく「手前から奥へ退場しながら縮小して消える」演出
+	// （名前入力欄でBackspaceにより文字が削除される瞬間の退場アニメーション）に使う。
+	// この場合startPos/targetPosも呼び出し側で「現在位置→奥の位置」の向きに設定する想定
+	bool reverseScale = false;
+
+	// durationに達してfinished=trueになった瞬間、呼び出し側（毎フレームcleanup処理を回している
+	// SceneBase派生クラス）がこのGameObject自体をDeleteObjectsしてよい、という合図。
+	// SpawnMoveComponent自身はGameObjectの削除権限を持たない（IComponentはシーンを知らない）ため
+	// 実際の削除は行わず、フラグを立てるだけに留める
+	bool destroyOnFinish = false;
+
 	Vector3 startPos = { 0.0f, 0.0f, 0.0f };  // 実行時に複製先で上書きされる（テンプレート上は未使用）
 	Vector3 targetPos = { 0.0f, 0.0f, 0.0f }; // 同上
 	float elapsed = 0.0f;    // 経過時間（内部状態。保存しない＝復元時は必ず0から）
@@ -36,11 +64,13 @@ public:
 		out["zOffset"] = zOffset;
 		out["duration"] = duration;
 		out["easing"] = static_cast<int>(easing);
+		out["startDelay"] = startDelay;
 	}
 	void FromJson(const nlohmann::json& in) override {
 		zOffset = in.value("zOffset", zOffset);
 		duration = in.value("duration", duration);
 		easing = static_cast<Easing::Type>(in.value("easing", static_cast<int>(easing)));
+		startDelay = in.value("startDelay", startDelay);
 		// 保存されたシーンをロードした場合は演出済み扱いにする（上のfinishedのコメント参照）
 		finished = true;
 	}

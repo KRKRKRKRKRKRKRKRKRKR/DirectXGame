@@ -60,10 +60,15 @@ void DirectXManager::Resize(int width, int height) {
 	windowHeight_ = height;
 
 	// コマンドリストは通常このタイミングでオープン中(次フレーム用にリセット済み)なので、
-	// GPU待機の前に一旦閉じておく
+	// GPU待機の前に一旦閉じて、積まれている分（ロード中のテクスチャ転送やリソースバリア等）を
+	// 実行してからでないとGPU待機の意味が無い（ExecuteCommandListを呼ばずSignalだけしても
+	// 何もキューに送られておらず、ResetCommandList内のAllocator::Resetで未実行コマンドごと
+	// 破棄されてしまう。これがロード中の最大化操作でGPU-Based Validationの
+	// Incompatible texture barrier layoutエラーを引き起こしていた）
 	ID3D12GraphicsCommandList* commandList = command_.GetCommandList();
 	commandList->Close();
 
+	command_.ExecuteCommandList();
 	command_.Signal();
 	command_.WaitForFence();
 

@@ -1,7 +1,7 @@
 #include "Engine/Engine.h"
 #include "Game/Game.h"
 
-const std::wstring KwindowTitle = L"ClearRoot Engine";
+const std::wstring KwindowTitle = L"REFLEX";
 const int KwindowWidth = 1280;
 const int KwindowHeight = 720;
 

@@ -1,5 +1,6 @@
 #include "SceneBase.h"
 #include "GameTags.h"
+#include "FadeManager.h"
 #include "../Externals/imgui/imgui.h"
 #include "../Externals/ImGuizmo/src/ImGuizmo.h"
 #include "../Math/MatrixMath.h"
@@ -13,8 +14,10 @@
 #include "../Engine/Utils/Logger.h"
 #include "../Engine/Utils/EditorState.h"
 #include "../Engine/GameObject/Systems/HitEffect.h"
+#include "../Engine/GameObject/Component/Physics/SpawnMoveComponent.h"
 #include <cmath>
 #include <algorithm>
+#include <cctype>
 #include <cfloat>
 #include <cstdio>
 #include <cstring>
@@ -49,7 +52,9 @@ GameObject& SceneBase::CreateDynamicTextObject(const std::string& name, const st
 
 	TextRenderComponent* text = TextRenderComponent::CreateDynamic(obj, renderer_, fontPath, fontSize, canvasWidth, canvasHeight);
 	text->hudKey = name; // 呼び出し元は常にhudDefinitions_のキー名をnameとして渡す（CreateHud参照）
-	text->SetTextProvider(std::move(provider));
+	// renderer_を渡すことで、登録直後に1回SetText()させ、次のUpdateDynamicTextComponentsフレームを
+	// 待たずに実文字列サイズへlocalScaleを確定させる（autoSize=trueが既定のため）
+	text->SetTextProvider(std::move(provider), renderer_);
 
 	return obj;
 }
@@ -64,6 +69,30 @@ void SceneBase::LoadScene(const std::string& saveName) {
 	ComponentLoadContext ctx = MakeComponentLoadContext();
 	if (SceneObjectStore::Load(assetFolder_, objects_, ctx, saveName)) {
 		RebindDynamicTextProviders();
+
+		// AlphabetTextComponentが生成する文字の子GameObject（RebuildAlphabetTextChildren参照）は
+		// excludeFromSave=trueのため、ここでロードされた直後は元々存在しない。ただしcomp自身の
+		// lastBuiltTextはtext（今回表示したい文字列）と同じ値で保存されている可能性があるため、
+		// 明示的に空へ戻して次フレームのUpdateAlphabetTextComponentsが必ず子を作り直すようにする
+		for (auto& obj : objects_) {
+			if (auto* comp = obj->GetComponent<AlphabetTextComponent>()) {
+				comp->lastBuiltText.clear();
+				comp->lastBuiltCharScale = -1.0f;
+				comp->lastBuiltCharSpacing = -1.0f;
+			}
+			// DashedLineComponentの子GameObject（RebuildDashedLineSegments参照）も同じ理由
+			// （excludeFromSave=trueのためロード直後は存在しない）で、次フレームの
+			// UpdateDashedLineComponentsが必ず子を作り直すようにlastBuilt*を不一致値へ戻す
+			if (auto* dashedLine = obj->GetComponent<DashedLineComponent>()) {
+				dashedLine->lastBuiltDashCount = -1;
+				dashedLine->lastBuiltDashWidth = -1.0f;
+			}
+		}
+
+		// ComboPopupComponentが生成するポップアップもexcludeFromSave=trueのため、ここでロードされた
+		// 直後は元々存在しない（SpawnComboPopup参照）。activePopup_自体もFromJsonで復元しない設計
+		// のため、特別な後始末は不要
+
 		RebuildDerivedLists();
 		gizmoController_.ResetSelection();
 	}
@@ -537,6 +566,14 @@ void SceneBase::Render(float deltaTime) {
 
 	UpdateDynamicTextComponents();
 
+	// AlphabetTextComponentの子GameObject組み立ては、DeleteObjects/CreateObjectでobjects_自体を
+	// 書き換えるため、直前のUpdateDynamicTextComponents（objects_を読み取りながらのループ）が
+	// 完全に終わった後のこのタイミングで行う
+	UpdateAlphabetTextComponents();
+
+	// DashedLineComponentの子GameObject組み立ても同じ理由でこのタイミングで行う
+	UpdateDashedLineComponents();
+
 	GameCameraResolution gameCam = ResolveGameCamera();
 	// カメラが無くなったら（削除された等）強制的にSceneへ戻す
 	if (!gameCam.gameCamera) viewingGameCamera_ = false;
@@ -547,12 +584,19 @@ void SceneBase::Render(float deltaTime) {
 	// 画面全体を共有し、ボタンでの選択に応じてどちらか一方だけを描画する ----
 	ActiveCameraState activeCam = ResolveActiveCamera(view, proj, gameCam, deltaTime);
 	renderer_->SetCamera(activeCam.view, activeCam.proj, activeCam.camPos);
+	lastActiveCameraState_ = activeCam; // HandleSceneTransitionInput向けに最新値を控えておく
 
 	float gameplayDeltaTime = ComputeGameplayDeltaTime(deltaTime);
 
 	if (isPlaying_) {
 		UpdateGizmoTargets(gameplayDeltaTime, activeCam);
 	}
+
+	// ComboPopupComponentの生成・演出更新・破棄はUpdateGizmoTargets（各GameObjectのUpdate、
+	// ReflexPlayerComponent等によるtransform.translationの変更を含む）の直後に呼ぶ必要がある。
+	// これより前に呼ぶと、頭上オフセット位置の計算が常に1フレーム古いプレイヤー位置を使うことになり、
+	// プレイヤーが高速で移動する際にコンボポップアップの位置が追従1フレーム分だけ遅れて見える
+	UpdateComboPopupComponents(deltaTime);
 
 	// Gizmoのピッキング/操作はScene表示中のみ（Game表示中は選択・編集させない）
 	if (!activeCam.useGameCamera) {
@@ -586,7 +630,21 @@ void SceneBase::Render(float deltaTime) {
 		DrawCameraGizmoVisualizations(activeCam);
 	}
 
+	// 画面フェード（モザイクセル）はGameObjectを介さない最前面オーバーレイのため、3D/Mirror/Gizmo線の
+	// 描画がすべて終わった後、ImGui/シーン遷移判定より前のこのタイミングで直接描く（DrawGrid等の
+	// 「シーンが直接Rendererを叩く」既存パターンに倣う）。Updateは毎フレーム進行度を進めるだけの
+	// 軽い処理のため、isPlaying_やビュー種別を問わず常に呼んでよい
+	FadeManager::GetInstance().Update(deltaTime);
+	FadeManager::GetInstance().Draw(renderer_);
+
 	DrawEditorUiIfVisible();
+
+	// クリックによる選択変更はInspector等のImGuiウィジェットが発行された後に判定する
+	// （UpdateGizmoPickingLateClickのコメント参照）。Game表示中は従来通り選択・編集させない
+	if (!activeCam.useGameCamera) {
+		UpdateGizmoPickingLateClick(activeCam);
+	}
+
 	ProcessSceneTransitionRequest();
 }
 
@@ -611,11 +669,448 @@ void SceneBase::UpdateAutoRunCameraFollowTarget() {
 void SceneBase::UpdateDynamicTextComponents() {
 	// TextProviderを持つdynamicTextを毎フレーム更新する（Camera座標HUD等）。同じテクスチャの
 	// 中身を書き換えるだけなので、新しいテクスチャハンドルを発行せず毎フレーム呼んでも枯渇しない。
-	// HUDが増えてもこのループは変更不要（各Textが自分のTextProviderを持っているだけ）
+	// HUDが増えてもこのループは変更不要（各Textが自分のTextProviderを持っているだけ）。
+	// GetComponents（複数形）：1GameObjectに複数のTextRenderComponentが付いていても
+	// 「最初の1個」だけでなく全部を更新する
 	for (auto& obj : objects_) {
-		if (auto* text = obj->GetComponent<TextRenderComponent>()) {
+		for (auto* text : obj->GetComponents<TextRenderComponent>()) {
 			text->UpdateDynamicText(renderer_);
 		}
+	}
+}
+
+Renderer::ModelHandle SceneBase::GetOrLoadAlphabetModel(char upperLetter) {
+	auto it = alphabetModelCache_.find(upperLetter);
+	if (it != alphabetModelCache_.end()) return it->second;
+
+	std::string filename(1, upperLetter);
+	filename += ".obj";
+	Renderer::ModelHandle handle = renderer_->LoadModel("Resources/Alphabet", filename);
+	alphabetModelCache_[upperLetter] = handle;
+	return handle;
+}
+
+void SceneBase::ClearAlphabetTextChildren(GameObject& owner) {
+	// GetChildren()はowner.children_への参照のため、DeleteObjects内でのSetParent(nullptr)により
+	// イテレート中に書き換わる。先にコピーを取ってから対象を集める
+	std::vector<GameObject*> children = owner.GetChildren();
+	std::vector<GameObject*> toDelete;
+	for (GameObject* child : children) {
+		if (child->tag == GameTags::kAlphabetChar) toDelete.push_back(child);
+	}
+	if (!toDelete.empty()) DeleteObjects(toDelete);
+}
+
+void SceneBase::RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextComponent& comp) {
+	// ClearAlphabetTextChildren→DeleteObjectsが末尾でgizmoController_.ResetSelection()を
+	// 無条件に呼ぶため、何もせず放置するとInspectorで選択中だったGameObjectが選択解除されて
+	// しまう。文字列を1文字打つたび、あるいはtextProviderが毎フレーム値を書き換える動的な
+	// AlphabetText（例：残りラウンド数表示）をDragInt等でドラッグ中は毎フレームここを通るため、
+	// owner自身が選択中の場合はもちろん、owner以外の全く無関係なGameObject（例：EnemySpawner）を
+	// 選択してInspectorを操作している最中でもそのたびに選択が外れてしまっていた。
+	// 削除前に選択中オブジェクトを控えておき、再構築後に選択し直す
+	GameObject* previouslySelected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
+	bool previouslySelectedIsRebuiltChild = previouslySelected
+		&& previouslySelected->GetParent() == &owner
+		&& previouslySelected->tag == GameTags::kAlphabetChar;
+
+	ClearAlphabetTextChildren(owner);
+
+	// 差分検出：今回のtextと前回のlastBuiltTextで共通する先頭部分（common prefix）までは
+	// 既に一度演出済みとみなし、演出をやり直さない（毎フレーム/1文字入力するたびに既存の文字まで
+	// また奥から出てくるように見える不具合を防ぐ）。単純な前方一致（text全体がlastBuiltTextの
+	// 続きになっているか）ではなく共通接頭辞を使うのは、ClearScene::HandleSceneTransitionInputの
+	// 名前入力欄のように末尾にカーソル記号"_"を付けて表示する場合、"A_"→"AB_"のような変化が
+	// 単純な前方一致（"AB_"が"A_"で始まるか）では成立しないため。共通接頭辞なら"A"の1文字ぶんが
+	// 一致していると正しく判定でき、新しく増えた"B"（と入れ替わったカーソル"_"）だけが演出対象になる
+	size_t commonPrefixLen = 0;
+	size_t maxCompareLen = (std::min)(comp.text.size(), comp.lastBuiltText.size());
+	while (commonPrefixLen < maxCompareLen && comp.text[commonPrefixLen] == comp.lastBuiltText[commonPrefixLen]) {
+		++commonPrefixLen;
+	}
+	size_t skipEntranceIndex = commonPrefixLen;
+
+	// 各文字（スペース含む）が占める幅を先に配列化する。スペースだけcomp.spaceWidth、
+	// それ以外はcomp.charSpacingを使う（spaceWidthを独立させることで、通常文字の間隔は
+	// そのままにスペースだけ広く/狭くできる）。全体の横幅はこの配列の合計になる
+	std::vector<float> charWidths(comp.text.size());
+	float totalWidth = 0.0f;
+	for (size_t i = 0; i < comp.text.size(); ++i) {
+		charWidths[i] = (comp.text[i] == ' ') ? comp.spaceWidth : comp.charSpacing;
+		totalWidth += charWidths[i];
+	}
+
+	// horizontalAlignに応じて左端の開始オフセットを求める。以降は各文字の幅を順に足し込みながら、
+	// その文字の中心位置（自分の幅の半分だけ右にずらした位置）を求めていく
+	// （等間隔だった旧実装のstartX + spacing*iに相当する累積計算版）。
+	// kCenter: 文字列全体の中心がowner（親）のtranslationに来る（従来通り）。
+	// kLeft: 1文字目の左端がtranslationに来る（文字数が増減してもtranslationを起点に右へ
+	// 伸びるだけになり、既存の文字の位置がずれない。名前入力欄向け）。
+	// kRight: 最後の文字の右端がtranslationに来る
+	float startX;
+	switch (comp.horizontalAlign) {
+		case AlphabetTextComponent::HorizontalAlign::kLeft:  startX = 0.0f; break;
+		case AlphabetTextComponent::HorizontalAlign::kRight: startX = -totalWidth; break;
+		default:                                             startX = -totalWidth * 0.5f; break;
+	}
+	float cursorX = startX;
+
+	for (size_t i = 0; i < comp.text.size(); ++i) {
+		char c = comp.text[i];
+		float x = cursorX + charWidths[i] * 0.5f;
+		cursorX += charWidths[i];
+
+		if (c == ' ') continue; // スペースは幅分だけ空けて何も生成しない
+
+		char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+		bool isLetter = upper >= 'A' && upper <= 'Z';
+		bool isDigit = upper >= '0' && upper <= '9'; // 数字はtoupperで変化しないのでcとupperで同じ判定になる
+		if (!isLetter && !isDigit) continue; // 対応する.objが無い文字は無視する
+
+		GameObject& charObj = CreateObject(std::string(1, upper));
+		charObj.tag = GameTags::kAlphabetChar;
+		charObj.excludeFromPicking = true; // 3Dクリックでの誤選択を防ぐ（Hierarchy上では選択・削除可能）
+		// text（表示文字列）が変わるたびに作り直される一時的な子GameObjectのため保存対象外にする
+		// （保存されてしまうと、次回ロード時にAlphabetTextComponent::lastBuiltTextの初期化と
+		// 二重に存在してしまう問題があった。以前はLoadScene直後の一括削除で後始末していたが、
+		// そもそも保存しない方が根本的で確実）
+		charObj.excludeFromSave = true;
+		charObj.SetParent(&owner);
+		// SetParent後のtranslationは親からの相対座標として解釈される（GameObject::GetWorldTransform参照）
+		charObj.GetTransform().translation = { x, 0.0f, 0.0f };
+		charObj.GetTransform().scale = { comp.charScale, comp.charScale, comp.charScale };
+
+		auto* render = charObj.AddComponent<ModelRenderComponent>(GetOrLoadAlphabetModel(upper), false);
+		render->directoryPath = "Resources/Alphabet";
+		render->filename = std::string(1, upper) + ".obj";
+
+		// 1文字ずつ登場演出：PlayScene::BuildEnemyFromTemplateDataのhasSpawnMove分岐と同じ
+		// SpawnMoveComponentを各文字（子GameObject）に個別付与する。startDelayに
+		// 「新規に追加された文字の中での順番 × entranceCharDelay」を入れることで、左から右へ
+		// 順番に（波及び順で）現れるようにする。translationは親からの相対座標のため、
+		// targetPos/startPosもローカル座標（親のtranslationは足さない）のまま扱う。
+		// i < skipEntranceIndexの文字（差分検出で「前回までに既に演出済み」と判定された先頭部分）は
+		// 演出を適用せず、SpawnMoveComponentを付けずに最初から定位置へ直接配置する
+		if (comp.useCharEntranceAnimation && i >= skipEntranceIndex) {
+			Vector3 targetPos = charObj.GetTransform().translation;
+			auto* spawnMove = charObj.AddComponent<SpawnMoveComponent>();
+			spawnMove->targetPos = targetPos;
+			spawnMove->startPos = targetPos + Vector3{ 0.0f, 0.0f, comp.entranceZOffset };
+			spawnMove->duration = comp.entranceDuration;
+			spawnMove->easing = comp.entranceEasing;
+			spawnMove->startDelay = comp.entranceCharDelay * static_cast<float>(i - skipEntranceIndex);
+			spawnMove->elapsed = 0.0f;
+			spawnMove->finished = false; // 既定値trueのため明示的にfalseへ戻して演出を開始する
+			charObj.GetTransform().translation = spawnMove->startPos;
+		}
+	}
+
+	comp.lastBuiltText = comp.text;
+	comp.lastBuiltCharScale = comp.charScale;
+	comp.lastBuiltCharSpacing = comp.charSpacing;
+	comp.lastBuiltSpaceWidth = comp.spaceWidth;
+	comp.lastBuiltHorizontalAlign = comp.horizontalAlign;
+	RebuildDerivedLists(); // 新規生成した子をgizmoTargets_に反映する
+
+	// 選択復元：previouslySelectedが今回の削除対象（文字の子）自身だった場合はもう存在しないため
+	// 復元しようがない（その場合は選択解除のままでよい）。それ以外（owner自身、または
+	// このAlphabetTextとは無関係な別のGameObjectを選択していた場合）はClearAlphabetTextChildren/
+	// CreateObjectの対象外なので生存しており、正しく復元できる
+	if (previouslySelected && !previouslySelectedIsRebuiltChild) {
+		bool is2D = previouslySelected->GetComponent<TransformComponent>()->is2D;
+		if (is2D) {
+			gizmoController_.SetSelected2D(previouslySelected, screenTargets_);
+		} else {
+			gizmoController_.SetSelected(previouslySelected, gizmoTargets_);
+		}
+	}
+}
+
+void SceneBase::UpdateAlphabetTextComponents() {
+	// AlphabetTextComponent::text/charScale/charSpacing/spaceWidthのいずれかが前回組み立てた時点の値
+	// （lastBuiltText/lastBuiltCharScale/lastBuiltCharSpacing/lastBuiltSpaceWidth）と変わっていたら
+	// 子GameObjectを作り直す。変わっていなければ何もしない（毎フレームDeleteObjects/CreateObjectを
+	// 繰り返さないようにするため）。textだけを見ていると、Inspectorで文字間隔・文字サイズだけを
+	// 変更しても反映されず「次に文字を1つ追加/削除した瞬間にまとめて反映される」ように見えて
+	// しまっていたため、4つとも比較対象にする
+	// RebuildAlphabetTextChildrenはDeleteObjects/CreateObject経由でobjects_自体（vector）を
+	// 書き換えるため、objects_をイテレート中に直接呼ぶとイテレータが無効化される
+	// （PlayScene::ProcessPendingDestroysと同じ理由）。先に対象だけ集め、ループを抜けてから処理する
+	std::vector<std::pair<GameObject*, AlphabetTextComponent*>> toRebuild;
+	for (auto& obj : objects_) {
+		if (auto* comp = obj->GetComponent<AlphabetTextComponent>()) {
+			// textProviderが設定されていれば、比較の前にtextへ反映しておく（TextRenderComponent::
+			// UpdateDynamicTextと同じ「毎フレーム呼んで中身を最新化してから使う」パターン）
+			comp->UpdateTextFromProvider();
+
+			bool changed = comp->text != comp->lastBuiltText
+				|| comp->charScale != comp->lastBuiltCharScale
+				|| comp->charSpacing != comp->lastBuiltCharSpacing
+				|| comp->spaceWidth != comp->lastBuiltSpaceWidth
+				|| comp->horizontalAlign != comp->lastBuiltHorizontalAlign;
+			if (changed) {
+				toRebuild.push_back({ obj.get(), comp });
+			}
+
+			// displayScaleMultiplier/displayColorは子GameObjectの再構築を伴わない軽量な演出反映
+			// （PlayButtonComponentのホバー演出等が毎フレーム書き換える想定）。
+			// ownerのTransform.scaleに倍率をかけると全文字がまとめて拡縮され、各文字の子GameObjectが
+			// 持つModelRenderComponent::colorに色を反映する。
+			// ただし、ownerにSpawnMoveComponent::animateScale==trueが付いている間は、この上書きを
+			// スキップする。UpdateAlphabetTextComponentsはUpdateGizmoTargets（SpawnMoveComponent::
+			// Updateを含む）より先に実行されるため、ここで無条件にscaleを書き込んでしまうと、
+			// 「前フレームでSpawnMoveComponentが計算した正しいscale」を次のフレームの冒頭で
+			// 毎回displayScaleMultiplier（等倍固定）へ巻き戻してしまい、SpawnMoveComponent側の
+			// scaleアニメーション（0→targetScaleへの拡大演出）が実質何も反映されなくなっていた
+			// （translationはこのブロックで一切触らないため巻き戻らず、scaleだけが効かない
+			// 非対称な症状になっていた）
+			auto* spawnMoveForScale = obj->GetComponent<SpawnMoveComponent>();
+			bool skipScaleOverride = spawnMoveForScale && spawnMoveForScale->animateScale;
+			if (!skipScaleOverride) {
+				obj->GetTransform().scale = { comp->displayScaleMultiplier, comp->displayScaleMultiplier, comp->displayScaleMultiplier };
+			}
+			for (GameObject* child : obj->GetChildren()) {
+				if (child->tag != GameTags::kAlphabetChar) continue;
+				if (auto* render = child->GetComponent<ModelRenderComponent>()) {
+					render->color = comp->displayColor;
+				}
+			}
+		}
+	}
+	for (auto& [owner, comp] : toRebuild) {
+		RebuildAlphabetTextChildren(*owner, *comp);
+	}
+}
+
+void SceneBase::ClearDashedLineSegments(GameObject& owner) {
+	// AlphabetTextComponentのClearAlphabetTextChildrenと全く同じ理由・同じ実装パターン
+	// （GetChildren()はDeleteObjects内でのSetParent(nullptr)によりイテレート中に書き換わるため、
+	// 先にコピーを取ってから対象を集める）
+	std::vector<GameObject*> children = owner.GetChildren();
+	std::vector<GameObject*> toDelete;
+	for (GameObject* child : children) {
+		if (child->tag == GameTags::kDashedLineSegment) toDelete.push_back(child);
+	}
+	if (!toDelete.empty()) DeleteObjects(toDelete);
+}
+
+void SceneBase::RebuildDashedLineSegments(GameObject& owner, DashedLineComponent& comp) {
+	// AlphabetTextComponentのRebuildAlphabetTextChildrenと同じ「削除前に選択中オブジェクトを
+	// 控えておき、再構築後に選択し直す」対策（ClearDashedLineSegments→DeleteObjectsが末尾で
+	// gizmoController_.ResetSelection()を無条件に呼ぶため）
+	GameObject* previouslySelected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
+	bool previouslySelectedIsRebuiltChild = previouslySelected
+		&& previouslySelected->GetParent() == &owner
+		&& previouslySelected->tag == GameTags::kDashedLineSegment;
+
+	ClearDashedLineSegments(owner);
+
+	int count = (std::max)(comp.dashCount, 0);
+	if (count > 0) {
+		// 中心がowner（親）のtranslationに来るよう左端の開始位置を求める。N本のダッシュ中心は
+		// -halfSpan+spacing/2 から spacing間隔で +halfSpan-spacing/2 まで並ぶ
+		// （AlphabetTextComponentの旧・等間隔実装と同じ計算式）
+		float totalSpan = static_cast<float>(count) * comp.dashSpacing;
+		float startX = -totalSpan * 0.5f + comp.dashSpacing * 0.5f;
+
+		for (int i = 0; i < count; i++) {
+			float x = startX + comp.dashSpacing * static_cast<float>(i);
+
+			GameObject& dashObj = CreateObject("下線ダッシュ" + std::to_string(i));
+			dashObj.tag = GameTags::kDashedLineSegment;
+			dashObj.excludeFromPicking = true; // 3Dクリックでの誤選択を防ぐ（Hierarchy上では選択・削除可能）
+			// dashCount/dashSpacingが変わるたびに作り直される一時的な子GameObjectのため
+			// 保存対象外にする（AlphabetTextComponentの子と同じ理由）
+			dashObj.excludeFromSave = true;
+			dashObj.SetParent(&owner);
+			dashObj.GetTransform().translation = { x, 0.0f, 0.0f };
+			dashObj.GetTransform().scale = { comp.dashWidth, comp.dashThickness, comp.dashThickness };
+
+			auto* render = dashObj.AddComponent<CubeRenderComponent>();
+			render->color = comp.color;
+			render->lighting = false;
+		}
+	}
+
+	comp.lastBuiltDashCount = comp.dashCount;
+	comp.lastBuiltDashWidth = comp.dashWidth;
+	comp.lastBuiltDashThickness = comp.dashThickness;
+	comp.lastBuiltDashSpacing = comp.dashSpacing;
+	RebuildDerivedLists(); // 新規生成した子をgizmoTargets_に反映する
+
+	// 選択復元：RebuildAlphabetTextChildrenと同じロジック
+	if (previouslySelected && !previouslySelectedIsRebuiltChild) {
+		bool is2D = previouslySelected->GetComponent<TransformComponent>()->is2D;
+		if (is2D) {
+			gizmoController_.SetSelected2D(previouslySelected, screenTargets_);
+		} else {
+			gizmoController_.SetSelected(previouslySelected, gizmoTargets_);
+		}
+	}
+}
+
+void SceneBase::UpdateDashedLineComponents() {
+	// AlphabetTextComponentのUpdateAlphabetTextComponentsと同じ「変更検知→まとめて再構築」パターン。
+	// RebuildDashedLineSegmentsはDeleteObjects/CreateObject経由でobjects_自体（vector）を書き換える
+	// ため、objects_をイテレート中に直接呼ぶとイテレータが無効化される。先に対象だけ集め、
+	// ループを抜けてから処理する
+	std::vector<std::pair<GameObject*, DashedLineComponent*>> toRebuild;
+	for (auto& obj : objects_) {
+		if (auto* comp = obj->GetComponent<DashedLineComponent>()) {
+			bool changed = comp->dashCount != comp->lastBuiltDashCount
+				|| comp->dashWidth != comp->lastBuiltDashWidth
+				|| comp->dashThickness != comp->lastBuiltDashThickness
+				|| comp->dashSpacing != comp->lastBuiltDashSpacing;
+			if (changed) {
+				toRebuild.push_back({ obj.get(), comp });
+			}
+		}
+	}
+	for (auto& [owner, comp] : toRebuild) {
+		RebuildDashedLineSegments(*owner, *comp);
+	}
+}
+
+void SceneBase::SpawnComboPopup(GameObject& owner, ComboPopupComponent& comp, int comboValue) {
+	// 数字文字列（負数は本来使わない想定だが、万一マイナスが来ても不正な.obj参照にならないよう
+	// '-'は他の非対応文字と同じく無視する扱いにする＝absを取って処理する）
+	std::string digits = std::to_string(comboValue < 0 ? -comboValue : comboValue);
+
+	// ポップアップ全体を表す親GameObject。プレイヤー(owner)の子にはせず、ルートに独立して置く
+	// （子にすると、プレイヤーの回転がそのままオフセット位置・見た目の向きに伝播してしまい、
+	// それを打ち消す行列計算が必要になって複雑・不安定だった。UpdateComboPopupComponentsが
+	// 毎フレーム「プレイヤーのワールド位置 + baseYOffset」を直接translationに代入するだけで
+	// 済むようにするため、最初から親子関係を持たせない）。
+	// scale/alphaはUpdateComboPopupComponentsがelapsed経過に応じて毎フレーム書き換える
+	GameObject& group = CreateObject("ComboPopup " + digits);
+	group.tag = GameTags::kComboPopup;
+	group.excludeFromPicking = true; // 演出用オブジェクトなので3Dクリック選択の対象外にする
+	// 短い寿命で自動的に消える一時的な演出オブジェクトのため保存対象外にする（詳しくは
+	// RebuildAlphabetTextChildrenの同様のコメント参照）
+	group.excludeFromSave = true;
+	group.GetTransform().translation = owner.GetWorldTransform().translation + Vector3{ 0.0f, comp.baseYOffset, 0.0f };
+	group.GetTransform().rotation = { 0.0f, 0.0f, 0.0f }; // 常にカメラに対して同じ向き（回転しない）
+	group.GetTransform().scale = { 0.0f, 0.0f, 0.0f }; // ポップイン演出の初期値（0から拡大する）
+
+	// 桁を横一列に並べる（AlphabetTextComponent/RebuildAlphabetTextChildrenと同じ「中心揃え」ロジック）。
+	// 間隔はcomp.digitSpacing（Inspectorで調整可能）を使う
+	float totalWidth = static_cast<float>(digits.size()) * comp.digitSpacing;
+	float startX = -totalWidth * 0.5f + comp.digitSpacing * 0.5f;
+
+	for (size_t i = 0; i < digits.size(); ++i) {
+		char digitChar = digits[i];
+		float x = startX + comp.digitSpacing * static_cast<float>(i);
+
+		GameObject& digitObj = CreateObject(std::string(1, digitChar));
+		digitObj.excludeFromPicking = true;
+		// 親のgroupがexcludeFromSaveでも、自分（子）は独立してフィルタ判定されるため
+		// 明示的に指定する必要がある（指定し忘れると、親を失った孤立オブジェクトとして
+		// parentIndex=-1で保存されてしまう）
+		digitObj.excludeFromSave = true;
+		digitObj.SetParent(&group);
+		digitObj.GetTransform().translation = { x, 0.0f, 0.0f };
+		digitObj.GetTransform().scale = { 1.0f, 1.0f, 1.0f }; // 拡縮はgroup側のscaleだけで行う（子は等倍のまま）
+
+		auto* render = digitObj.AddComponent<ModelRenderComponent>(GetOrLoadAlphabetModel(digitChar), false);
+		render->directoryPath = "Resources/Alphabet";
+		render->filename = std::string(1, digitChar) + ".obj";
+	}
+
+	comp.activePopup_ = { comboValue, &group, 0.0f };
+}
+
+void SceneBase::UpdateComboPopupComponents(float deltaTime) {
+	// 生成・削除の対象（GameObject*）を先に集めてからループの外で処理する。ClearAlphabetTextChildren/
+	// RebuildAlphabetTextChildrenと同じ理由（DeleteObjects/CreateObjectがobjects_自体を書き換えるため、
+	// objects_をイテレート中に直接呼ぶとイテレータが無効化される）
+	struct SpawnRequest { GameObject* owner; ComboPopupComponent* comp; int comboValue; };
+	std::vector<SpawnRequest> toSpawn;
+	std::vector<GameObject*> toDestroy; // ConsumeClearRequested()、または新しい値への差し替えで消える分
+
+	for (auto& obj : objects_) {
+		auto* comp = obj->GetComponent<ComboPopupComponent>();
+		if (!comp) continue;
+
+		int requestedValue = 0;
+		bool hasRequest = comp->ConsumePendingRequest(requestedValue);
+		bool clearRequested = comp->ConsumeClearRequested();
+
+		// 新しい値のリクエスト・明示的なクリアのどちらでも、表示中のポップアップがあれば
+		// 一旦破棄する（キルカウントHUDと同じ「1つの表示が値の更新に合わせて差し替わる」方式。
+		// 同じ値が連続で来た場合もポップインをやり直したいので、値の比較はせず常に破棄→再生成する）
+		if ((hasRequest || clearRequested) && comp->activePopup_.modelObject) {
+			toDestroy.push_back(comp->activePopup_.modelObject);
+			comp->activePopup_ = ComboPopupComponent::ActivePopup{};
+		}
+
+		if (hasRequest) {
+			toSpawn.push_back({ obj.get(), comp, requestedValue });
+		}
+	}
+
+	if (!toDestroy.empty()) DeleteObjects(toDestroy);
+	for (auto& req : toSpawn) {
+		SpawnComboPopup(*req.owner, *req.comp, req.comboValue);
+	}
+
+	// 表示中のポップアップのelapsedを進め、scale/alphaをイージングで更新する。寿命が尽きたものは
+	// このループでは消さず、対象だけ集めて後でまとめてDeleteObjectsする（同じイテレータ無効化対策）
+	std::vector<GameObject*> toExpire;
+	for (auto& obj : objects_) {
+		auto* comp = obj->GetComponent<ComboPopupComponent>();
+		if (!comp || !comp->activePopup_.modelObject) continue;
+
+		ComboPopupComponent::ActivePopup& popup = comp->activePopup_;
+		popup.elapsed += deltaTime;
+		float lifetime = comp->popInDuration + comp->holdDuration + comp->fadeOutDuration;
+
+		if (popup.elapsed >= lifetime) {
+			toExpire.push_back(popup.modelObject);
+			comp->activePopup_ = ComboPopupComponent::ActivePopup{};
+			continue;
+		}
+
+		float scale;
+		float alpha;
+		if (popup.elapsed < comp->popInDuration) {
+			// ポップイン中：0→charScaleへイージングで拡大。alphaは常に不透明
+			float t = comp->popInDuration > 0.0f ? popup.elapsed / comp->popInDuration : 1.0f;
+			scale = comp->charScale * Easing::Apply(comp->popInEasing, t);
+			alpha = 1.0f;
+		} else if (popup.elapsed < comp->popInDuration + comp->holdDuration) {
+			// 静止表示中：サイズ固定、不透明のまま。次のコンボがこの時間内に来なければ、
+			// このelapsedが伸び続けて次のフェーズ（フェードアウト）へ自然に進む
+			scale = comp->charScale;
+			alpha = 1.0f;
+		} else {
+			// フェードアウト中：サイズ固定のまま、alphaだけ1→0へイージングで減少
+			float fadeElapsed = popup.elapsed - comp->popInDuration - comp->holdDuration;
+			float t = comp->fadeOutDuration > 0.0f ? fadeElapsed / comp->fadeOutDuration : 1.0f;
+			scale = comp->charScale;
+			alpha = 1.0f - Easing::Apply(comp->fadeOutEasing, t);
+		}
+
+		popup.modelObject->GetTransform().scale = { scale, scale, scale };
+
+		// popup.modelObject（group）はプレイヤー（obj）の子GameObjectにしていない（SpawnComboPopup
+		// 参照）ため、プレイヤーの回転をそもそも一切継承しない。毎フレーム「プレイヤーの現在の
+		// ワールド位置 + baseYOffset」を直接ワールド座標として代入するだけでよく、回転を打ち消す
+		// ための行列計算は不要（回転は常に既定値{0,0,0}のまま変更しない）
+		popup.modelObject->GetTransform().translation =
+			obj->GetWorldTransform().translation + Vector3{ 0.0f, comp->baseYOffset, 0.0f };
+		// alphaは桁ごとの子GameObject（ModelRenderComponent::color.a）に反映する。
+		// groupObject自身は見た目を持たない空のGameObjectのためcolorを持たない
+		for (GameObject* digitObj : popup.modelObject->GetChildren()) {
+			if (auto* render = digitObj->GetComponent<ModelRenderComponent>()) {
+				render->color.w = alpha;
+				render->blendMode = BlendMode::kNormal; // alphaブレンドを有効化しないと透明化が見た目に反映されない
+			}
+		}
+	}
+	if (!toExpire.empty()) DeleteObjects(toExpire);
+
+	if (!toDestroy.empty() || !toSpawn.empty() || !toExpire.empty()) {
+		RebuildDerivedLists();
 	}
 }
 
@@ -705,11 +1200,26 @@ void SceneBase::UpdateGizmoTargets(float gameplayDeltaTime, const ActiveCameraSt
 }
 
 void SceneBase::UpdateGizmoPicking(const ActiveCameraState& activeCam) {
-	gizmoController_.UpdatePicking(gizmoTargets_, renderer_, activeCam.view, activeCam.proj);
+	// クリックによる選択変更（UpdatePicking/UpdatePicking2D）は行わず、既存選択のドラッグ編集
+	// （UpdateGizmo/UpdateGizmo2D、ImGuizmo::Manipulateの結果をTransformへ即時反映する）だけを行う。
+	// ピッキングを分離した理由はUpdateGizmoPickingLateClickのコメントを参照
 	gizmoController_.UpdateGizmo(gizmoTargets_, renderer_, activeCam.view, activeCam.proj);
-	gizmoController_.UpdatePicking2D(screenTargets_, renderer_);
 	gizmoController_.UpdateGizmo2D(screenTargets_, renderer_);
 	gizmoController_.UpdateContextMenu(renderer_);
+}
+
+void SceneBase::UpdateGizmoPickingLateClick(const ActiveCameraState& activeCam) {
+	// UpdatePicking/UpdatePicking2D（クリックの立ち上がり検知）は、このフレームでDrawImGui()が
+	// Inspector等のウィジェットを実際に発行し終えた後に呼ぶ必要がある。ImGui::GetIO().
+	// WantCaptureMouseは「ウィジェットが発行された時点」で確定するため、DrawImGui()より前に
+	// ピッキングを行うと常に前フレーム終了時点の（1フレーム遅延した）WantCaptureMouseを見ることになる。
+	// これが原因で、InspectorのDragInt等を外側からクリックし始めた最初のフレームで
+	// WantCaptureMouseがまだfalseのままとなり、3D/2Dピッキングが誤発火して「値を変更しようとした
+	// 瞬間に選択が解除される」不具合になっていた。Gizmoのドラッグ編集自体（UpdateGizmoPicking内の
+	// UpdateGizmo/UpdateGizmo2D）はTransform即時反映のため従来通りRenderMainPassより前で行い、
+	// 選択を切り替えるクリック判定だけをこちらに分離した
+	gizmoController_.UpdatePicking(gizmoTargets_, renderer_, activeCam.view, activeCam.proj);
+	gizmoController_.UpdatePicking2D(screenTargets_, renderer_);
 }
 
 SceneBase::MirrorResolution SceneBase::FindMirror() {
@@ -738,7 +1248,9 @@ void SceneBase::RenderMirrorPass(const MirrorResolution& mirror, const Matrix4x4
 		if (auto* sprite = obj->GetComponent<SpriteRenderComponent>()) {
 			if (!sprite->is3D) continue; // Sprite2Dは反射に映さない
 		}
-		if (auto* r = obj->GetComponent<RenderComponentBase>()) {
+		// GetComponents（複数形）：TextRenderComponentのように1GameObjectに複数付けられる型を
+		// 漏れなく描画するため、「最初の1個」ではなく該当する全RenderComponentBaseを回す
+		for (auto* r : obj->GetComponents<RenderComponentBase>()) {
 			// deltaTime=0：ModelRenderComponentのアニメーションを通常パスと二重に進めないため
 			r->Draw(renderer_, obj->GetWorldTransform(), 0.0f);
 		}
@@ -751,7 +1263,9 @@ void SceneBase::RenderMirrorPass(const MirrorResolution& mirror, const Matrix4x4
 void SceneBase::RenderMainPass(float deltaTime) {
 	for (auto& obj : objects_) {
 		if (obj->GetComponent<MirrorComponent>()) continue; // Mirrorは反射テクスチャ確定後に描画する
-		if (auto* r = obj->GetComponent<RenderComponentBase>()) {
+		// GetComponents（複数形）：TextRenderComponentのように1GameObjectに複数付けられる型を
+		// 漏れなく描画するため、「最初の1個」ではなく該当する全RenderComponentBaseを回す
+		for (auto* r : obj->GetComponents<RenderComponentBase>()) {
 			r->Draw(renderer_, obj->GetWorldTransform(), deltaTime);
 		}
 	}
@@ -922,25 +1436,53 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 	// ---- 描画：コンストラクタ引数や兄弟コンポーネントへの依存があるため個別UIのまま残す ----
 	ImGui::SeparatorText("描画");
 
-	// RenderComponentBase系（Cube/Sphere/Triangle/Model/Sprite Render）は、描画ループ
-	// （SceneBase::Render）もTextureSelector/Mirrorの依存解決もGetComponent<RenderComponentBase>()の
-	// 「最初の1個」だけを見る前提のため、1GameObjectに2個目を追加できてしまうと後から追加した方が
-	// 無言で無視される（テクスチャが反映されない、Transformの解釈がis3D/is2Dの食い違いで壊れる等）。
+	// RenderComponentBase系（Cube/Sphere/Triangle/Model/Sprite Render）は、TextureSelector/Mirrorの
+	// 依存解決がGetComponent<RenderComponentBase>()の「最初の1個」だけを見る前提のため、
+	// 1GameObjectに2個目を追加できてしまうと後から追加した方が無言で無視される
+	// （テクスチャが反映されない、Transformの解釈がis3D/is2Dの食い違いで壊れる等）。
 	// ここで既に1個持っていたら「モデル描画」「スプライト描画」の追加自体をブロックする
 	bool alreadyHasRenderComponent = selected.GetComponent<RenderComponentBase>() != nullptr;
+
+	// TextRenderComponentだけは例外的に複数付与を許可する（例：同じGameObjectに撃破数とコンボを
+	// 2行として重ねる用途）。RenderMainPass/RenderMirrorPassがGetComponents<RenderComponentBase>()
+	// （複数形）で全部描画するよう対応済みのため、Text同士の重複は「無言で無視される」問題が
+	// 起きない。一方Model/Sprite等、他の描画コンポーネントと混在させるとTextureSelectorの依存解決
+	// （「最初の1個」しか見ない）が壊れるため、それらが既に付いている場合はテキストの追加も禁止する
+	bool hasNonTextRenderComponent = false;
+	for (auto* r : selected.GetComponents<RenderComponentBase>()) {
+		if (!dynamic_cast<TextRenderComponent*>(r)) { hasNonTextRenderComponent = true; break; }
+	}
 
 	DrawAddModelRenderNode(selected, ctx, alreadyHasRenderComponent);
 	DrawAddSpriteRenderNode(selected, ctx, alreadyHasRenderComponent);
 	DrawAddTextureSelectorNode(selected, ctx);
 	DrawAddMirrorNode(selected, ctx);
 	DrawAddReflexEnemyHealthBarNode(selected, ctx);
-	DrawAddTextRenderNode(selected, ctx, alreadyHasRenderComponent);
+	DrawAddTextRenderNode(selected, ctx, hasNonTextRenderComponent);
+
+	// AlphabetTextComponent：RenderComponentBase派生ではない（GameObject本体は描画を持たず、
+	// SceneBase::RebuildAlphabetTextChildrenが生成する子GameObject側がModelRenderComponentで
+	// 描画する）ため、Model/Spriteとの排他チェック対象外。既定値のまま追加してよい単純な型だが、
+	// GetInstantAddCategories()の自動一覧には出さず（"描画"見出しの重複を避けるため）、
+	// ここに個別のSelectableとして置く
+	if (!selected.GetComponent<AlphabetTextComponent>()) {
+		if (ImGui::Selectable("アルファベット文字列")) {
+			ComponentRegistry::Create("AlphabetText", selected, ctx, nlohmann::json::object());
+			ImGui::CloseCurrentPopup();
+		}
+	}
+
+	// ---- UI ----
+	ImGui::SeparatorText("UI");
+
+	DrawAddPlayButtonNode(selected, ctx);
 
 	// ---- オーディオ ----
 	ImGui::SeparatorText("オーディオ");
 
 	DrawAddAudioSourceNode(selected, ctx);
 	DrawAddHitSoundNode(selected, ctx);
+	DrawAddSpawnSoundNode(selected, ctx);
 
 	ImGui::EndPopup();
 }
@@ -1056,20 +1598,23 @@ void SceneBase::DrawAddReflexEnemyHealthBarNode(GameObject& selected, const Comp
 	}
 }
 
-void SceneBase::DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent) {
+void SceneBase::DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool hasNonTextRenderComponent) {
 	// TextRender：HUD（動的、hudDefinitions_のテンプレートから選ぶ）と静的テキスト
 	// （内容を打ち込む）の2種類をここから選択中オブジェクトへ直接アタッチする
 	// （旧ヒエラルキー「HUD/テキストを作成」は専用の新規オブジェクトを作る方式だったが、
-	// こちらは他の描画コンポーネントと同じくAdd Componentから選択中オブジェクトへ付与する）
+	// こちらは他の描画コンポーネントと同じくAdd Componentから選択中オブジェクトへ付与する）。
+	// TextRenderComponent同士は複数付けられる（RenderMainPass/RenderMirrorPassが
+	// GetComponents<RenderComponentBase>()で全部描画するため）ので、既にText以外の
+	// 描画コンポーネント（Model/Sprite等）が付いている場合のみブロックする
 	if (ImGui::TreeNode("テキスト描画")) {
-		if (alreadyHasRenderComponent) {
-			ImGui::TextDisabled("(既に描画コンポーネントが付いています。先に既存のものを削除してください)");
+		if (hasNonTextRenderComponent) {
+			ImGui::TextDisabled("(既に別の描画コンポーネントが付いています。先に既存のものを削除してください)");
 		}
 		static bool textIs3D = false;
 		ImGui::Checkbox("3D（ワールド空間に置く。オフなら従来通り画面UI）", &textIs3D);
 		static bool isDynamicHud = true;
 		ImGui::Checkbox("HUD（動的）", &isDynamicHud);
-		if (alreadyHasRenderComponent) ImGui::BeginDisabled();
+		if (hasNonTextRenderComponent) ImGui::BeginDisabled();
 		if (isDynamicHud) {
 			static int hudIndex = 0;
 			// コンボの表示だけ日本語にする。TextRenderComponent::hudKeyに書き込むのは
@@ -1088,7 +1633,7 @@ void SceneBase::DrawAddTextRenderNode(GameObject& selected, const ComponentLoadC
 					TextRenderComponent* text = TextRenderComponent::CreateDynamic(
 						selected, renderer_, "Resources/Font/font.ttf", 20.0f, def.canvasWidth, def.canvasHeight, textIs3D);
 					text->hudKey = hudName;
-					text->SetTextProvider(def.provider);
+					text->SetTextProvider(def.provider, renderer_);
 					RebuildDerivedLists(); // is2Dが変わったのでgizmoTargets_/screenTargets_に反映させる（さもないとHierarchyから選択できなくなる）
 					ImGui::CloseCurrentPopup();
 				}
@@ -1117,7 +1662,7 @@ void SceneBase::DrawAddTextRenderNode(GameObject& selected, const ComponentLoadC
 			}
 			if (!canAdd) ImGui::EndDisabled();
 		}
-		if (alreadyHasRenderComponent) ImGui::EndDisabled();
+		if (hasNonTextRenderComponent) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
 }
@@ -1184,6 +1729,67 @@ void SceneBase::DrawAddHitSoundNode(GameObject& selected, const ComponentLoadCon
 				ComponentRegistry::Create("HitSound", selected, ctx, data);
 				ImGui::CloseCurrentPopup();
 			}
+		}
+		ImGui::TreePop();
+	}
+}
+
+void SceneBase::DrawAddSpawnSoundNode(GameObject& selected, const ComponentLoadContext& ctx) {
+	// SpawnSound：DrawAddHitSoundNodeと完全に同じ構造（敵がスポーンした瞬間に鳴らすSE）
+	if (ImGui::TreeNode("スポーンSE")) {
+		static int  spawnSoundIndex = 0;
+		static float spawnSoundVolume = 1.0f;
+		if (projectAudioClips_.empty()) {
+			ImGui::TextDisabled("(利用可能な音声がありません)");
+		} else {
+			if (spawnSoundIndex >= static_cast<int>(projectAudioClips_.size())) spawnSoundIndex = 0;
+			if (ImGui::BeginCombo("SE##SpawnSound", projectAudioClips_[spawnSoundIndex].displayName.c_str())) {
+				for (int i = 0; i < static_cast<int>(projectAudioClips_.size()); i++) {
+					bool isSelected = (i == spawnSoundIndex);
+					if (ImGui::Selectable(projectAudioClips_[i].displayName.c_str(), isSelected)) spawnSoundIndex = i;
+					if (isSelected) ImGui::SetItemDefaultFocus();
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::SliderFloat("音量##SpawnSound", &spawnSoundVolume, 0.0f, 1.0f);
+			if (ImGui::Button("追加##SpawnSound")) {
+				nlohmann::json data;
+				data["audioName"] = projectAudioClips_[spawnSoundIndex].displayName;
+				data["volume"] = spawnSoundVolume;
+				ComponentRegistry::Create("SpawnSound", selected, ctx, data);
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		ImGui::TreePop();
+	}
+}
+
+void SceneBase::DrawAddPlayButtonNode(GameObject& selected, const ComponentLoadContext& ctx) {
+	// PlayButton：TitleScene用のPLAYボタン。クリック音はHitSound/SpawnSoundと違い、
+	// 未設定（(なし)選択）のままでも追加できる（音声ファイルが後日追加される想定のため）
+	if (ImGui::TreeNode("PLAYボタン")) {
+		static int  playButtonSoundIndex = -1; // -1 = 未設定
+		static float playButtonVolume = 1.0f;
+		std::string currentName = (playButtonSoundIndex >= 0 && playButtonSoundIndex < static_cast<int>(projectAudioClips_.size()))
+			? projectAudioClips_[playButtonSoundIndex].displayName : "(未設定)";
+		if (ImGui::BeginCombo("クリックSE##PlayButton", currentName.c_str())) {
+			bool noneSelected = (playButtonSoundIndex < 0);
+			if (ImGui::Selectable("(未設定)", noneSelected)) playButtonSoundIndex = -1;
+			if (noneSelected) ImGui::SetItemDefaultFocus();
+			for (int i = 0; i < static_cast<int>(projectAudioClips_.size()); i++) {
+				bool isSelected = (i == playButtonSoundIndex);
+				if (ImGui::Selectable(projectAudioClips_[i].displayName.c_str(), isSelected)) playButtonSoundIndex = i;
+				if (isSelected) ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::SliderFloat("音量##PlayButton", &playButtonVolume, 0.0f, 1.0f);
+		if (ImGui::Button("追加##PlayButton")) {
+			nlohmann::json data;
+			data["audioName"] = (playButtonSoundIndex >= 0) ? projectAudioClips_[playButtonSoundIndex].displayName : std::string();
+			data["volume"] = playButtonVolume;
+			ComponentRegistry::Create("PlayButton", selected, ctx, data);
+			ImGui::CloseCurrentPopup();
 		}
 		ImGui::TreePop();
 	}

@@ -1,0 +1,262 @@
+{
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "ambient": 0.20000000298023224,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "enabled": true,
+                        "halfLambertPower": 2.0
+                    },
+                    "type": "DirectionalLight"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "ライト",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    -38.3165397644043
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 0.6399999856948853,
+                        "charSpacing": 1.2300000190734863,
+                        "nameColumnX": -14.100000381469727,
+                        "rankColumnX": -18.799999237060547,
+                        "rowSpacing": 1.8799999952316284,
+                        "rowStartY": -50.0,
+                        "rowZ": -5.849999904632568,
+                        "scoreColumnX": 7.949999809265137
+                    },
+                    "type": "Ranking"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "ランキングボード",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    2.819999933242798,
+                    -10.687999725341797,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "farClip": 1000.0,
+                        "fov": 45.0,
+                        "nearClip": 0.10000000149011612,
+                        "positionOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "rotationOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "Camera"
+                },
+                {
+                    "data": {
+                        "autoFocusDuration": 1.2000000476837158,
+                        "autoFocusEasing": 8,
+                        "highlightColor": [
+                            1.0,
+                            0.8500000238418579,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "titleButtonX": 17.0,
+                        "titleButtonY": -10.850000381469727,
+                        "titleButtonZ": 0.0,
+                        "wheelSensitivity": 0.4000000059604645
+                    },
+                    "type": "RankingCameraScroller"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "カメラ",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    -60.6879997253418,
+                    -32.41600036621094
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 0.6499999761581421,
+                        "charSpacing": 1.2999999523162842,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "TITLE",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "タイトルテキスト",
+            "parentIndex": -1,
+            "tag": "RankingTitleButtonText",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.100000023841858,
+                    1.100000023841858,
+                    1.100000023841858
+                ],
+                "translation": [
+                    17.0,
+                    -71.53800201416016,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            3.120288610458374,
+                            0.6875216364860535,
+                            0.5
+                        ],
+                        "isStatic": false,
+                        "isTrigger": false,
+                        "layer": "Default",
+                        "offset": [
+                            -0.0076274871826171875,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                },
+                {
+                    "data": {
+                        "audioName": "SpawnSE.mp3",
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "volume": 1.0
+                    },
+                    "type": "PlayButton"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "タイトルテキストのコライダー",
+            "parentIndex": -1,
+            "tag": "RankingTitleButtonHitbox",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    -0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    17.0,
+                    -71.53800201416016,
+                    0.0
+                ]
+            }
+        }
+    ]
+}

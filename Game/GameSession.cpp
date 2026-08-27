@@ -7,6 +7,6 @@ GameSession& GameSession::GetInstance() {
 
 void GameSession::Reset() {
 	score_ = 0;
-	combo_ = 0;
 	enteredName_.clear();
+	lastSubmittedEntryIndex_ = -1;
 }

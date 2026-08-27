@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <string>
 #include <optional>
+#include <unordered_map>
 #include "../ShaderCompiler/ShaderCompiler.h"
 #include "../Pipeline/Pipeline.h"
 #include "../Pipeline/LinePipeline.h"
@@ -244,6 +245,14 @@ private:
 	SceneLight light_;
 
 	std::vector<std::unique_ptr<Model>> models_;
+
+	// LoadModelの重複ロード防止キャッシュ（"directoryPath/filename" → ModelHandle）。
+	// SceneBase::alphabetModelCache_はシーンごとのメンバのため、シーンを切り替えるたびに
+	// リセットされ、同じ文字（A.obj等）を毎回LoadModelし直してSRVディスクリプタを消費していた
+	// （DescriptorHeaps::AllocateSRVIndexは解放の仕組みが無く単調増加のみのため、シーンの出入りを
+	// 繰り返すとSRVヒープが枯渇してクラッシュする）。Rendererはアプリ全体で1つだけ生存する
+	// （Engine::renderer_）ため、ここでキャッシュすればシーンをまたいでも実際のロードは1回で済む
+	std::unordered_map<std::string, ModelHandle> modelPathCache_;
 
 	std::vector<TriangleCommand>  triangleCommands_;
 	std::vector<CubeCommand>      cubeCommands_;

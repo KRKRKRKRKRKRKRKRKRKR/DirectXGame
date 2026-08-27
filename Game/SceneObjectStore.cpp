@@ -15,11 +15,13 @@ namespace {
 
 void SceneObjectStore::Save(const std::string& assetFolder, const std::vector<std::unique_ptr<GameObject>>& objects,
 	const std::string& saveName) {
-	// TransformComponent::is2D==trueをUI、それ以外をObjectとして2ファイルに振り分けて保存する
+	// TransformComponent::is2D==trueをUI、それ以外をObjectとして2ファイルに振り分けて保存する。
+	// excludeFromSave==trueのGameObject（パーティクル等、実行時に一時的に生成される物）は
+	// どちらのファイルにも書き出さない
 	SceneSerializer::Save(MakeUiPath(assetFolder, saveName), objects,
-		[](GameObject& obj) { return obj.GetComponent<TransformComponent>()->is2D; });
+		[](GameObject& obj) { return !obj.excludeFromSave && obj.GetComponent<TransformComponent>()->is2D; });
 	SceneSerializer::Save(MakeObjectPath(assetFolder, saveName), objects,
-		[](GameObject& obj) { return !obj.GetComponent<TransformComponent>()->is2D; });
+		[](GameObject& obj) { return !obj.excludeFromSave && !obj.GetComponent<TransformComponent>()->is2D; });
 }
 
 bool SceneObjectStore::Load(const std::string& assetFolder, std::vector<std::unique_ptr<GameObject>>& objects,

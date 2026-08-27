@@ -3,3 +3,4 @@
 // 個別のパスを知らなくても #include "Component/Audio/Audio.h" だけで済む
 #include "AudioSourceComponent.h"
 #include "HitSoundComponent.h"
+#include "SpawnSoundComponent.h"

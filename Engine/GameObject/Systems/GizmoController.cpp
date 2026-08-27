@@ -42,15 +42,23 @@ bool GizmoController::IsPickingTriggered(SelectionState& selection, const char* 
 	return true;
 }
 
-void GizmoController::ApplyDecomposedMatrix(const Matrix4x4& world, Transform* target) {
+void GizmoController::ApplyDecomposedMatrix(const Matrix4x4& world, Transform* target, ImGuizmo::OPERATION operation) {
 	float t[3], r[3], s[3];
 	ImGuizmo::DecomposeMatrixToComponents(&world._11, t, r, s);
-	target->translation = { t[0], t[1], t[2] };
-	target->rotation    = {
-		DirectX::XMConvertToRadians(r[0]),
-		DirectX::XMConvertToRadians(r[1]),
-		DirectX::XMConvertToRadians(r[2]) }; // ImGuizmoは度数法、Transform.rotationはラジアン
-	target->scale        = { s[0], s[1], s[2] };
+
+	// operationに対応する成分だけを書き戻す。3つとも毎回上書きすると、回転済みオブジェクトを
+	// TRANSLATEでワールド軸方向にドラッグしただけでも、行列→オイラー角再分解の数値誤差で
+	// rotationが微小に変化し、その結果translationの意図しない軸まで動いて見えてしまうため
+	if (operation == ImGuizmo::TRANSLATE) {
+		target->translation = { t[0], t[1], t[2] };
+	} else if (operation == ImGuizmo::ROTATE) {
+		target->rotation = {
+			DirectX::XMConvertToRadians(r[0]),
+			DirectX::XMConvertToRadians(r[1]),
+			DirectX::XMConvertToRadians(r[2]) }; // ImGuizmoは度数法、Transform.rotationはラジアン
+	} else if (operation == ImGuizmo::SCALE) {
+		target->scale = { s[0], s[1], s[2] };
+	}
 }
 
 Transform* GizmoController::GetGizmoTargetTransform(const std::vector<GameObject*>& targets) {
@@ -162,9 +170,9 @@ void GizmoController::UpdateGizmo(const std::vector<GameObject*>& targets, Rende
 		if (parent3D) {
 			// ドラッグ後のワールド行列から親のワールド行列を除いてローカルへ戻す
 			Matrix4x4 local = world * MatrixMath::Inverse(parent3D->GetWorldMatrix());
-			ApplyDecomposedMatrix(local, target);
+			ApplyDecomposedMatrix(local, target, operation);
 		} else {
-			ApplyDecomposedMatrix(world, target);
+			ApplyDecomposedMatrix(world, target, operation);
 		}
 
 		// Collider編集中の場合、ワールド座標系のtranslation/scaleをoffset/radius(またはhalfSize)へ変換して書き戻す
@@ -345,9 +353,9 @@ void GizmoController::UpdateGizmo2D(const std::vector<GameObject*>& targets2D, R
 		if (parent2D) {
 			// ドラッグ後のワールド行列から親のワールド行列を除いてローカルへ戻す
 			Matrix4x4 local = world * MatrixMath::Inverse(parent2D->GetWorldMatrix());
-			ApplyDecomposedMatrix(local, target);
+			ApplyDecomposedMatrix(local, target, gizmoOperation_);
 		} else {
-			ApplyDecomposedMatrix(world, target);
+			ApplyDecomposedMatrix(world, target, gizmoOperation_);
 		}
 	}
 
