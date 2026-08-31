@@ -5,9 +5,12 @@
 #include "../../../../Math/VectorMath.h"
 #include "../../../../Math/JsonUtil.h"
 #include "../../../Graphics/Renderer/Renderer.h"
+#include <algorithm>
 
 // GameObjectに付与する球形の当たり判定。offsetはオーナーのtranslationからの
-// ローカル相対位置、radiusはワールド単位の半径（scaleは考慮しない、絶対値を直接持つ）
+// ローカル相対位置、radiusはscale=1のときのワールド単位の半径。GetWorldSphereが
+// オーナーのtransform.scaleを掛けて実際の判定半径にするため、敵のランダムサイズ
+// （PlayScene::SpawnEnemyAtのsizeScale）にも当たり判定が追従する
 // layer/isTriggerはColliderComponentBaseから継承
 class SphereColliderComponent : public ColliderComponentBase {
 public:
@@ -15,12 +18,17 @@ public:
 	float   radius = 1.0f;
 
 	Collision::Sphere GetWorldSphere(const Transform& ownerTransform) const {
-		return { ownerTransform.translation + offset, radius };
+		// PlayScene::SpawnEnemyAtが敵ごとにtransform.scaleへランダム倍率(sizeScaleMin~Max)を
+		// 設定するため、見た目のサイズと当たり判定を一致させるにはscaleを反映する必要がある。
+		// 球は等方スケール前提のため、非等方にドラッグされた場合でも判定が小さすぎないよう
+		// 3軸のうち最大値を採用する
+		float scale = (std::max)({ ownerTransform.scale.x, ownerTransform.scale.y, ownerTransform.scale.z });
+		return { ownerTransform.translation + offset, radius * scale };
 	}
 
 	// 球を3枚の直交円（XY/YZ/XZ平面）のワイヤーフレームとして描画する
 	void DrawWireframe(Renderer* renderer, const Transform& ownerTransform, const Vector4& color,
-		const Matrix4x4& view, const Matrix4x4& proj) const;
+		const Matrix4x4& view, const Matrix4x4& proj) const override;
 
 	Transform GetGizmoEditTransform(const Transform& ownerTransform) const override {
 		Transform t;

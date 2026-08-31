@@ -44,6 +44,29 @@ GameObject* SceneBase::FindObjectByTag(const std::string& tag) {
 	return nullptr;
 }
 
+SceneBase::ButtonInteractionResult SceneBase::UpdateButtonAndReflectHover(const char* hitboxTag, const char* textTag) {
+	ButtonInteractionResult result;
+
+	GameObject* hitbox = FindObjectByTag(hitboxTag);
+	if (!hitbox) return result;
+	auto* playButton = hitbox->GetComponent<PlayButtonComponent>();
+	if (!playButton) return result;
+
+	result.hovering = playButton->IsHovering();
+
+	if (textTag) {
+		if (GameObject* textObj = FindObjectByTag(textTag)) {
+			if (auto* text = textObj->GetComponent<AlphabetTextComponent>()) {
+				text->displayScaleMultiplier = result.hovering ? playButton->hoverScaleMultiplier : playButton->normalScaleMultiplier;
+				text->displayColor = result.hovering ? playButton->hoverColor : playButton->normalColor;
+			}
+		}
+	}
+
+	result.clicked = playButton->ConsumeClicked();
+	return result;
+}
+
 GameObject& SceneBase::CreateDynamicTextObject(const std::string& name, const std::string& fontPath, float fontSize,
 	TextRenderComponent::TextProvider provider, uint32_t canvasWidth, uint32_t canvasHeight) {
 	GameObject& obj = CreateObject(name);

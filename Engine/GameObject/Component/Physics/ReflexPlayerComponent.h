@@ -4,6 +4,7 @@
 #include "../../../../Math/Easing.h"
 #include "../../../../Math/JsonUtil.h"
 #include "../../../Graphics/Renderer/Renderer.h"
+#include "ReflexPathVisualizer.h"
 #include <vector>
 
 // 光反射アクションパズル「REFLEX」のプレイヤー操作コンポーネント（最小実装）。
@@ -59,42 +60,6 @@ public:
 	float fieldRangeMinY = -8.0f;
 	float fieldRangeMaxY = 8.0f;
 
-	// 計画フェーズの経路マーカー（Resources/Model/Circle.objを表示する）の色。Inspectorの
-	// ColorEditで調整できる（既定は白）。モデルのロードに失敗した場合は使われず、
-	// 代わりに従来の黄色い球体（DrawSphere、kWaypointMarkerColor）にフォールバックする
-	Vector4 markerColor = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-	// マーカーの波紋アニメーション（水面の波紋のように、小さい状態から広がりながら透明になって
-	// 消え、また小さい状態から再発生することを繰り返す）の最小/最大スケールと1本あたりの周期（秒）。
-	// DrawPlanningVisualizationがこの範囲・周期でscaleを0→1（Easing::kInOutSine）、
-	// アルファを1→0で変化させる
-	float markerPulseMinScale = 0.15f;
-	float markerPulseMaxScale = 0.3f;
-	float markerPulseDuration = 1.0f;
-
-	// 1つのマーカー地点に同時発生させる波紋の本数。markerPulseDurationをこの本数で均等に
-	// 位相をずらして発生させる（波紋が重なって見えるようにするため）。1以上にクランプして使う
-	int markerWaveCount = 3;
-
-	// 経路の線（プレイヤー位置→地点1→地点2…）の色。Inspectorのコンボで選択できる（既定は黄色、
-	// 従来のkWaypointLineColorと同じ値）
-	Vector4 lineColor = { 1.0f, 0.9f, 0.2f, 1.0f };
-
-	// 経路の線を破線にする際の、実線部分・空白部分の長さ（ワールド単位）。
-	// DrawPlanningVisualizationが線分をこの長さで区切り、実線部分だけ描く。
-	// どちらも0以下だと0除算・無限ループになるため、実際に使う際は下限でクランプする
-	float lineDashLength = 0.3f;
-	float lineGapLength = 0.2f;
-
-	// 経路線の太さ（ワールド単位、Y/Z方向の辺の長さ）。D3D12の標準ラスタライザはDrawLine
-	// （LINELISTプリミティブ）に線幅指定を持たせられないため、各実線部分を進行方向に伸ばした
-	// 立方体（DrawCube）として描画することで太さを表現する
-	float lineThickness = 0.1f;
-
-	// 破線パターンが進行方向（プレイヤー位置→地点方向）へ流れる速さ（ワールド単位/秒）。
-	// ベルトコンベアのように、ダッシュ・ギャップの区切り位置を時間経過で進める。0で流れを止める
-	float lineScrollSpeed = 1.0f;
-
 	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
 
@@ -139,48 +104,31 @@ public:
 
 	// moveSpeed/easingType/obstacleMarginのみ保存対象（設定値）。waypoints_/phase_等は
 	// 実行時の一時状態のため保存しない（GravityComponent::gravity等、他コンポーネントと同じ
-	// 「設定値だけ保存する」方針を踏襲）
+	// 「設定値だけ保存する」方針を踏襲）。見た目パラメータ（markerColor等）はvisualizer_側の
+	// ToJson/FromJsonに委譲する（従来と同じJSONキー名のまま、保存先のクラスだけ変わる）
 	void ToJson(nlohmann::json& out) const override {
 		out["maxWaypoints"] = maxWaypoints;
 		out["moveSpeed"] = moveSpeed;
 		out["easingType"] = static_cast<int>(easingType);
 		out["obstacleMargin"] = obstacleMargin;
-		out["markerColor"] = Vector4ToJson(markerColor);
-		out["markerPulseMinScale"] = markerPulseMinScale;
-		out["markerPulseMaxScale"] = markerPulseMaxScale;
-		out["markerPulseDuration"] = markerPulseDuration;
-		out["markerWaveCount"] = markerWaveCount;
-		out["lineDashLength"] = lineDashLength;
-		out["lineGapLength"] = lineGapLength;
-		out["lineThickness"] = lineThickness;
-		out["lineScrollSpeed"] = lineScrollSpeed;
-		out["lineColor"] = Vector4ToJson(lineColor);
 		out["readyToExecuteDelay"] = readyToExecuteDelay;
 		out["fieldRangeMinX"] = fieldRangeMinX;
 		out["fieldRangeMaxX"] = fieldRangeMaxX;
 		out["fieldRangeMinY"] = fieldRangeMinY;
 		out["fieldRangeMaxY"] = fieldRangeMaxY;
+		visualizer_.ToJson(out);
 	}
 	void FromJson(const nlohmann::json& in) override {
 		maxWaypoints = in.value("maxWaypoints", maxWaypoints);
 		moveSpeed = in.value("moveSpeed", moveSpeed);
 		easingType = static_cast<Easing::Type>(in.value("easingType", static_cast<int>(easingType)));
 		obstacleMargin = in.value("obstacleMargin", obstacleMargin);
-		if (in.contains("markerColor")) markerColor = Vector4FromJson(in["markerColor"]);
-		markerPulseMinScale = in.value("markerPulseMinScale", markerPulseMinScale);
-		markerPulseMaxScale = in.value("markerPulseMaxScale", markerPulseMaxScale);
-		markerPulseDuration = in.value("markerPulseDuration", markerPulseDuration);
-		markerWaveCount = in.value("markerWaveCount", markerWaveCount);
-		lineDashLength = in.value("lineDashLength", lineDashLength);
-		lineGapLength = in.value("lineGapLength", lineGapLength);
-		lineThickness = in.value("lineThickness", lineThickness);
-		lineScrollSpeed = in.value("lineScrollSpeed", lineScrollSpeed);
-		if (in.contains("lineColor")) lineColor = Vector4FromJson(in["lineColor"]);
 		readyToExecuteDelay = in.value("readyToExecuteDelay", readyToExecuteDelay);
 		fieldRangeMinX = in.value("fieldRangeMinX", fieldRangeMinX);
 		fieldRangeMaxX = in.value("fieldRangeMaxX", fieldRangeMaxX);
 		fieldRangeMinY = in.value("fieldRangeMinY", fieldRangeMinY);
 		fieldRangeMaxY = in.value("fieldRangeMaxY", fieldRangeMaxY);
+		visualizer_.FromJson(in);
 	}
 
 private:
@@ -217,23 +165,10 @@ private:
 	// 読み取られると消費されてfalseに戻る（ワンショット）
 	bool executionFinished_ = false;
 
-	// 経路マーカー用モデル（Resources/Model/Circle.obj）の遅延ロード状態。コンストラクタは
-	// Rendererを受け取れない（IComponentは引数無しで生成される）ため、DrawPlanningVisualization
-	// の初回呼び出し時に1度だけLoadModelする。tryLoadCircleModel_はロードを試みたかどうか
-	// （成功・失敗を問わず1回だけ試す。失敗した場合は毎フレーム再試行せず、以降は
-	// 黄色い球体にフォールバックし続ける）
-	mutable bool tryLoadCircleModel_ = false;
-	mutable bool circleModelLoaded_ = false;
-	mutable Renderer::ModelHandle circleModelHandle_ = 0;
-
-	// マーカーの波紋アニメーションの基準経過時間（0~markerPulseDurationを繰り返す時計）。
-	// 各波紋（markerWaveCount本）はこの時計からmarkerPulseDuration/markerWaveCountぶんずつ
-	// 位相をずらして自分の進行度を計算する
-	mutable float markerPulseElapsed_ = 0.0f;
-
-	// 破線パターンが進行方向へ流れる演出の経過距離（ワールド単位）。時間経過でlineScrollSpeed分
-	// ずつ増え、DrawDashedLineがダッシュ・ギャップの開始位置オフセットとして使う
-	mutable float lineScrollElapsed_ = 0.0f;
+	// 波紋マーカー・破線・デバッグ用ワイヤーフレームの描画一式を切り出したヘルパー。
+	// このコンポーネントは「状態遷移・入力処理・移動ロジック・当たり判定」に専念し、
+	// 見た目はReflexPathVisualizer側の責務にする
+	ReflexPathVisualizer visualizer_;
 
 	// currentWaypointIndex_が指す区間の開始・終了・所要時間をセットし、経過時間をリセットする
 	void BeginSegment(const Vector3& from, const Vector3& to);
@@ -245,30 +180,4 @@ private:
 	// fromからtoまでの線分上に、CollisionLayer::kObstacleのColliderComponentBaseを持つ
 	// GameObjectが存在するかどうか。存在すればtrue（＝その方向へは進めない）
 	bool IsPathBlocked(const Vector3& from, const Vector3& to, const UpdateContext& ctx) const;
-
-	// 経路の可視化：waypoints_[startIndex]以降の各地点にCircle.objマーカー（ロード失敗時は球体）、
-	// 区間（プレイヤーの現在位置→waypoints_[startIndex]→…）に破線を描く。deltaTimeはマーカーの
-	// パルスアニメーション・破線のスクロール演出用。計画フェーズ（startIndex=0、全区間対象）と
-	// 実行フェーズ（startIndex=currentWaypointIndex_、通過済み区間を除いた残りだけ対象。
-	// 始点は毎フレームのtransform.translationそのものなので、移動につれて自動的に区間が縮む）の
-	// 両方から呼ばれる
-	void DrawPlanningVisualization(const Transform& transform, const UpdateContext& ctx, float deltaTime, size_t startIndex) const;
-
-	// fromからtoまでの線分を、lineDashLength（実線）・lineGapLength（空白）の繰り返しで
-	// 区切りながら実線部分だけ描く（破線描画）。D3D12の標準ラスタライザはDrawLine
-	// （LINELISTプリミティブ）に太さを持たせられないため、各実線部分をlineThickness幅の
-	// 薄いCube（DrawCube）として描画することで太さを表現する。scrollOffsetは
-	// 「線が進行方向へ流れる」演出のパターン開始位置オフセット（呼び出し元が全区間で共通の
-	// 値を1度だけ計算して渡す。区間ごとに計算すると区間数ぶんスクロールが速くなってしまうため）
-	void DrawDashedLine(Renderer* renderer, const Vector3& from, const Vector3& to, const Vector4& color, float scrollOffset) const;
-
-	// 計画フェーズ中の可視化：ctx.sceneObjects内の全障害物（CollisionLayer::kObstacle）について、
-	// IsPathBlockedが実際に判定に使っているマージン込みの形状（実サイズ+obstacleMargin）を
-	// ワイヤーフレームで描く。クリック前に「ここまでは安全、ここからは弾かれる」領域を一目で分かるようにする
-	void DrawObstacleMarginVisualization(const UpdateContext& ctx) const;
-
-	// 計画フェーズ中の可視化：fieldRangeMin/Max（TryPickPointが経路予約を許可する範囲）を、
-	// Z方向に薄い直方体のワイヤーフレームで描く。障害物マージンと同じくコライダー風の見た目で、
-	// この外側をクリックしても経路予約できないことを一目で分かるようにする
-	void DrawFieldRangeVisualization(const Transform& transform, const UpdateContext& ctx) const;
 };

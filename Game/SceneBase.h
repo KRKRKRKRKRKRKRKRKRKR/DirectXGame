@@ -83,6 +83,20 @@ protected:
 	// 複数存在する場合に選べなかった箇所（メインカメラ・プレイヤー等）で使う
 	GameObject* FindObjectByTag(const std::string& tag);
 
+	// 「タグでhitbox取得→PlayButtonComponent取得→IsHovering()をAlphabetTextComponentの
+	// displayColor/displayScaleMultiplierへ反映→ConsumeClicked()の結果を返す」という、
+	// TitleScene(PLAY/Rankingボタン)・ClearScene(Nextボタン)・RankingScene(Titleボタン)で
+	// 個別に複製されていた同一骨格をまとめたヘルパー。呼び出し側は戻り値のclickedを見て
+	// シーン遷移すればよい。hitboxTagのGameObjectが無い/PlayButtonComponentが無い場合は
+	// 何もせずclicked=false/hovering=falseを返す。textTagが無い（nullptrや未配置）場合は
+	// 見た目の反映だけスキップする（ClickHintMarkerのように見た目を持たないボタンにも使えるが、
+	// 現状はTutorialScene::AdvanceClickHintIfClickedが既存のまま個別実装している）
+	struct ButtonInteractionResult {
+		bool clicked = false;
+		bool hovering = false;
+	};
+	ButtonInteractionResult UpdateButtonAndReflectHover(const char* hitboxTag, const char* textTag);
+
 	// GameObject生成・スクリーン空間設定・TextRenderComponent::CreateDynamic呼び出し・
 	// SetTextProviderをまとめて行う（Camera座標HUD等、呼び出し側の引数を
 	// 「何を・どのフォントで・何を表示するか」だけに絞るためのラッパー）

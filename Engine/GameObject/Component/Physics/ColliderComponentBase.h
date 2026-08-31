@@ -53,6 +53,13 @@ public:
 	// 自分のoffset/radius(またはhalfSize)へ書き戻す
 	virtual Transform GetGizmoEditTransform(const Transform& ownerTransform) const = 0;
 	virtual void ApplyGizmoEditTransform(const Transform& ownerTransform, const Transform& edited) = 0;
+
+	// 自分の形状のワイヤーフレームを描画する。ColliderSystem::ResolveAndDrawが判定結果の色
+	// （重なりなし/Trigger重なり/Solid重なり）を渡し、形状（球=円3枚、OBB=12辺等）は
+	// 各派生クラスが実装する。SphereColliderComponent/OBBColliderComponent双方でシグネチャが
+	// 完全一致していたため、GetGizmoEditTransform等と同じく基底の純粋仮想に引き上げた
+	virtual void DrawWireframe(Renderer* renderer, const Transform& ownerTransform, const Vector4& color,
+		const Matrix4x4& view, const Matrix4x4& proj) const = 0;
 };
 
 // 2つのコライダーが判定対象かどうか。お互いが相手の所属レイヤーを自分の衝突対象に

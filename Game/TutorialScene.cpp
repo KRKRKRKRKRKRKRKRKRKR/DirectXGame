@@ -9,13 +9,9 @@
 #include "../Engine/GameObject/Component/Physics/OBBColliderComponent.h"
 #include "../Engine/GameObject/Component/Physics/PlayButtonComponent.h"
 #include "../Math/Easing.h"
+#include "SpawnMovePresets.h"
 
 namespace {
-	// ClearScene::PlayBackspaceExitAnimationのkExitZOffset/kExitDurationと同じ値
-	// （手前から奥へ縮小しながら消える退場演出の距離・時間）
-	constexpr float kHintExitZOffset = 6.0f;
-	constexpr float kHintExitDuration = 0.35f;
-
 	// tag=kTutorialHintAlphabetのGameObjectに表示する操作説明文言。scene.json側のtextは
 	// 空にしておき、フェードが完全に終わった瞬間にこの文字列を流し込む（ShowHintIfFadeFinished）
 	constexpr const char* kHintText = "Click to move";
@@ -95,7 +91,7 @@ void TutorialScene::HandleSceneTransitionInput() {
 		if (!existingEnemies.empty()) DeleteObjects(existingEnemies);
 
 		for (const Vector3& pos : kEnemySpawnPositions) {
-			SpawnEnemyAt(pos, kEnemyTemplateTag);
+			enemySpawnManager_.SpawnEnemyAt(*this, pos, kEnemyTemplateTag);
 		}
 
 		SpawnClickHintMarkers();
@@ -284,24 +280,15 @@ void TutorialScene::StartHintExitAnimation() {
 	GameObject* hint = FindObjectByTag(GameTags::kTutorialHintAlphabet);
 	if (!hint) return;
 
-	// ClearScene::PlayBackspaceExitAnimationと同じパターン：現在のワールド座標を起点に、
-	// Z+方向（奥）へkHintExitZOffsetぶん移動しながらscaleを現在値→0へ縮小する
+	// ClearScene::PlayBackspaceExitAnimationと共通のSpawnMovePresets::ApplyExitを使う：
+	// 現在のワールド座標を起点に、Z+方向（奥）へ移動しながらscaleを現在値→0へ縮小する
 	Vector3 worldPos = hint->GetWorldTransform().translation;
 	hint->RemoveComponent<SpawnMoveComponent>();
 	auto* spawnMove = hint->AddComponent<SpawnMoveComponent>();
-	spawnMove->startPos = worldPos;
-	spawnMove->targetPos = worldPos + Vector3{ 0.0f, 0.0f, kHintExitZOffset };
-	spawnMove->duration = kHintExitDuration;
-	spawnMove->easing = Easing::Type::kInCubic;
-	spawnMove->elapsed = 0.0f;
-	spawnMove->finished = false;
-	spawnMove->animateScale = true;
-	spawnMove->targetScale = hint->GetTransform().scale; // 消える直前の見た目サイズを起点にする
-	spawnMove->reverseScale = true; // targetScale→0（縮小しながら消える）
+	SpawnMovePresets::ApplyExit(*spawnMove, worldPos, hint->GetTransform().scale);
 	// destroyOnFinishは名前通りには使わない（GameObjectを実際には削除しない）。ここでは
 	// 単に「演出が完了した」合図として使い、HandleSceneTransitionInput側がfinished&&
 	// destroyOnFinishを見てkHintHideYへ退避させる（DeleteObjectsしないのはコメント参照）
-	spawnMove->destroyOnFinish = true;
 
 	// AddComponent直後はgizmoTargets_（Update対象一覧）に未反映のため、これを呼ばないと
 	// SpawnMoveComponent::Updateが回らず退場アニメーションが動かない

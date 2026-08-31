@@ -248,12 +248,13 @@ void ColliderSystem::ResolveAndDraw(const std::vector<GameObject*>& targets, boo
 
 	// 描画は各コンポーネント自身のDrawWireframeに委譲する（ColliderSystemは判定結果の色だけ渡す）。
 	// 1つのオブジェクトが複数と同時に重なる場合はSolid重なりを優先して赤にする
-	// （「ぶつかって止まる」方が「すり抜けて拾う」より目視上の優先度が高いため）
+	// （「ぶつかって止まる」方が「すり抜けて拾う」より目視上の優先度が高いため）。
+	// DrawWireframeはColliderComponentBaseの純粋仮想のため、形状（sphere/obb）を
+	// 意識せずbase経由で1回呼ぶだけでよい
 	for (auto& e : entries) {
 		Vector4 color = e.overlappingSolid   ? kSolidOverlapColor
 		              : e.overlappingTrigger ? kTriggerOverlapColor
 		                                     : kNoOverlapColor;
-		if (e.sphere) e.sphere->DrawWireframe(renderer, e.worldTransform, color, view, proj);
-		if (e.obb)    e.obb->DrawWireframe(renderer, e.worldTransform, color, view, proj);
+		e.base->DrawWireframe(renderer, e.worldTransform, color, view, proj);
 	}
 }

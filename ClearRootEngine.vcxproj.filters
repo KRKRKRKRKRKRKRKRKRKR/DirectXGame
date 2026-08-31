@@ -106,6 +106,7 @@
     <ClCompile Include="Engine\GameObject\Component\Physics\HealthComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\AutoRunComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ReflexPlayerComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\ReflexPathVisualizer.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ReflexPlayerAttackComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ReflexEnemyComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ReflexEnemyHealthBarComponent.cpp" />
@@ -135,6 +136,7 @@
     <ClCompile Include="Game\GameSession.cpp" />
     <ClCompile Include="Game\FadeManager.cpp" />
     <ClCompile Include="Game\PlayScene.cpp" />
+    <ClCompile Include="Game\EnemySpawnManager.cpp" />
     <ClCompile Include="Game\SceneRegistry.cpp" />
     <ClCompile Include="Game\SceneManager.cpp" />
     <ClCompile Include="Game\TitleScene.cpp" />
@@ -175,6 +177,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Math\MathTypes.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="Math\PulseWave.h">
       <Filter>Math</Filter>
     </ClInclude>
     <ClInclude Include="Math\MatrixMath.h">
@@ -284,6 +289,7 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\HealthComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\AutoRunComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ReflexPlayerComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\ReflexPathVisualizer.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ReflexPlayerAttackComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ReflexEnemyComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ReflexEnemyHealthBarComponent.h" />
@@ -314,6 +320,8 @@
     <ClInclude Include="Game\Game.h" />
     <ClInclude Include="Game\GameTags.h" />
     <ClInclude Include="Game\SceneBase.h" />
+    <ClInclude Include="Game\SpawnMovePresets.h" />
+    <ClInclude Include="Game\EnemySpawnManager.h" />
     <ClInclude Include="Game\SceneObjectStore.h" />
     <ClInclude Include="Game\GameSession.h" />
     <ClInclude Include="Game\FadeManager.h" />
@@ -343,6 +351,7 @@
     <ClInclude Include="Engine\Graphics\CommandManager\CommandManager.h" />
     <ClInclude Include="Engine\Graphics\Renderer\DirectXManager.h" />
     <ClInclude Include="Engine\Graphics\Renderer\Renderer.h" />
+    <ClInclude Include="Engine\Graphics\Renderer\LazyModelHandle.h" />
     <ClInclude Include="Engine\Graphics\SwapChainManager\SwapChainManager.h" />
     <ClInclude Include="Engine\Graphics\Object\Cube\Cube.h" />
     <ClInclude Include="Math\Collision.h" />

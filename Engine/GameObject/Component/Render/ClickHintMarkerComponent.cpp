@@ -1,15 +1,9 @@
 #include "ClickHintMarkerComponent.h"
 #include "../../ComponentRegistry.h"
 #include "../../../../Externals/imgui/imgui.h"
-#include "../../../../Math/Easing.h"
+#include "../../../../Math/PulseWave.h"
 #include "../../../Graphics/Pipeline/BlendMode.h"
 #include <algorithm>
-#include <cmath>
-
-namespace {
-	constexpr const char* kMarkerModelDirectory = "Resources/Model";
-	constexpr const char* kMarkerModelFilename  = "Circle.obj";
-}
 
 void ClickHintMarkerComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
 	(void)transform;
@@ -21,39 +15,27 @@ void ClickHintMarkerComponent::Draw(Renderer* renderer, const Transform& transfo
 	(void)deltaTime;
 	if (!renderer) return;
 
-	// Circle.objの読み込みは初回呼び出し時に1度だけ試みる（ReflexPlayerComponent::
-	// DrawPlanningVisualizationと同じ理由：LoadModelはGPUリソースを新規確保するため
-	// 毎フレーム呼ぶわけにはいかない）
-	if (!tryLoadCircleModel_) {
-		tryLoadCircleModel_ = true;
-		circleModelHandle_ = renderer->LoadModel(kMarkerModelDirectory, kMarkerModelFilename);
-		circleModelLoaded_ = true;
-	}
-	if (!circleModelLoaded_) return;
+	Renderer::ModelHandle circleModelHandle = circleModel_.Get(renderer);
+	if (!circleModelHandle) return;
 
-	float duration = (std::max)(pulseDuration, 0.0f);
-	int waves = (std::max)(waveCount, 1);
+	PulseWaveParams params;
+	params.minScale = pulseMinScale;
+	params.maxScale = pulseMaxScale;
+	params.duration = pulseDuration;
+	params.waveCount = waveCount;
 
 	// waveCount本の波紋を、それぞれduration/waveCountぶん位相をずらして同じ地点に重ねて描く
-	// （ReflexPlayerComponent::DrawPlanningVisualizationと同じ計算式）
-	for (int wave = 0; wave < waves; wave++) {
-		float t = 0.0f;
-		if (duration > 0.0f) {
-			float phaseOffset = duration * (static_cast<float>(wave) / static_cast<float>(waves));
-			float waveElapsed = std::fmod(elapsed_ + phaseOffset, duration);
-			t = waveElapsed / duration;
-		}
-		float eased = Easing::Apply(Easing::Type::kInOutSine, t);
-		float scale = pulseMinScale + (pulseMaxScale - pulseMinScale) * eased;
-		float alpha = color.w * (1.0f - eased);
+	// （ReflexPlayerComponent::DrawPlanningVisualizationと同じ計算式。PulseWave.hに切り出し済み）
+	for (int wave = 0; wave < (std::max)(waveCount, 1); wave++) {
+		PulseWaveSample sample = SamplePulseWave(params, elapsed_, wave);
 
 		Transform markerTransform;
 		markerTransform.translation = transform.translation;
 		markerTransform.rotation = transform.rotation;
-		markerTransform.scale = { scale, scale, scale };
+		markerTransform.scale = { sample.scale, sample.scale, sample.scale };
 
-		Vector4 fadedColor = { color.x, color.y, color.z, alpha };
-		renderer->DrawModel(circleModelHandle_, markerTransform, fadedColor, {}, lighting, BlendMode::kNormal);
+		Vector4 fadedColor = { color.x, color.y, color.z, color.w * sample.alphaMultiplier };
+		renderer->DrawModel(circleModelHandle, markerTransform, fadedColor, {}, lighting, BlendMode::kNormal);
 	}
 }
 

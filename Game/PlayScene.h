@@ -1,6 +1,7 @@
 #pragma once
 #include "SceneBase.h"
 #include "../Math/Easing.h"
+#include "EnemySpawnManager.h"
 
 // ゲームプレイ画面。GameObjectエディタ機能一式はSceneBaseが提供し、本クラスは
 // 「初期HUDとしてCamera Coordを1つ置く」「ESCでTitleへ遷移する」
@@ -14,6 +15,11 @@
 // 敵の種類は「シーン上のテンプレートGameObject」（例：tag="A"に見た目・ReflexEnemyComponentの
 // パラメータを設定したもの）で表し、EnemySpawner側はそのタグ名と出現数だけを持つ
 class PlayScene : public SceneBase {
+	// SpawnEnemyAt/SpawnParticleBurstAt等の実装をEnemySpawnManagerへ切り出したため、
+	// CreateObject/FindObjectByTag/RebuildDerivedLists/MakeComponentLoadContext/objects_/
+	// projectAudioClips_（いずれもSceneBaseのprotectedメンバ）へアクセスできるようfriend指定する
+	friend class EnemySpawnManager;
+
 protected:
 	void OnInitialize() override;
 	void HandleSceneTransitionInput() override;
@@ -77,108 +83,15 @@ protected:
 	// （2体目以降）の両方から呼ぶ共通ロジック
 	float PickNextSpawnInterval();
 
-	// フィールド内（壁の内側）をkGridCellSize間隔のグリッドに区切り、シャッフル済みの
-	// 未使用セル一覧cellsから1つ取り出して消費する（呼び出しごとに違うセルを返す＝敵同士が
-	// 絶対に重ならない）。cellsが尽きた場合はkMinSpawnDistance以上離れた地点をランダム再抽選する
-	// 従来方式にフォールバックする（フィールド容量を超える数を要求された場合の保険）。
-	// cellsはRespawnEnemiesIfClearedが1回のリスポーン処理の最初に1度だけ生成し、
-	// スポーンする敵の数だけ呼び出し側でこの関数へ渡し続ける
-	Vector3 PickEnemySpawnPosition(std::vector<Vector3>& cells);
-
-	// フィールド内をkGridCellSize間隔で敷き詰めたグリッド点の一覧をランダムな順序で返す。
-	// PickEnemySpawnPositionが順に消費していくことで、要求数がグリッドの容量以内である限り
-	// 敵同士が絶対に重ならない配置になる
-	std::vector<Vector3> BuildShuffledSpawnGrid();
-
-	// 1体分のEnemy GameObjectを、templateTagを持つテンプレートGameObjectの見た目・当たり判定
-	// サイズ・ReflexEnemyComponentのパラメータを複製して生成する
-	// （Resources/Play/scene.jsonの既存Enemy構成を踏襲。テンプレートが見つからない場合は既定値）
-	void SpawnEnemyAt(const Vector3& position, const std::string& templateTag);
-
-	// templateTagを持つParticleTemplateComponent付きGameObjectの見た目・ParticleEmitterComponent
-	// 設定を読み取り、position位置から全方位ランダムな方向へ指定個数分のParticleComponent付き
-	// GameObjectを一括生成する（敵撃破時等、「四方八方に飛び散る」演出向け）。
-	// テンプレートが見つからない場合は何も生成しない（EnemySpawnerと違い、パーティクルは
-	// 演出のみでゲーム進行に必須ではないため、フォールバック見た目は用意しない）
-	void SpawnParticleBurstAt(const Vector3& position, const std::string& templateTag);
-
 	// tagを持つ空のGameObject（ヒエラルキー上のフォルダ代わり）を探し、無ければ新規作成して返す。
-	// SpawnEnemyAt/SpawnParticleBurstAtが生成物をこの下にぶら下げることで、大量にスポーンしても
-	// ヒエラルキーがフラットに埋まらないようにする
+	// EnemySpawnManager::SpawnEnemyAt/SpawnParticleBurstAtが生成物をこの下にぶら下げることで、
+	// 大量にスポーンしてもヒエラルキーがフラットに埋まらないようにする
 	GameObject& GetOrCreateGroupFolder(const std::string& tag);
 
-	// テンプレートの描画形状（Cube/Sphere/Triangle）を表す。RenderComponentBaseはcolor等の
-	// 共通項目しか持たないため、複製先に同じ具体型をAddComponentするには種類の判定が要る
-	enum class TemplateShape { kCube, kSphere, kTriangle };
-
-	// テンプレートのコライダー形状（OBB/Sphere）。サイズはhalfSize.x/radiusという別名の
-	// スカラー値だが、どちらも「中心からの片側の長さ」という同じ意味として1つのfloatに統一する
-	enum class TemplateColliderShape { kNone, kObb, kSphere };
-
-	// RenderComponentBaseの具体型からTemplateShapeを判定する。SpawnEnemyAt/SpawnParticleBurstAtの
-	// 両方が同じ判定を必要とするため共通化した
-	static TemplateShape DetermineTemplateShape(GameObject& templateObj);
-
-	// テンプレートGameObjectから読み取ったスポーンパラメータの集約。SpawnEnemyAtが
-	// 「読み取り」と「組み立て」の2段階に分かれるようにするための橋渡し役。
-	// 既定値は「テンプレートが見つからなかった場合のフォールバック値」（従来のSpawnEnemyAt
-	// ローカル変数の初期値と同一）
-	struct EnemyTemplateData {
-		Vector4 color = { 0.9f, 0.2f, 0.2f, 1.0f };
-		TemplateShape shape = TemplateShape::kCube;
-		TemplateColliderShape colliderShape = TemplateColliderShape::kObb;
-		float size = 0.5f; // kFallbackHalfSize相当（PlayScene.cpp冒頭の無名namespace定数と同じ値）
-
-		// スポーン時のサイズランダム化（EnemySpawner::sizeScaleMin/Max）が使う、見た目・当たり判定
-		// 両方に掛ける倍率。OBBColliderComponent/SphereColliderComponentはhalfSize/radius（絶対値）に
-		// GameObjectのTransform.scaleを掛けてワールド判定サイズを出す設計（GetWorldOBB参照）のため、
-		// ここでsizeにも同じ倍率を掛けてしまうと「halfSize×scale」で二重に効いて当たり判定だけ
-		// 異常に大きくなる。そのためsizeはテンプレート本来の値のまま複製し、この倍率は
-		// BuildEnemyFromTemplateDataがTransform.scaleにのみ適用する
-		float sizeScale = 1.0f;
-		float hitShakeStrength = 0.25f;
-		float hitShakeDuration = 0.15f;
-		float hitStopDuration = 0.05f;
-		float maxHp = 10.0f;
-		std::string textureName; // 空ならテンプレートにTextureSelectorComponentが無い（複製先にも付けない）
-
-		bool hasHealthBar = false;
-		float healthBarWidth = 1.2f;
-		float healthBarHeight = 0.15f;
-		float healthBarHeightOffset = 1.0f;
-		Vector4 healthBarBackgroundColor = { 0.15f, 0.15f, 0.15f, 0.8f };
-		Vector4 healthBarFillColor = { 0.2f, 0.9f, 0.2f, 1.0f };
-
-		bool hasRotator = false;
-		bool rotatorRandomizeOnSpawn = false;
-		float rotatorSpeedX = 0.0f;
-		float rotatorSpeedY = 90.0f;
-		float rotatorSpeedZ = 0.0f;
-		float rotatorRandomSpeedMin = 30.0f;
-		float rotatorRandomSpeedMax = 180.0f;
-
-		bool hasHitSound = false;
-		std::string hitSoundAudioName;
-		float hitSoundVolume = 1.0f;
-
-		bool hasSpawnSound = false;
-		std::string spawnSoundAudioName;
-		float spawnSoundVolume = 1.0f;
-
-		bool hasSpawnMove = false;
-		float spawnMoveZOffset = 10.0f;
-		float spawnMoveDuration = 0.5f;
-		Easing::Type spawnMoveEasing = Easing::Type::kOutCubic;
-	};
-
-	// templateTagを持つテンプレートGameObjectから見た目・当たり判定・ReflexEnemyComponent
-	// パラメータ等を読み取る（見つからない場合はEnemyTemplateDataの既定値＝従来のフォールバック
-	// 値のまま返す）。SpawnEnemyAtの「読み取り」部分を独立させたもの
-	EnemyTemplateData ReadEnemyTemplateData(const std::string& templateTag);
-
-	// ReadEnemyTemplateDataの結果から実際にEnemy GameObjectを組み立てる。SpawnEnemyAtの
-	// 「組み立て」部分を独立させたもの
-	void BuildEnemyFromTemplateData(const Vector3& position, const std::string& templateTag, const EnemyTemplateData& data);
+	// テンプレートからのGameObject組み立て（グリッド配置計算・テンプレート読み取り・複製）は
+	// EnemySpawnManagerへ切り出した。PlayScene自身は「いつ・何体スポーンするか」という
+	// フェーズ制御・タイミングに専念する
+	EnemySpawnManager enemySpawnManager_;
 
 	// 準備フェーズ用のスポーン待ちキュー（テンプレートタグの列）。BeginPreparingPhaseが
 	// pendingRespawnTags_から構築し、UpdatePreparingPhaseが先頭から1つずつ消費する
@@ -245,21 +158,26 @@ protected:
 	int score_ = 0;
 
 	// ScoreAlphabetのHUDに実際に表示している値。score_が加算された瞬間に一気に反映せず、
-	// UpdateScoreDisplayが毎フレーム1ずつ近づけることで「1,2,3…10」と一の位から連続で
-	// カウントアップする演出にする。score_が減ることは無い想定のため、追いつく方向は常に+1
+	// UpdateScoreDisplayが毎フレーム連続で近づけることで「1,2,3…10」と一の位から連続で
+	// カウントアップする演出にする。score_が減ることは無い想定のため、追いつく方向は常に+
 	int displayScore_ = 0;
 
-	// displayScore_が1つ進むまでの秒数。値が小さいほど速く数字が回る。HandleSceneTransitionInput
-	// から毎フレームUpdateScoreDisplayを呼び、この間隔でdisplayScore_をscore_へ1ずつ近づける
-	static constexpr float kScoreCountUpInterval = 0.03f;
+	// カウントアップ演出1回ぶんの所要時間（秒）。差分の大小に関わらずこの時間で必ず追いつく
+	// （+1でも+1000でも同じ1秒）。「スコアが多いほど演出が長くなる」体感を避けるため、
+	// 1ずつ固定間隔で進める方式（差分に比例して時間が伸びる）から、固定時間で線形補間する
+	// 方式に変更した
+	static constexpr float kScoreCountUpDuration = 1.0f;
 
-	// score_とdisplayScore_の差分を消化するための経過時間の蓄積。kScoreCountUpIntervalを
-	// 超えるたびにdisplayScore_++し、超えた分は次フレームへ持ち越さず0に戻す
-	// （一定間隔で刻む演出のため、余りを繰り越すと差が大きいときに数値が飛んで見える）
-	float scoreCountUpTimer_ = 0.0f;
+	// 現在再生中のカウントアップ演出の始点・終点・経過時間。score_が加算されてscoreAnimTarget_
+	// と食い違った瞬間、UpdateScoreDisplayがその時点のdisplayScore_を新しい始点、score_を
+	// 新しい終点として演出をやり直す（実行フェーズ中に連続で敵を倒すたびに再スタートする）
+	int scoreAnimStart_ = 0;
+	int scoreAnimTarget_ = 0;
+	float scoreAnimElapsed_ = 0.0f;
 
-	// HandleSceneTransitionInputから毎フレーム呼ぶ。displayScore_ < score_の間、
-	// kScoreCountUpIntervalごとにdisplayScore_を1ずつ増やす
+	// HandleSceneTransitionInputから毎フレーム呼ぶ。score_とscoreAnimTarget_が食い違って
+	// いれば演出を再スタートし、kScoreCountUpDuration秒かけてdisplayScore_をscore_へ
+	// 線形補間で近づける
 	void UpdateScoreDisplay(float deltaTime);
 
 	// kPreparing→kPlanning（準備フェーズが終わって計画フェーズへ戻った瞬間）を迎えた回数。

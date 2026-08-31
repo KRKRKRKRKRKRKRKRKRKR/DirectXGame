@@ -10,64 +10,8 @@
 #include "../../../../Math/EasingPreview.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include "../../../Graphics/Renderer/Renderer.h"
-#include "../../../Graphics/Pipeline/BlendMode.h"
 #include <algorithm>
 #include <cmath>
-
-namespace {
-	constexpr Vector4 kWaypointMarkerColor = { 1.0f, 0.9f, 0.2f, 1.0f }; // 黄色い球（Circle.objロード失敗時のフォールバック）
-	constexpr float   kWaypointMarkerRadius = 0.3f;
-	constexpr Vector4 kObstacleMarginColor  = { 1.0f, 0.3f, 0.2f, 1.0f }; // 赤系：これより内側はクリックできない
-	constexpr Vector4 kFieldRangeColor      = { 0.2f, 0.6f, 1.0f, 1.0f }; // 水色：この内側だけクリックで経路予約できる
-	constexpr int      kWireCircleSegments  = 16;
-
-	// Circle.objマーカーのモデルパス（パルスの範囲・周期はInspectorで調整可能なmarkerPulseMinScale/
-	// markerPulseMaxScale/markerPulseDurationメンバを使う）
-	constexpr const char* kMarkerModelDirectory = "Resources/Model";
-	constexpr const char* kMarkerModelFilename  = "Circle.obj";
-
-	// 中心center、半径radiusの円を1枚、指定した2軸(axis0, axis1。0=x,1=y,2=z)平面上に
-	// 線分で近似して描画する（SphereColliderComponent::DrawWireCircleと同じロジック）
-	void DrawWireCircle(Renderer* renderer, const Vector3& center, float radius, int axis0, int axis1,
-		const Vector4& color, const Matrix4x4& view, const Matrix4x4& proj) {
-		float coords[3] = { center.x, center.y, center.z };
-		auto pointAt = [&](float angle) {
-			float c[3] = { coords[0], coords[1], coords[2] };
-			c[axis0] += cosf(angle) * radius;
-			c[axis1] += sinf(angle) * radius;
-			return Vector3{ c[0], c[1], c[2] };
-			};
-		for (int i = 0; i < kWireCircleSegments; i++) {
-			float a0 = (float)i / kWireCircleSegments * 2.0f * 3.14159265f;
-			float a1 = (float)(i + 1) / kWireCircleSegments * 2.0f * 3.14159265f;
-			renderer->DrawLine(pointAt(a0), pointAt(a1), color, view, proj);
-		}
-	}
-
-	// マージン込みのOBB（obb.Sizeは既にマージン加算済みの想定）の12本の辺を描画する
-	// （OBBColliderComponent::DrawWireframeと同じロジック）
-	void DrawWireOBB(Renderer* renderer, const Collision::OBB& obb,
-		const Vector4& color, const Matrix4x4& view, const Matrix4x4& proj) {
-		auto toWorld = [&](float sx, float sy, float sz) {
-			Vector3 local = { obb.Size.x * sx, obb.Size.y * sy, obb.Size.z * sz };
-			Vector3 world = obb.center
-				+ Vector3{ obb.Orientation[0].x * local.x, obb.Orientation[0].y * local.x, obb.Orientation[0].z * local.x }
-				+ Vector3{ obb.Orientation[1].x * local.y, obb.Orientation[1].y * local.y, obb.Orientation[1].z * local.y }
-				+ Vector3{ obb.Orientation[2].x * local.z, obb.Orientation[2].y * local.z, obb.Orientation[2].z * local.z };
-			return world;
-			};
-		Vector3 p[8] = {
-			toWorld(-1,-1,-1), toWorld(+1,-1,-1), toWorld(+1,+1,-1), toWorld(-1,+1,-1),
-			toWorld(-1,-1,+1), toWorld(+1,-1,+1), toWorld(+1,+1,+1), toWorld(-1,+1,+1),
-		};
-		static constexpr int kEdges[12][2] = {
-			{0,1}, {1,2}, {2,3}, {3,0},
-			{4,5}, {5,6}, {6,7}, {7,4},
-			{0,4}, {1,5}, {2,6}, {3,7},
-		};
-		for (auto& e : kEdges) renderer->DrawLine(p[e[0]], p[e[1]], color, view, proj);
-	}
-}
 
 bool ReflexPlayerComponent::TryPickPoint(const Transform& transform, const UpdateContext& ctx, Vector3& outPosition) const {
 	if (!ctx.renderer) return false;
@@ -126,164 +70,6 @@ bool ReflexPlayerComponent::IsPathBlocked(const Vector3& from, const Vector3& to
 	return false;
 }
 
-void ReflexPlayerComponent::DrawObstacleMarginVisualization(const UpdateContext& ctx) const {
-	if (!ctx.renderer || !ctx.sceneObjects) return;
-
-	for (GameObject* obj : *ctx.sceneObjects) {
-		if (!obj) continue;
-		auto* collider = obj->GetComponent<ColliderComponentBase>();
-		if (!collider) continue;
-		if (collider->layer != CollisionLayer::kObstacle) continue;
-
-		Transform ownerTransform = obj->GetWorldTransform();
-		if (auto* sphereCollider = obj->GetComponent<SphereColliderComponent>()) {
-			Collision::Sphere sphere = sphereCollider->GetWorldSphere(ownerTransform);
-			sphere.radius += obstacleMargin;
-			DrawWireCircle(ctx.renderer, sphere.center, sphere.radius, 0, 1, kObstacleMarginColor, ctx.view, ctx.proj);
-			DrawWireCircle(ctx.renderer, sphere.center, sphere.radius, 1, 2, kObstacleMarginColor, ctx.view, ctx.proj);
-			DrawWireCircle(ctx.renderer, sphere.center, sphere.radius, 0, 2, kObstacleMarginColor, ctx.view, ctx.proj);
-		} else if (auto* obbCollider = obj->GetComponent<OBBColliderComponent>()) {
-			Collision::OBB obb = obbCollider->GetWorldOBB(ownerTransform);
-			obb.Size = obb.Size + Vector3{ obstacleMargin, obstacleMargin, obstacleMargin };
-			DrawWireOBB(ctx.renderer, obb, kObstacleMarginColor, ctx.view, ctx.proj);
-		}
-	}
-}
-
-void ReflexPlayerComponent::DrawFieldRangeVisualization(const Transform& transform, const UpdateContext& ctx) const {
-	if (!ctx.renderer) return;
-
-	// fieldRangeMin/Max（TryPickPointが経路予約を許可する範囲）を、Z方向に薄い直方体の
-	// ワイヤーフレームとしてコライダーの可視化と同じ見た目で表示する。回転なし・軸並行の
-	// 矩形なのでOrientationは単位行列のまま使う
-	Collision::OBB obb;
-	obb.center = {
-		(fieldRangeMinX + fieldRangeMaxX) * 0.5f,
-		(fieldRangeMinY + fieldRangeMaxY) * 0.5f,
-		transform.translation.z };
-	obb.Orientation[0] = { 1.0f, 0.0f, 0.0f };
-	obb.Orientation[1] = { 0.0f, 1.0f, 0.0f };
-	obb.Orientation[2] = { 0.0f, 0.0f, 1.0f };
-	obb.Size = {
-		(fieldRangeMaxX - fieldRangeMinX) * 0.5f,
-		(fieldRangeMaxY - fieldRangeMinY) * 0.5f,
-		0.05f };
-	DrawWireOBB(ctx.renderer, obb, kFieldRangeColor, ctx.view, ctx.proj);
-}
-
-void ReflexPlayerComponent::DrawPlanningVisualization(const Transform& transform, const UpdateContext& ctx, float deltaTime, size_t startIndex) const {
-	if (!ctx.renderer) return;
-	if (startIndex >= waypoints_.size()) return; // 実行フェーズで全区間を通過済みの場合等
-
-	// Circle.objの読み込みは初回呼び出し時に1度だけ試みる（成功・失敗を問わず以降は再試行しない。
-	// LoadModelはGPUリソースを新規確保するため毎フレーム呼ぶわけにはいかない）
-	// 注意：Renderer::LoadModelはファイルが見つからない等の失敗時にassert(false)で
-	// 落ちる実装（Model_AssimpLoader.cpp）のため、Circle.objが存在する限りここで例外的に
-	// フォールバックへ分岐することはない。circleModelLoaded_は将来LoadModelが失敗時に
-	// 安全に倒れるよう改修された場合に備えて残す
-	if (!tryLoadCircleModel_) {
-		tryLoadCircleModel_ = true;
-		circleModelHandle_ = ctx.renderer->LoadModel(kMarkerModelDirectory, kMarkerModelFilename);
-		circleModelLoaded_ = true;
-	}
-
-	// 波紋アニメーション：基準時計markerPulseElapsed_を進める。duration<=0（Inspectorでの
-	// 入力ミス等）は0除算になるため、その場合は波紋を1本・最大スケール固定で表示する
-	float duration = (std::max)(markerPulseDuration, 0.0f);
-	int waveCount = (std::max)(markerWaveCount, 1);
-	if (duration > 0.0f) {
-		markerPulseElapsed_ = std::fmod(markerPulseElapsed_ + deltaTime, duration);
-	}
-
-	// 破線が進行方向へ流れる演出のオフセットは、全waypoint区間で共通の値を1度だけ計算する
-	// （区間ごとにDrawDashedLine内でlineScrollElapsed_を加算すると、区間数が多い＝経路が長い
-	// ほど1フレームあたりの加算回数が増えてしまい、見かけのスクロール速度が距離に依存してしまう）
-	float dashPeriod = (std::max)(lineDashLength, 0.01f) + (std::max)(lineGapLength, 0.01f);
-	lineScrollElapsed_ += lineScrollSpeed * deltaTime;
-	float scrollOffset = std::fmod(lineScrollElapsed_, dashPeriod);
-	if (scrollOffset < 0.0f) scrollOffset += dashPeriod; // 負の速度指定でも安全なようにフルクランプ
-
-	Vector3 previous = transform.translation;
-	for (size_t i = startIndex; i < waypoints_.size(); i++) {
-		const Vector3& point = waypoints_[i];
-		DrawDashedLine(ctx.renderer, previous, point, lineColor, scrollOffset);
-
-		// waveCount本の波紋を、それぞれduration/waveCountぶん位相をずらして同じ地点に重ねて描く。
-		// 各波紋は片道（0→1）：小さい状態から広がりながら不透明度が下がって消え、次の周期でまた
-		// 最小サイズから再発生する（水面の波紋のように複数が同時進行して見える）
-		for (int wave = 0; wave < waveCount; wave++) {
-			float t = 0.0f; // 0=発生直後（最小・不透明）、1=消える直前（最大・透明）
-			if (duration > 0.0f) {
-				float phaseOffset = duration * (static_cast<float>(wave) / static_cast<float>(waveCount));
-				float waveElapsed = std::fmod(markerPulseElapsed_ + phaseOffset, duration);
-				t = waveElapsed / duration;
-			}
-			float eased = Easing::Apply(Easing::Type::kInOutSine, t);
-			float scale = markerPulseMinScale + (markerPulseMaxScale - markerPulseMinScale) * eased;
-			float alpha = markerColor.w * (1.0f - eased);
-
-			Transform markerTransform;
-			markerTransform.translation = point;
-			markerTransform.scale = { scale, scale, scale };
-
-			if (circleModelLoaded_) {
-				Vector4 fadedColor = { markerColor.x, markerColor.y, markerColor.z, alpha };
-				ctx.renderer->DrawModel(circleModelHandle_, markerTransform, fadedColor,
-					{}, true, BlendMode::kNormal);
-			} else {
-				Vector4 fadedColor = { kWaypointMarkerColor.x, kWaypointMarkerColor.y, kWaypointMarkerColor.z, alpha };
-				ctx.renderer->DrawSphere(markerTransform, fadedColor, kTextureNone, true, BlendMode::kNormal);
-			}
-		}
-
-		previous = point;
-	}
-}
-
-void ReflexPlayerComponent::DrawDashedLine(Renderer* renderer, const Vector3& from, const Vector3& to, const Vector4& color, float scrollOffset) const {
-	float totalLength = VectorMath::Length(to - from);
-	if (totalLength <= 0.0f) return;
-
-	// dash/gapが0以下（Inspectorでの入力ミス等）だと無限ループになるため下限でクランプする
-	float dash = (std::max)(lineDashLength, 0.01f);
-	float gap = (std::max)(lineGapLength, 0.01f);
-	float thickness = (std::max)(lineThickness, 0.01f);
-	float period = dash + gap;
-	Vector3 direction = (to - from) * (1.0f / totalLength); // VectorMath::Normalizeと等価だが長さを再計算せず済む
-
-	// このゲームはX-Y平面上（Z座標固定）で進行するため、線分の向きはZ軸周りの回転角だけで表現できる。
-	// DrawCubeの既定形状はローカルX軸方向に伸びる立方体を想定しているため、Cubeのscale.xを
-	// セグメント長さ、scale.y/zをthicknessにして、Z軸回転で線分の向きへ合わせる
-	float rotationZ = std::atan2f(direction.y, direction.x);
-
-	// パターンの基準点はto（waypoint、実行フェーズ中も動かない不変の点）側に置き、そこから
-	// from方向へ向かって並べる。実行フェーズ中はfromがtoへ近づくにつれtotalLengthが縮むが、
-	// ダッシュ・ギャップの絶対的な間隔（dash/gap）はワールド座標上で固定されたまま、to側から
-	// 見た並びを保ったままfrom側の端が自然に短く切り詰められるだけになる（fromを基準にすると
-	// 毎フレームtotalLengthが変わるたびにパターンの位相がfromへ貼り付き直し、区間が縮むほど
-	// ダッシュの間隔が詰まって見えてしまう問題があった）
-	float cursor = scrollOffset - period;
-	while (cursor < totalLength) {
-		float dashStartFromTo = (std::max)(cursor, 0.0f);
-		float dashEndFromTo = (std::min)(cursor + dash, totalLength);
-		if (dashEndFromTo > dashStartFromTo) {
-			// dashStartFromTo/dashEndFromTo は「toからfrom方向への距離」。実際の位置はtoから
-			// -direction（=to→from方向）へ進めて求める
-			Vector3 segmentStart = to - direction * dashStartFromTo;
-			Vector3 segmentEnd = to - direction * dashEndFromTo;
-			float segmentLength = dashEndFromTo - dashStartFromTo;
-
-			Transform segmentTransform;
-			segmentTransform.translation = (segmentStart + segmentEnd) * 0.5f;
-			segmentTransform.rotation = { 0.0f, 0.0f, rotationZ };
-			segmentTransform.scale = { segmentLength, thickness, thickness };
-			renderer->DrawCube(segmentTransform, color, kTextureNone, false);
-		}
-
-		cursor += period;
-	}
-}
-
 void ReflexPlayerComponent::BeginSegment(const Vector3& from, const Vector3& to) {
 	// distanceは代入前に計算する：呼び出し元がBeginSegment(segmentEnd_, ...)のように
 	// メンバ変数への参照をfromに渡すことがあるため、先にsegmentEnd_=toを代入してしまうと
@@ -334,11 +120,12 @@ void ReflexPlayerComponent::Update(float deltaTime, Transform& transform, const 
 		// 障害物マージン・移動可能範囲の可視化（ワイヤーフレーム）はデバッグ用の補助線であり、
 		// 実際のプレイ画面（Gameビュー、Gizmoなし）に映り込ませたくない。Sceneビュー
 		// （エディタ自由カメラ）でだけ表示する
-		if (!ctx.isGameView) {
-			DrawObstacleMarginVisualization(ctx);
-			DrawFieldRangeVisualization(transform, ctx);
+		if (!ctx.isGameView && ctx.sceneObjects) {
+			visualizer_.DrawObstacleMargin(ctx.renderer, ctx.view, ctx.proj, *ctx.sceneObjects, obstacleMargin);
+			visualizer_.DrawFieldRange(ctx.renderer, ctx.view, ctx.proj, transform.translation.z,
+				fieldRangeMinX, fieldRangeMaxX, fieldRangeMinY, fieldRangeMaxY);
 		}
-		DrawPlanningVisualization(transform, ctx, deltaTime, 0);
+		visualizer_.DrawPlanning(ctx.renderer, ctx.view, ctx.proj, transform.translation, waypoints_, 0, deltaTime);
 		return;
 	}
 
@@ -347,7 +134,7 @@ void ReflexPlayerComponent::Update(float deltaTime, Transform& transform, const 
 	// 障害物マージンの可視化等は行わず経路の見た目だけ表示を継続する）。readyToExecuteDelayが
 	// 0以下の場合はdeltaTime分の加算だけで即座に条件を満たし、実質的に従来通り即時遷移する
 	if (phase_ == Phase::kReadyToExecute) {
-		DrawPlanningVisualization(transform, ctx, deltaTime, 0);
+		visualizer_.DrawPlanning(ctx.renderer, ctx.view, ctx.proj, transform.translation, waypoints_, 0, deltaTime);
 		readyToExecuteElapsed_ += deltaTime;
 		if (readyToExecuteElapsed_ >= readyToExecuteDelay) {
 			phase_ = Phase::kExecuting;
@@ -400,7 +187,7 @@ void ReflexPlayerComponent::Update(float deltaTime, Transform& transform, const 
 	// currentWaypointIndex_より前（プレイヤーが既に通過した区間）は描かず、現在の区間は
 	// 始点をtransform.translation（今フレームの実際の位置）にすることで、移動につれて
 	// リアルタイムに短くなっていくように見せる
-	DrawPlanningVisualization(transform, ctx, deltaTime, currentWaypointIndex_);
+	visualizer_.DrawPlanning(ctx.renderer, ctx.view, ctx.proj, transform.translation, waypoints_, currentWaypointIndex_, deltaTime);
 }
 
 void ReflexPlayerComponent::DrawImGui(const char* namePrefix) {
@@ -425,32 +212,8 @@ void ReflexPlayerComponent::DrawImGui(const char* namePrefix) {
 	std::string readyDelayLabel = std::string(namePrefix) + "実行フェーズへの遷移待機時間(秒)";
 	ImGui::DragFloat(readyDelayLabel.c_str(), &readyToExecuteDelay, 0.01f, 0.0f, 10.0f);
 
-	std::string markerColorLabel = std::string(namePrefix) + "経路マーカーの色";
-	ImGui::ColorEdit4(markerColorLabel.c_str(), &markerColor.x);
-
-	std::string lineColorLabel = std::string(namePrefix) + "経路線の色";
-	ImGui::ColorEdit4(lineColorLabel.c_str(), &lineColor.x);
-
-	std::string markerMinScaleLabel = std::string(namePrefix) + "マーカーの最小スケール";
-	std::string markerMaxScaleLabel = std::string(namePrefix) + "マーカーの最大スケール";
-	std::string markerDurationLabel = std::string(namePrefix) + "マーカーのパルス周期(秒)";
-	ImGui::DragFloat(markerMinScaleLabel.c_str(), &markerPulseMinScale, 0.01f, 0.0f, 10.0f);
-	ImGui::DragFloat(markerMaxScaleLabel.c_str(), &markerPulseMaxScale, 0.01f, 0.0f, 10.0f);
-	ImGui::DragFloat(markerDurationLabel.c_str(), &markerPulseDuration, 0.01f, 0.0f, 10.0f);
-
-	std::string markerWaveCountLabel = std::string(namePrefix) + "波紋の本数";
-	ImGui::DragInt(markerWaveCountLabel.c_str(), &markerWaveCount, 1, 1, 10);
-
-	std::string dashLengthLabel = std::string(namePrefix) + "経路線の実線長さ";
-	std::string gapLengthLabel = std::string(namePrefix) + "経路線の間隔長さ";
-	ImGui::DragFloat(dashLengthLabel.c_str(), &lineDashLength, 0.01f, 0.01f, 10.0f);
-	ImGui::DragFloat(gapLengthLabel.c_str(), &lineGapLength, 0.01f, 0.01f, 10.0f);
-
-	std::string thicknessLabel = std::string(namePrefix) + "経路線の太さ";
-	ImGui::DragFloat(thicknessLabel.c_str(), &lineThickness, 0.01f, 0.01f, 5.0f);
-
-	std::string scrollSpeedLabel = std::string(namePrefix) + "経路線の流れる速さ";
-	ImGui::DragFloat(scrollSpeedLabel.c_str(), &lineScrollSpeed, 0.01f, -10.0f, 10.0f);
+	// マーカー・経路線の見た目パラメータはReflexPathVisualizer側のUIに委譲する
+	visualizer_.DrawImGui(namePrefix);
 
 	// 実行フェーズの直進に適用するイージング（https://easings.net/ja 準拠）をコンボで選択する
 	std::string easingLabel = std::string(namePrefix) + "イージング";

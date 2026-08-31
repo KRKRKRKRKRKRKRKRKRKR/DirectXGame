@@ -73,7 +73,11 @@ private:
 	// 描画定数
 	// 1ライン = 頂点2つ、最大ライン数分まとめて確保
 	static constexpr uint32_t kVerticesPerLine = 2;
-	const uint32_t kMaxInstanceCount = 1024;
+	// SphereColliderComponent::DrawWireframeが球1個につき48本（16分割の円×3平面）の線を
+	// 使うため、敵が多数（PlayScene::totalRounds分）湧いた状態でSceneビューのコライダー
+	// ワイヤーフレームを描画すると容易に超過する。1024（旧値）だと敵20体強で上限に達し
+	// Line::SetLineのassertでクラッシュしていたため、余裕を持って4096に引き上げた
+	const uint32_t kMaxInstanceCount = 4096;
 
 	// 内部初期化関数
 	void CreateVertexResource(ID3D12Device* device);

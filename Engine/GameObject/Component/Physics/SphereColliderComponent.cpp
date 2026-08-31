@@ -3,7 +3,9 @@
 #include <cmath>
 
 namespace {
-	constexpr int kWireSegments = 16;
+	// 円1枚あたりの分割数。球1個で3平面ぶん（kWireSegments*3本）の線を消費するため、
+	// Line::kMaxInstanceCountを圧迫しないよう見た目に支障が出ない範囲で抑えている
+	constexpr int kWireSegments = 12;
 
 	// 中心center、半径radiusの円を1枚、指定した2軸(axis0, axis1。0=x,1=y,2=z)平面上に
 	// 線分で近似して描画する

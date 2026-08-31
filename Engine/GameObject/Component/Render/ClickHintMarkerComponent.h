@@ -1,5 +1,6 @@
 #pragma once
 #include "RenderComponentBase.h"
+#include "../../../Graphics/Renderer/LazyModelHandle.h"
 
 // ReflexPlayerComponent::DrawPlanningVisualizationが計画フェーズの経路マーカーとして表示する
 // Circle.objの波紋パルスアニメーションと同じ見た目を、GameObjectに常時表示するためのコンポーネント。
@@ -26,11 +27,9 @@ public:
 	void FromJson(const nlohmann::json& in) override;
 
 private:
-	// Circle.objの遅延ロード状態。ReflexPlayerComponentと同じ理由（コンストラクタがRendererを
-	// 受け取れないため、初回Draw時に1度だけLoadModelする）
-	mutable bool tryLoadCircleModel_ = false;
-	mutable bool circleModelLoaded_ = false;
-	mutable Renderer::ModelHandle circleModelHandle_ = 0;
+	// Circle.objの遅延ロード状態（初回Draw時に1度だけLoadModelする）。ReflexPlayerComponentと
+	// 同じロード対象・同じロジックだったため、共通ヘルパーLazyModelHandleに切り出した
+	LazyModelHandle circleModel_{ "Resources/Model", "Circle.obj" };
 
 	// 波紋アニメーションの基準経過時間。Updateでだけ加算し、Drawは読むだけ
 	// （GridBackgroundComponentと同じ理由：DrawはRenderMirrorPass等からdeltaTime=0固定で

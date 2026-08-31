@@ -19,7 +19,7 @@ public:
 
 	// OBBの8頂点から12本の辺をワイヤーフレームとして描画する
 	void DrawWireframe(Renderer* renderer, const Transform& ownerTransform, const Vector4& color,
-		const Matrix4x4& view, const Matrix4x4& proj) const;
+		const Matrix4x4& view, const Matrix4x4& proj) const override;
 
 	Transform GetGizmoEditTransform(const Transform& ownerTransform) const override {
 		Transform t;

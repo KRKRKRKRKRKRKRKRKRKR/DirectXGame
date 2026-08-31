@@ -231,19 +231,9 @@ void RankingScene::HandleSceneTransitionInput() {
 		nextScene_ = "Title";
 	}
 
-	GameObject* titleHitbox = FindObjectByTag(GameTags::kRankingTitleButtonHitbox);
-	auto* titleButton = titleHitbox ? titleHitbox->GetComponent<PlayButtonComponent>() : nullptr;
-	if (titleButton) {
-		if (GameObject* titleTextObj = FindObjectByTag(GameTags::kRankingTitleButtonText)) {
-			if (auto* text = titleTextObj->GetComponent<AlphabetTextComponent>()) {
-				bool hovering = titleButton->IsHovering();
-				text->displayScaleMultiplier = hovering ? titleButton->hoverScaleMultiplier : titleButton->normalScaleMultiplier;
-				text->displayColor = hovering ? titleButton->hoverColor : titleButton->normalColor;
-			}
-		}
-		if (titleButton->ConsumeClicked()) {
-			nextScene_ = "Title";
-		}
+	auto titleResult = UpdateButtonAndReflectHover(GameTags::kRankingTitleButtonHitbox, GameTags::kRankingTitleButtonText);
+	if (titleResult.clicked) {
+		nextScene_ = "Title";
 	}
 
 	// RankingComponent（表示）を更新する。通常1つのみ配置される想定だが、複数あっても

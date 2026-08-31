@@ -1,8 +1,24 @@
 {
     "scores": [
         {
+            "name": "L",
+            "score": 2079
+        },
+        {
+            "name": "K",
+            "score": 1362
+        },
+        {
+            "name": "KKKKKKKKKKKK",
+            "score": 484
+        },
+        {
             "name": "LKKJ",
             "score": 7
+        },
+        {
+            "name": "W",
+            "score": 0
         }
     ]
 }

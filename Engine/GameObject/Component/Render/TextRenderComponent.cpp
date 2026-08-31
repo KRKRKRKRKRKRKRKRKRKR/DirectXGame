@@ -263,13 +263,6 @@ void TextRenderComponent::ApplyEditedText() {
 
 void TextRenderComponent::Draw(Renderer* renderer, const Transform& transform, float deltaTime) const {
 	(void)deltaTime;
-	// TODO(debug): テキスト非表示バグ調査用の一時ログ。原因特定後に削除する（インスタンスごとに
-	// カウントするため、各テキストが必ず一定間隔でログに出る＝呼ばれていないテキストは
-	// このログ自体が一切出なくなる、という判定ができる）
-	if (++debugDrawCounter_ % 120 == 1) {
-		Logger::Log(std::format("TextRenderComponent::Draw '{}' textureHandle={} dynamicText={} pos=({:.1f},{:.1f})\n",
-			txtFilePath.empty() ? "(dynamic)" : txtFilePath, textureHandle, dynamicText, transform.translation.x, transform.translation.y));
-	}
 	if (textureHandle == kTextureNone) return; // Load失敗・未Loadなら何も描画しない
 
 	// 箱の大きさ(localScale)とフォントサイズ(ラスタライズ解像度)は独立させる。テクスチャは箱に

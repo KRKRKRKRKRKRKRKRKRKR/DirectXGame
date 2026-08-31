@@ -5,6 +5,12 @@
 // 参照されるため、無名namespace（各.cpp内で完結する定数）ではなく、ヘッダ側の名前空間定数として
 // 1箇所にまとめる。値そのものは保存済みscene.jsonのGameObject::tag文字列と一致している必要があるため、
 // 変更する場合は既存シーンのtag値も合わせて書き換えること
+//
+// 「クリックすると何か起きるボタン」を新設する場合は、見た目用（AlphabetTextComponent）と
+// 当たり判定用（OBBColliderComponent+PlayButtonComponent）を別々のGameObjectに分け、
+// タグは `{Name}ButtonText` / `{Name}ButtonHitbox` の対で命名する（kPlayButtonText/
+// kPlayButtonHitbox等、既存4セットと同じ形）。ホバー時の見た目反映とクリック検知は
+// 個別に書かず、SceneBase::UpdateButtonAndReflectHover(hitboxTag, textTag)に渡す
 namespace GameTags {
 	inline constexpr const char* kPlayer       = "Player";
 	inline constexpr const char* kMainCamera   = "MainCamera";

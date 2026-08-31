@@ -97,7 +97,7 @@
                         "entranceZOffset": 6.0,
                         "horizontalAlign": 1,
                         "spaceWidth": 1.899999976158142,
-                        "text": "2531",
+                        "text": "1362",
                         "useCharEntranceAnimation": true
                     },
                     "type": "AlphabetText"
@@ -139,7 +139,7 @@
                         "entranceZOffset": 6.0,
                         "horizontalAlign": 0,
                         "spaceWidth": 2.9000000953674316,
-                        "text": "_",
+                        "text": "K_",
                         "useCharEntranceAnimation": true
                     },
                     "type": "AlphabetText"
@@ -200,9 +200,9 @@
                     0.0
                 ],
                 "scale": [
-                    1.0,
-                    1.0,
-                    1.0
+                    1.100000023841858,
+                    1.100000023841858,
+                    1.100000023841858
                 ],
                 "translation": [
                     0.0,
@@ -339,7 +339,7 @@
                         "entranceZOffset": 6.0,
                         "horizontalAlign": 1,
                         "spaceWidth": 0.3499999940395355,
-                        "text": "please your enter name",
+                        "text": "please  enter your name",
                         "useCharEntranceAnimation": true
                     },
                     "type": "AlphabetText"

@@ -6,17 +6,12 @@
 #include "../Engine/InputDevice/InputDevice.h"
 #include "../Engine/GameObject/Component/Audio/SpawnSoundComponent.h"
 #include "../Engine/GameObject/Component/Physics/SpawnMoveComponent.h"
+#include "SpawnMovePresets.h"
 
 namespace {
 	constexpr const char* kSpawnSoundName = "SpawnSE.mp3";
 	// GameObject全体（親）がZ奥から本来の位置へ戻ってくるのにかける時間(秒)
 	constexpr float kEntranceDuration = 0.7f;
-
-	// Backspaceで削除される文字が、手前から奥へ縮小しながら消えるまでの距離(奥方向オフセット)・
-	// 時間(秒)。登場演出（AlphabetTextComponent::entranceZOffset/entranceDuration、既定6.0f/0.35f）
-	// と近い値にして、見た目の速さ・移動距離を揃える
-	constexpr float kExitZOffset = 6.0f;
-	constexpr float kExitDuration = 0.35f;
 }
 
 void ClearScene::OnInitialize() {
@@ -142,19 +137,11 @@ void ClearScene::PlayBackspaceExitAnimation() {
 
 	// 登場演出とは逆に、現在位置（手前）からentranceZOffset奥へ向かってscaleを1→0に
 	// 縮小させながら移動する。既存のSpawnMoveComponentが付いていれば（普通は付いていないはずだが
-	// 念のため）RemoveしてからAddし直す
+	// 念のため）RemoveしてからAddし直す。パラメータはTutorialScene::StartHintExitAnimationと
+	// 共通のSpawnMovePresets::ApplyExitを使う
 	lastChar->RemoveComponent<SpawnMoveComponent>();
 	auto* spawnMove = lastChar->AddComponent<SpawnMoveComponent>();
-	spawnMove->startPos = worldPos;
-	spawnMove->targetPos = worldPos + Vector3{ 0.0f, 0.0f, kExitZOffset };
-	spawnMove->duration = kExitDuration;
-	spawnMove->easing = Easing::Type::kInCubic;
-	spawnMove->elapsed = 0.0f;
-	spawnMove->finished = false;
-	spawnMove->animateScale = true;
-	spawnMove->targetScale = lastChar->GetTransform().scale; // 消える直前の見た目サイズを起点にする
-	spawnMove->reverseScale = true; // targetScale→0（縮小しながら消える）
-	spawnMove->destroyOnFinish = true;
+	SpawnMovePresets::ApplyExit(*spawnMove, worldPos, lastChar->GetTransform().scale);
 
 	// SetParent(nullptr)でルート直下に移した子を、Gizmo選択対象・Update対象一覧（gizmoTargets_）に
 	// 反映する。これを呼ばないとSpawnMoveComponent::Updateが回らず退場アニメーションが動かない
@@ -275,31 +262,34 @@ void ClearScene::HandleSceneTransitionInput() {
 		nextButton->enabled = canProceed;
 	}
 
-	// spawnEntrancePending_の間（登場演出の待機中〜アニメーション中）は、このブロックで
-	// text->displayScaleMultiplierを毎フレーム上書きしない。ApplySpawnLikeEntranceが
-	// displayScaleMultiplierを0→1に制御しつつSpawnMoveComponentでscaleアニメーションさせている
-	// 最中に、ここでnormalScaleMultiplier（既定1.0）へ毎フレーム戻されてしまうと、NextButtonText
-	// だけ「登場演出の0スケールが一切効かない」状態になっていた（他のオブジェクトはこの種の
-	// 毎フレーム上書きロジックを持たないため影響を受けていなかった）
-	GameObject* nextButtonTextObj = spawnEntrancePending_ ? nullptr : FindObjectByTag(GameTags::kNextButtonText);
-	if (nextButtonTextObj) {
-		GameObject* textObj = nextButtonTextObj;
-		if (auto* text = textObj->GetComponent<AlphabetTextComponent>()) {
-			if (nextButton && canProceed) {
-				bool hovering = nextButton->IsHovering();
-				text->displayScaleMultiplier = hovering ? nextButton->hoverScaleMultiplier : nextButton->normalScaleMultiplier;
-				text->displayColor = hovering ? nextButton->hoverColor : nextButton->normalColor;
-			} else if (nextButton) {
-				// 押せない間は常にグレー表示・等倍のままにする（ホバー演出も出さない）
-				text->displayScaleMultiplier = nextButton->normalScaleMultiplier;
-				text->displayColor = nextButton->disabledColor;
+	// spawnEntrancePending_の間（登場演出の待機中〜アニメーション中）は、見た目を毎フレーム
+	// 上書きしない。ApplySpawnLikeEntranceがdisplayScaleMultiplierを0→1に制御しつつ
+	// SpawnMoveComponentでscaleアニメーションさせている最中に、ここでnormalScaleMultiplier
+	// （既定1.0）へ毎フレーム戻されてしまうと、NextButtonTextだけ「登場演出の0スケールが
+	// 一切効かない」状態になっていた（他のオブジェクトはこの種の毎フレーム上書きロジックを
+	// 持たないため影響を受けていなかった）。
+	// canProceed==trueの間はSceneBase::UpdateButtonAndReflectHoverでホバー反映＋クリック検知を
+	// 行う。false（disabledColorでのグレー表示）の間は共通関数の2値（hover/normal）では
+	// 表現できないため、ここだけ個別に処理する
+	bool nextClicked = false;
+	if (!spawnEntrancePending_) {
+		if (canProceed) {
+			auto nextResult = UpdateButtonAndReflectHover(GameTags::kNextButtonHitbox, GameTags::kNextButtonText);
+			nextClicked = nextResult.clicked;
+		} else if (nextButton) {
+			// 押せない間は常にグレー表示・等倍のままにする（ホバー演出も出さない）
+			if (GameObject* nextButtonTextObj = FindObjectByTag(GameTags::kNextButtonText)) {
+				if (auto* text = nextButtonTextObj->GetComponent<AlphabetTextComponent>()) {
+					text->displayScaleMultiplier = nextButton->normalScaleMultiplier;
+					text->displayColor = nextButton->disabledColor;
+				}
 			}
 		}
 	}
 
-	if (nextButton && nextButton->ConsumeClicked()) {
-		// この時点でcanProceed==falseならnextButton->enabled==falseのためConsumeClicked()は
-		// 常にfalseを返す（PlayButtonComponent::Update参照）。念のためもう一度空チェックしておく
+	if (nextClicked) {
+		// canProceed==falseの間はそもそもUpdateButtonAndReflectHoverを呼ばないためnextClickedは
+		// 常にfalseになる（上のif (canProceed)分岐参照）。念のためもう一度空チェックしておく
 		if (!enteredName_.empty()) {
 			GameSession::GetInstance().SetEnteredName(enteredName_);
 			size_t submittedIndex = RankingManager::GetInstance().Submit(enteredName_, GameSession::GetInstance().GetScore());
