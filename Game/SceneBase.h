@@ -264,6 +264,15 @@ protected:
 	void CreateNewScript(const std::string& baseName, const std::string& displayName, const std::string& category);
 	std::string lastScriptCreationMessage_;
 
+	// DrawSceneTransitionButtons()の「シーン削除」確認モーダル。DrawTransitionSavePromptと
+	// 同じ「OpenPopupは要求発生の最初のフレームだけ、BeginPopupModalは表示中毎フレーム」の作法
+	std::string pendingSceneDeleteRequest_;
+	bool showSceneDeleteConfirm_ = false;
+	void DrawSceneDeleteConfirmPopup();
+	// GenericSceneStore::CreateScene/DeleteSceneの結果メッセージ（失敗時のみ非空）。
+	// lastScriptCreationMessageと同じく、DrawSceneTransitionButtons()が表示する
+	std::string lastSceneOpMessage_;
+
 	// Hierarchyのドラッグ&ドロップ並べ替え用。droppedを親なし（ルート）にした上で、
 	// ルート表示対象（親なし・excludeFromGizmoList=falseのオブジェクト）の中でvisibleIndex番目
 	// （挿入後の位置、0=先頭）に来るよう、objects_内での実際の位置を調整する
@@ -410,4 +419,10 @@ protected:
 	// シーン遷移要求（nextScene_）を検知し、エディタUI表示中なら保存確認を挟んでから
 	// pendingTransitionRequest_へ退避する
 	void ProcessSceneTransitionRequest();
+
+	// objects_内の全SceneTransitionComponentを評価し、キー入力/ボタンクリックの条件を
+	// 満たしていればnextScene_を設定する。HandleSceneTransitionInput()（派生シーンが
+	// 手書きC++で個別に遷移条件を書く場所）より前に呼ぶことで、素のSceneBase（GenericSceneStoreが
+	// 作る「空のシーン」）でもコンポーネントを付けるだけでシーン遷移できるようにする
+	void UpdateSceneTransitionComponents();
 };

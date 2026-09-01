@@ -1,6 +1,8 @@
 #include "SceneBase.h"
-#include "GameTags.h"
 #include "FadeManager.h"
+#include "SceneRegistry.h"
+#include "GenericSceneStore.h"
+#include "SceneTransitionComponent.h"
 #include "../Externals/imgui/imgui.h"
 #include "../Externals/ImGuizmo/src/ImGuizmo.h"
 #include "../Math/MatrixMath.h"
@@ -15,6 +17,7 @@
 #include "../Engine/Utils/EditorState.h"
 #include "../Engine/GameObject/Systems/HitEffect.h"
 #include "../Engine/GameObject/Component/Physics/SpawnMoveComponent.h"
+#include "../Engine/InputDevice/InputDevice.h"
 #include <cmath>
 #include <algorithm>
 #include <cctype>
@@ -27,6 +30,18 @@
 #include <cctype>
 #include <shellapi.h>
 #pragma comment(lib, "shell32.lib")
+
+namespace {
+	// 以前はGame/GameTags.h(REFLEX専用タグ集)から取っていたが、ここで使う5つは
+	// SceneBase自身の内蔵機能（HUDのAutoRunカメラ追従・AlphabetText/DashedLine/ComboPopupの
+	// 子オブジェクト管理・Gameカメラ解決）が使う汎用的なタグ規約のため、SceneBase自身が持つ
+	// （GameTags.hの削除に伴い、REFLEX専用シーンからしか参照されない残り15個は削除した）
+	constexpr const char* kPlayerTag           = "Player";
+	constexpr const char* kAlphabetCharTag     = "AlphabetChar";
+	constexpr const char* kDashedLineSegmentTag = "DashedLineSegment";
+	constexpr const char* kComboPopupTag       = "ComboPopup";
+	constexpr const char* kMainCameraTag       = "MainCamera";
+}
 
 GameObject& SceneBase::CreateObject(const std::string& name) {
 	auto obj = std::make_unique<GameObject>();
@@ -676,7 +691,7 @@ void SceneBase::UpdateAutoRunCameraFollowTarget() {
 	// 無ければ（今までどおり）シーン内で最初に見つかったAutoRunComponent持ちオブジェクトに
 	// フォールバックする。各オブジェクトのUpdate()より前に解決しておくことで、このフレームの
 	// CameraFollowComponent::Updateが古い/nullのtargetを見ないようにする
-	GameObject* autoRunTarget = FindObjectByTag(GameTags::kPlayer);
+	GameObject* autoRunTarget = FindObjectByTag(kPlayerTag);
 	if (!autoRunTarget) {
 		for (auto& obj : objects_) {
 			if (obj->GetComponent<AutoRunComponent>()) { autoRunTarget = obj.get(); break; }
@@ -719,7 +734,7 @@ void SceneBase::ClearAlphabetTextChildren(GameObject& owner) {
 	std::vector<GameObject*> children = owner.GetChildren();
 	std::vector<GameObject*> toDelete;
 	for (GameObject* child : children) {
-		if (child->tag == GameTags::kAlphabetChar) toDelete.push_back(child);
+		if (child->tag == kAlphabetCharTag) toDelete.push_back(child);
 	}
 	if (!toDelete.empty()) DeleteObjects(toDelete);
 }
@@ -735,7 +750,7 @@ void SceneBase::RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextCompo
 	GameObject* previouslySelected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
 	bool previouslySelectedIsRebuiltChild = previouslySelected
 		&& previouslySelected->GetParent() == &owner
-		&& previouslySelected->tag == GameTags::kAlphabetChar;
+		&& previouslySelected->tag == kAlphabetCharTag;
 
 	ClearAlphabetTextChildren(owner);
 
@@ -791,7 +806,7 @@ void SceneBase::RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextCompo
 		if (!isLetter && !isDigit) continue; // 対応する.objが無い文字は無視する
 
 		GameObject& charObj = CreateObject(std::string(1, upper));
-		charObj.tag = GameTags::kAlphabetChar;
+		charObj.tag = kAlphabetCharTag;
 		charObj.excludeFromPicking = true; // 3Dクリックでの誤選択を防ぐ（Hierarchy上では選択・削除可能）
 		// text（表示文字列）が変わるたびに作り直される一時的な子GameObjectのため保存対象外にする
 		// （保存されてしまうと、次回ロード時にAlphabetTextComponent::lastBuiltTextの初期化と
@@ -893,7 +908,7 @@ void SceneBase::UpdateAlphabetTextComponents() {
 				obj->GetTransform().scale = { comp->displayScaleMultiplier, comp->displayScaleMultiplier, comp->displayScaleMultiplier };
 			}
 			for (GameObject* child : obj->GetChildren()) {
-				if (child->tag != GameTags::kAlphabetChar) continue;
+				if (child->tag != kAlphabetCharTag) continue;
 				if (auto* render = child->GetComponent<ModelRenderComponent>()) {
 					render->color = comp->displayColor;
 				}
@@ -912,7 +927,7 @@ void SceneBase::ClearDashedLineSegments(GameObject& owner) {
 	std::vector<GameObject*> children = owner.GetChildren();
 	std::vector<GameObject*> toDelete;
 	for (GameObject* child : children) {
-		if (child->tag == GameTags::kDashedLineSegment) toDelete.push_back(child);
+		if (child->tag == kDashedLineSegmentTag) toDelete.push_back(child);
 	}
 	if (!toDelete.empty()) DeleteObjects(toDelete);
 }
@@ -924,7 +939,7 @@ void SceneBase::RebuildDashedLineSegments(GameObject& owner, DashedLineComponent
 	GameObject* previouslySelected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
 	bool previouslySelectedIsRebuiltChild = previouslySelected
 		&& previouslySelected->GetParent() == &owner
-		&& previouslySelected->tag == GameTags::kDashedLineSegment;
+		&& previouslySelected->tag == kDashedLineSegmentTag;
 
 	ClearDashedLineSegments(owner);
 
@@ -940,7 +955,7 @@ void SceneBase::RebuildDashedLineSegments(GameObject& owner, DashedLineComponent
 			float x = startX + comp.dashSpacing * static_cast<float>(i);
 
 			GameObject& dashObj = CreateObject("下線ダッシュ" + std::to_string(i));
-			dashObj.tag = GameTags::kDashedLineSegment;
+			dashObj.tag = kDashedLineSegmentTag;
 			dashObj.excludeFromPicking = true; // 3Dクリックでの誤選択を防ぐ（Hierarchy上では選択・削除可能）
 			// dashCount/dashSpacingが変わるたびに作り直される一時的な子GameObjectのため
 			// 保存対象外にする（AlphabetTextComponentの子と同じ理由）
@@ -1006,7 +1021,7 @@ void SceneBase::SpawnComboPopup(GameObject& owner, ComboPopupComponent& comp, in
 	// 済むようにするため、最初から親子関係を持たせない）。
 	// scale/alphaはUpdateComboPopupComponentsがelapsed経過に応じて毎フレーム書き換える
 	GameObject& group = CreateObject("ComboPopup " + digits);
-	group.tag = GameTags::kComboPopup;
+	group.tag = kComboPopupTag;
 	group.excludeFromPicking = true; // 演出用オブジェクトなので3Dクリック選択の対象外にする
 	// 短い寿命で自動的に消える一時的な演出オブジェクトのため保存対象外にする（詳しくは
 	// RebuildAlphabetTextChildrenの同様のコメント参照）
@@ -1142,7 +1157,7 @@ SceneBase::GameCameraResolution SceneBase::ResolveGameCamera() {
 	// 無ければ（今までどおり）シーン内で最初に見つかったCameraComponentにフォールバックする。
 	// 複数カメラがある場合にどれを使うか明示的に選べるように、Unityの「MainCameraタグ」相当を追加した
 	GameCameraResolution result;
-	if (GameObject* tagged = FindObjectByTag(GameTags::kMainCamera)) {
+	if (GameObject* tagged = FindObjectByTag(kMainCameraTag)) {
 		if (auto* c = tagged->GetComponent<CameraComponent>()) {
 			result.gameCamera = c;
 			result.gameCameraObject = tagged;
@@ -1337,11 +1352,38 @@ void SceneBase::DrawEditorUiIfVisible() {
 	}
 }
 
+void SceneBase::UpdateSceneTransitionComponents() {
+	if (!nextScene_.empty()) return; // 既に他の遷移要求待ちなら何もしない（二重遷移防止）
+
+	for (auto& obj : objects_) {
+		auto* transition = obj->GetComponent<SceneTransitionComponent>();
+		if (!transition || !transition->enabled || transition->targetScene.empty()) continue;
+
+		if (transition->triggerKey != 0 && Input::IsTriggered(transition->triggerKey)) {
+			nextScene_ = transition->targetScene;
+			return;
+		}
+		if (transition->useButtonClick && !transition->hitboxTag.empty()) {
+			auto result = UpdateButtonAndReflectHover(transition->hitboxTag.c_str(),
+				transition->textTag.empty() ? nullptr : transition->textTag.c_str());
+			if (result.clicked) {
+				nextScene_ = transition->targetScene;
+				return;
+			}
+		}
+	}
+}
+
 void SceneBase::ProcessSceneTransitionRequest() {
 	// シーン遷移条件は派生クラスごとに異なるため、ここでフックへ委譲する。
 	// ImGuiのテキスト入力欄等がキーボードを掴んでいる間はEnter/Escape等のホットキーを
 	// 無視する（Inspectorの名前欄でEnterを押しただけでシーン遷移してしまう等を防ぐ）
 	if (!ImGui::GetIO().WantCaptureKeyboard) {
+		// SceneTransitionComponentによる汎用遷移（キー/ボタン）を先に評価し、その後
+		// 派生シーン固有のHandleSceneTransitionInput()を呼ぶ（両方が同時にnextScene_を
+		// 設定しようとしても、既にnextScene_が埋まっていれば上のUpdateSceneTransitionComponents
+		// 側が早期returnするため後勝ちにはならない）
+		UpdateSceneTransitionComponents();
 		HandleSceneTransitionInput();
 	}
 
@@ -1937,13 +1979,81 @@ void SceneBase::DrawSceneTransitionButtons() {
 	// 直接切り替えられるようにする。ボタンはnextScene_へ代入するだけで、実際の切替は
 	// 既存のSceneManager::Render()内（GetNextScene()を見てChangeScene）で行われる
 	ImGui::Text("シーン切替");
-	// SceneRegistryに登録済みの全シーン名を動的に列挙してボタン化する（REGISTER_SCENEで
-	// 新しいシーンを追加するだけで、ここを編集しなくても切替ボタンが増える）
+	// SceneRegistryに登録済みの全シーン名を動的に列挙してボタン化する（REGISTER_SCENEや
+	// GenericSceneStore::CreateSceneで新しいシーンを追加するだけで、ここを編集しなくても
+	// 切替ボタンが増える）。各ボタンを右クリックすると削除メニューが出る（GenericSceneStore管理下の
+	// シーンのみ実際に削除される。REGISTER_SCENEのC++シーンは対象外メッセージが出る）
 	bool firstSceneButton = true;
 	for (const std::string& sceneName : SceneRegistry::GetAllNames()) {
 		if (!firstSceneButton) ImGui::SameLine();
 		firstSceneButton = false;
+		ImGui::PushID(sceneName.c_str());
 		if (ImGui::Button(sceneName.c_str())) nextScene_ = sceneName;
+
+		// 現在表示中のシーン自身は削除させない（assetFolder_はSceneManagerがシーン名から
+		// そのまま渡してくる自分自身の名前。削除中にエディタUIごと消える事故を防ぐ）
+		if (sceneName != assetFolder_ && ImGui::BeginPopupContextItem("SceneButtonContext")) {
+			if (ImGui::MenuItem("削除")) {
+				if (!showSceneDeleteConfirm_) {
+					pendingSceneDeleteRequest_ = sceneName;
+					showSceneDeleteConfirm_ = true;
+					ImGui::OpenPopup("シーン削除の確認##SceneDeleteConfirm");
+				}
+			}
+			ImGui::EndPopup();
+		}
+		ImGui::PopID();
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("+")) {
+		ImGui::OpenPopup("NewScenePopup");
+	}
+	if (ImGui::BeginPopup("NewScenePopup")) {
+		static char newSceneNameBuf[128] = "";
+		ImGui::InputText("シーン名", newSceneNameBuf, sizeof(newSceneNameBuf));
+		bool canCreate = newSceneNameBuf[0] != '\0';
+		if (!canCreate) ImGui::BeginDisabled();
+		if (ImGui::Button("作成")) {
+			lastSceneOpMessage_ = GenericSceneStore::CreateScene(newSceneNameBuf);
+			if (lastSceneOpMessage_.empty()) {
+				newSceneNameBuf[0] = '\0';
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		if (!canCreate) ImGui::EndDisabled();
+		ImGui::EndPopup();
+	}
+
+	if (!lastSceneOpMessage_.empty()) {
+		ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "%s", lastSceneOpMessage_.c_str());
+	}
+
+	if (showSceneDeleteConfirm_) {
+		DrawSceneDeleteConfirmPopup();
+	}
+}
+
+void SceneBase::DrawSceneDeleteConfirmPopup() {
+	// OpenPopupは要求発生の最初のフレームだけ呼べばよいが、BeginPopupModalは表示され続ける間、
+	// 毎フレーム呼ぶ必要がある（DrawTransitionSavePromptと同じImGuiの標準的なモーダルの使い方）
+	if (ImGui::BeginPopupModal("シーン削除の確認##SceneDeleteConfirm", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::Text("シーン「%s」を削除しますか？", pendingSceneDeleteRequest_.c_str());
+		ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.3f, 1.0f), "Resources/%s/ フォルダごと完全に削除されます（元に戻せません）", pendingSceneDeleteRequest_.c_str());
+		ImGui::Separator();
+		if (ImGui::Button("削除する", ImVec2(120, 0))) {
+			lastSceneOpMessage_ = GenericSceneStore::DeleteScene(pendingSceneDeleteRequest_);
+			pendingSceneDeleteRequest_.clear();
+			showSceneDeleteConfirm_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル", ImVec2(120, 0))) {
+			pendingSceneDeleteRequest_.clear();
+			showSceneDeleteConfirm_ = false;
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
 	}
 }
 

@@ -10,6 +10,11 @@ void SceneManager::Initialize(Renderer* renderer, Camera* camera, const std::str
 }
 
 void SceneManager::Render(float deltaTime) {
+	// currentScene_はChangeScene()がSceneRegistry::Createの失敗(未登録のシーン名)時にnullptrの
+	// ままになりうる（Logger::Logで警告済み）。何もせず抜けることで、シーンが1つも無い/名前を
+	// 間違えた状態でも即クラッシュせず、次のフレーム以降に正しい名前で遷移し直せるようにする
+	if (!currentScene_) return;
+
 	currentScene_->Render(deltaTime);
 
 	// Render完了後に遷移要求を確認する（描画中にシーンが差し替わらないようにするため）。

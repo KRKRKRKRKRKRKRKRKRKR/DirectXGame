@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "GenericSceneStore.h"
 #include "../Externals/imgui/imgui.h"
 #include "../Engine/GameObject/ComponentRegistration.h"
 #include "../Engine/Utils/EditorState.h"
@@ -8,7 +9,10 @@ void Game::Initialize(Renderer* renderer, Camera* camera, Window* window) {
 	camera_ = camera;
 	window_ = window;
 	RegisterEngineComponents(); // JSON保存/復元のためのコンポーネント型登録（シーン初期化前に一度だけ）
-	sceneManager_.Initialize(renderer, camera, "Title");
+	// Resources/scenes.jsonに登録されている全シーン(C++クラス不要の汎用シーン)をSceneRegistryへ
+	// 登録し、起動時に読み込むべきシーン名を受け取る。ファイルが無ければ("Main"を自動生成)
+	std::string startScene = GenericSceneStore::LoadOrCreateDefault();
+	sceneManager_.Initialize(renderer, camera, startScene);
 }
 
 void Game::Update(float deltaTime) {

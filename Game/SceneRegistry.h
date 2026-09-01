@@ -14,8 +14,13 @@ class SceneRegistry {
 public:
 	using Factory = std::function<std::unique_ptr<IScene>()>;
 
-	// name: シーンの識別名。Resources/{name}/ をそのままアセットフォルダ名としても使う
+	// name: シーンの識別名。Resources/{name}/ をそのままアセットフォルダ名としても使う。
+	// 同名が既に登録済みの場合はfactoryを上書きするだけで、Names()には重複追加しない
+	// （GenericSceneStoreが実行時にRegisterを呼び直すケースがあるため）
 	static void Register(const std::string& name, Factory factory);
+
+	// nameの登録を取り消す（GenericSceneStore::DeleteSceneから呼ばれる、生成済みのシーンには影響しない）
+	static void Unregister(const std::string& name);
 
 	// 未登録の名前が渡された場合はnullptrを返す
 	static std::unique_ptr<IScene> Create(const std::string& name);
