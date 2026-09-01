@@ -95,6 +95,8 @@
     <ClCompile Include="Engine\GameObject\Component\Physics\OBBColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GravityComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\RotatorComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridReflexPlayerComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridBoardComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.cpp" />
@@ -141,6 +143,7 @@
     <ClCompile Include="Game\SceneManager.cpp" />
     <ClCompile Include="Game\TitleScene.cpp" />
     <ClCompile Include="Game\TutorialScene.cpp" />
+    <ClCompile Include="Game\GridPuzzleScene.cpp" />
     <ClCompile Include="Game\SelectScene.cpp" />
     <ClCompile Include="Game\GameOverScene.cpp" />
     <ClCompile Include="Game\ClearScene.cpp" />
@@ -274,6 +277,8 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\ColliderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\RotatorComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridReflexPlayerComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridBoardComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.h" />
@@ -331,6 +336,7 @@
     <ClInclude Include="Game\SceneManager.h" />
     <ClInclude Include="Game\TitleScene.h" />
     <ClInclude Include="Game\TutorialScene.h" />
+    <ClInclude Include="Game\GridPuzzleScene.h" />
     <ClInclude Include="Game\SelectScene.h" />
     <ClInclude Include="Game\GameOverScene.h" />
     <ClInclude Include="Game\ClearScene.h" />

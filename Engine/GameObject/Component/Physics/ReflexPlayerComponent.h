@@ -173,11 +173,16 @@ private:
 	// currentWaypointIndex_が指す区間の開始・終了・所要時間をセットし、経過時間をリセットする
 	void BeginSegment(const Vector3& from, const Vector3& to);
 
+protected:
 	// 左クリックした地点（プレイヤーと同じZ座標のX-Y平面上）を求める。
-	// 成功したらtrueを返し、outPositionにワールド座標を書き込む
-	bool TryPickPoint(const Transform& transform, const UpdateContext& ctx, Vector3& outPosition) const;
+	// 成功したらtrueを返し、outPositionにワールド座標を書き込む。
+	// virtual・protected：10DaysJam企画のGridReflexPlayerComponentが、この結果を最寄りの
+	// マスへスナップ＋グリッド制約（同じ行/列上・距離N〜Mマス）で絞り込むためにオーバーライドする
+	// （通常のREFLEX用途では基底のこの実装がそのまま使われ、挙動は変わらない）
+	virtual bool TryPickPoint(const Transform& transform, const UpdateContext& ctx, Vector3& outPosition) const;
 
 	// fromからtoまでの線分上に、CollisionLayer::kObstacleのColliderComponentBaseを持つ
-	// GameObjectが存在するかどうか。存在すればtrue（＝その方向へは進めない）
-	bool IsPathBlocked(const Vector3& from, const Vector3& to, const UpdateContext& ctx) const;
+	// GameObjectが存在するかどうか。存在すればtrue（＝その方向へは進めない）。
+	// virtual・protectedにしてあるのはTryPickPointと同じ理由（現状オーバーライドする派生クラスは無い）
+	virtual bool IsPathBlocked(const Vector3& from, const Vector3& to, const UpdateContext& ctx) const;
 };

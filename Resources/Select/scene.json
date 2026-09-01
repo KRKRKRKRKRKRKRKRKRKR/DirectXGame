@@ -1,3 +1,183 @@
 {
-    "objects": []
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 0.949999988079071,
+                        "charSpacing": 3.950000047683716,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "prototype",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "PROTOTYPE テキスト",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    9.930000305175781,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "ambient": 0.20000000298023224,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "enabled": true,
+                        "halfLambertPower": 2.0
+                    },
+                    "type": "DirectionalLight"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "光源",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    -20.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "farClip": 1000.0,
+                        "fov": 100.08399963378906,
+                        "nearClip": 0.10000000149011612,
+                        "positionOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "rotationOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "Camera"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "カメラ",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    -10.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": true
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "duration": 0.05000000074505806,
+                        "easing": 8,
+                        "startDelay": 0.0,
+                        "zOffset": 10.0
+                    },
+                    "type": "SpawnMove"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "プレイヤー",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.2210264503955841,
+                    0.6788697838783264,
+                    0.0
+                ]
+            }
+        }
+    ]
 }

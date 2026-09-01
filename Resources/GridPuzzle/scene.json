@@ -1,0 +1,223 @@
+{
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "columns": 30,
+                        "rows": 15,
+                        "tileColorA": [
+                            0.3822394013404846,
+                            0.3822394013404846,
+                            0.3822394013404846,
+                            1.0
+                        ],
+                        "tileColorB": [
+                            0.16602319478988647,
+                            0.16602319478988647,
+                            0.16602319478988647,
+                            1.0
+                        ]
+                    },
+                    "type": "GridBoard"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
+            "name": "Board",
+            "parentIndex": -1,
+            "tag": "GridBoard",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.949999988079071,
+                            0.3499999940395355,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "cellSpacing": 1.5,
+                        "easingType": 25,
+                        "fieldRangeMaxX": 1000.0,
+                        "fieldRangeMaxY": 1000.0,
+                        "fieldRangeMinX": -1000.0,
+                        "fieldRangeMinY": -1000.0,
+                        "gridHeight": 15,
+                        "gridWidth": 36,
+                        "highlightColor": [
+                            1.0,
+                            0.5057915449142456,
+                            0.5057915449142456,
+                            1.0
+                        ],
+                        "lineColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "lineDashLength": 0.30000001192092896,
+                        "lineGapLength": 0.20000000298023224,
+                        "lineScrollSpeed": 1.0,
+                        "lineThickness": 0.10000000149011612,
+                        "markerColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "markerPulseDuration": 1.0,
+                        "markerPulseMaxScale": 0.30000001192092896,
+                        "markerPulseMinScale": 0.15000000596046448,
+                        "markerWaveCount": 3,
+                        "maxJumpDistance": 10,
+                        "maxWaypoints": 10,
+                        "minJumpDistance": 1,
+                        "moveSpeed": 30.0,
+                        "obstacleMargin": 0.5,
+                        "readyToExecuteDelay": 0.5
+                    },
+                    "type": "GridReflexPlayer"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Player",
+            "parentIndex": -1,
+            "tag": "Player",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.9000000357627869,
+                    0.9000000357627869,
+                    0.9000000357627869
+                ],
+                "translation": [
+                    22.5,
+                    -15.0,
+                    -0.5
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "ambient": 0.20000000298023224,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "enabled": true,
+                        "halfLambertPower": 2.0
+                    },
+                    "type": "DirectionalLight"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "GridPuzzleLight",
+            "parentIndex": -1,
+            "tag": "GridPuzzleLight",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "farClip": 1000.0,
+                        "fov": 45.0,
+                        "nearClip": 0.10000000149011612,
+                        "positionOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "rotationOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "Camera"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "新規追加 455",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        }
+    ]
+}
