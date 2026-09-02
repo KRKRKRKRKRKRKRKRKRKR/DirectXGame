@@ -176,9 +176,10 @@ private:
 protected:
 	// 左クリックした地点（プレイヤーと同じZ座標のX-Y平面上）を求める。
 	// 成功したらtrueを返し、outPositionにワールド座標を書き込む。
-	// virtual・protected：10DaysJam企画のGridReflexPlayerComponentが、この結果を最寄りの
-	// マスへスナップ＋グリッド制約（同じ行/列上・距離N〜Mマス）で絞り込むためにオーバーライドする
-	// （通常のREFLEX用途では基底のこの実装がそのまま使われ、挙動は変わらない）
+	// virtual・protected：10DaysJam企画のグリッド制約付きプレイヤー移動用サブクラス（旧
+	// GridReflexPlayerComponentは削除済み、専用コンポーネントを別途実装予定）が、この結果を
+	// 最寄りのマスへスナップ＋グリッド制約（同じ行/列上・距離N〜Mマス）で絞り込むために
+	// オーバーライドする想定（通常のREFLEX用途では基底のこの実装がそのまま使われ、挙動は変わらない）
 	virtual bool TryPickPoint(const Transform& transform, const UpdateContext& ctx, Vector3& outPosition) const;
 
 	// fromからtoまでの線分上に、CollisionLayer::kObstacleのColliderComponentBaseを持つ

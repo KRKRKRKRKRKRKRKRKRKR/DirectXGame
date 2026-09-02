@@ -4,7 +4,8 @@
             "components": [
                 {
                     "data": {
-                        "columns": 30,
+                        "cellSpacing": 1.5,
+                        "columns": 26,
                         "rows": 15,
                         "tileColorA": [
                             0.3822394013404846,
@@ -66,48 +67,23 @@
                 },
                 {
                     "data": {
-                        "cellSpacing": 1.5,
-                        "easingType": 25,
-                        "fieldRangeMaxX": 1000.0,
-                        "fieldRangeMaxY": 1000.0,
-                        "fieldRangeMinX": -1000.0,
-                        "fieldRangeMinY": -1000.0,
-                        "gridHeight": 15,
-                        "gridWidth": 36,
+                        "easingType": 0,
                         "highlightColor": [
-                            1.0,
-                            0.5057915449142456,
-                            0.5057915449142456,
+                            0.550000011920929,
+                            0.949999988079071,
+                            0.3499999940395355,
                             1.0
                         ],
-                        "lineColor": [
+                        "maxCost": 10,
+                        "moveSpeed": 5.0,
+                        "reservedColor": [
                             1.0,
-                            0.8999999761581421,
+                            0.8500000238418579,
                             0.20000000298023224,
                             1.0
-                        ],
-                        "lineDashLength": 0.30000001192092896,
-                        "lineGapLength": 0.20000000298023224,
-                        "lineScrollSpeed": 1.0,
-                        "lineThickness": 0.10000000149011612,
-                        "markerColor": [
-                            1.0,
-                            1.0,
-                            1.0,
-                            1.0
-                        ],
-                        "markerPulseDuration": 1.0,
-                        "markerPulseMaxScale": 0.30000001192092896,
-                        "markerPulseMinScale": 0.15000000596046448,
-                        "markerWaveCount": 3,
-                        "maxJumpDistance": 10,
-                        "maxWaypoints": 10,
-                        "minJumpDistance": 1,
-                        "moveSpeed": 30.0,
-                        "obstacleMargin": 0.5,
-                        "readyToExecuteDelay": 0.5
+                        ]
                     },
-                    "type": "GridReflexPlayer"
+                    "type": "GridBoardPlayer"
                 }
             ],
             "excludeFromGizmoList": false,
@@ -128,8 +104,8 @@
                     0.9000000357627869
                 ],
                 "translation": [
-                    22.5,
-                    -15.0,
+                    1.5,
+                    -3.0,
                     -0.5
                 ]
             }
@@ -195,6 +171,32 @@
                     "type": "Camera"
                 }
             ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    21.143606185913086,
+                    -9.943517684936523,
+                    -36.560001373291016
+                ]
+            }
+        },
+        {
+            "components": [],
             "excludeFromGizmoList": false,
             "excludeFromPicking": false,
             "name": "新規追加 455",

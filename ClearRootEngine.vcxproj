@@ -153,8 +153,9 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Physics\OBBColliderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GravityComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\RotatorComponent.cpp" />
-    <ClCompile Include="Engine\GameObject\Component\Physics\GridReflexPlayerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridBoardComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridItemComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.cpp" />
@@ -289,8 +290,9 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Physics\ColliderComponentBase.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GravityComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\RotatorComponent.h" />
-    <ClInclude Include="Engine\GameObject\Component\Physics\GridReflexPlayerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridBoardComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridItemComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.h" />

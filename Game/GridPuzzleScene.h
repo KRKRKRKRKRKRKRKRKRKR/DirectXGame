@@ -2,15 +2,14 @@
 #include "SceneBase.h"
 #include <vector>
 
-// パイプ接続パズル企画の最初のプロトタイプ画面。今回は企画書のうち「プレイヤー移動」だけを
-// 切り出して確認するための最小実装で、壁・アイテム・HP・ダメージ・Undo・敵は含まない。
-// 盤面（GridBoardComponent、列数・行数はInspectorで調整可能）をタイル（CubeRenderComponent）で
-// 表示し、中央にプレイヤー（GridReflexPlayerComponent。REFLEXのReflexPlayerComponentをそのまま
-// 継承し、クリック位置の妥当性判定だけをグリッド制約でオーバーライドしたもの。クリック先は
-// 直前の予約地点と同じ行/列上・1〜4マス先のタイルのみ有効、最大4回予約したら自動で実行フェーズへ
-// 移行する）を1体置くだけの画面。盤面の列数・行数とプレイヤーの移動範囲
-// （GridReflexPlayerComponent::gridWidth/gridHeight）は意図的に同期させない
-// （互いに独立してInspectorから調整できるだけでよい、という設計判断）。
+// パイプ接続パズル企画の最初のプロトタイプ画面。今回は企画書のうち「プレイヤー移動」「アイテム」
+// だけを切り出して確認するための実装で、壁・HP・ダメージ計算・Undo・盤面リセットは含まない。
+// 盤面（GridBoardComponent、列数・行数・マス間隔はInspectorで調整可能）をタイル
+// （CubeRenderComponent）で表示し、中央にプレイヤー（GridBoardPlayerComponent。ReflexPlayerComponent
+// には依存しない独立実装。同じ行/列上のマスをクリックして経路予約→実行フェーズで移動、
+// 1マスごとにコストを消費するコスト制）を1体、固定座標にアイテム（GridItemComponent、
+// 攻撃力+1／コスト+2固定／コスト±4リスキーの3種）を配置する画面。
+// 盤面サイズ・マス間隔はGridBoardComponentが唯一のデータソース。
 // SceneBase（GameObjectエディタ機能一式）をそのまま使い、PlayScene（REFLEX固有の計画/実行
 // フェーズ等）は経由しない
 class GridPuzzleScene : public SceneBase {
@@ -40,42 +39,40 @@ private:
 	void RebuildTiles(int columns, int rows);
 
 	// row*columns+col の順でタイルGameObjectへの非所有ポインタを保持する（RebuildTilesが
-	// 作り直すたびに詰め直す）。UpdateTileHighlightsがGridClickJumpPlayerComponent::
-	// GetValidTargets()の結果と突き合わせて、色を書き換える対象を探すために使う
+	// 作り直すたびに詰め直す）。UpdateTileHighlightsが色を書き換える対象を探すために使う
 	std::vector<GameObject*> tileObjects_;
 
-	// 直近にRebuildTilesした時点の列数・行数。HandleSceneTransitionInputが毎フレーム
-	// GridBoardComponent::columns/rowsと比較し、値が変わっていたらRebuildTilesを呼び直す
-	// （＝Inspectorで列数・行数を変えるだけで盤面の大きさがその場で変わる）
+	// 直近にRebuildTilesした時点の列数・行数・マス間隔。HandleSceneTransitionInputが毎フレーム
+	// GridBoardComponent::columns/rows/cellSpacingと比較し、値が変わっていたらRebuildTilesを
+	// 呼び直す（＝Inspectorで列数・行数・マス間隔を変えるだけで盤面の見た目がその場で変わる）
 	int lastBoardColumns_ = 0;
 	int lastBoardRows_ = 0;
+	float lastBoardCellSpacing_ = 0.0f;
 
-	// 毎フレーム呼ぶ。GridBoardComponent::columns/rowsが直前の構築時から変わっていればタイルを
-	// 作り直す
+	// 毎フレーム呼ぶ。GridBoardComponent::columns/rows/cellSpacingが直前の構築時から
+	// 変わっていればタイルを作り直す
 	void RebuildTilesIfBoardSizeChanged();
 
-	// 毎フレーム呼ぶ。プレイヤーのGridReflexPlayerComponentが計画フェーズ中に返す
-	// 「次にクリックできるマス」一覧を取得し、該当するタイルだけハイライト色にする
-	// （それ以外は市松模様の基本色に戻す）
+	// 毎フレーム呼ぶ。プレイヤーのGridBoardPlayerComponentが計画フェーズ中に返す
+	// 「次にクリックできるマス」一覧（GetValidTargets、残コストで届く縦横のマス）を取得し、
+	// 該当するタイルだけハイライト色にする（それ以外は市松模様の基本色に戻す）
 	void UpdateTileHighlights();
 
-	// 毎フレーム呼ぶ。基底のReflexPlayerComponentは実行フェーズ完了後、本来はPlayScene側が
-	// 敵の補充スポーンを終えてFinishPreparing()を呼ぶまでPhase::kPreparingで足止めする設計だが、
-	// このシーンには敵がいないため、実行フェーズ完了を検知した瞬間に即座にFinishPreparing()を
-	// 呼んで計画フェーズへ戻す（呼ばないと2ターン目以降クリックしても経路を予約できなくなる）
+	// 毎フレーム呼ぶ。GridBoardPlayerComponentは実行フェーズ完了時に自分自身で計画フェーズへ
+	// 自動遷移するため（ReflexPlayerComponentのような、シーン側がFinishPreparing()を呼んで
+	// 明示的に戻す準備フェーズを持たない）、現在は何もしない
 	void AdvanceTurnIfExecutionFinished();
 
-	// 毎フレーム呼ぶ。カメラのX座標だけをプレイヤーの現在位置へ指数減衰でなめらかに追従させる
-	// （CameraFollowComponentと同じ減衰式）。Y/Zは常に固定のまま動かさない（縦長×横に長い盤面で、
-	// 上下には動かず横方向だけプレイヤーを追いかける見た目にするため）。以前はPlayerの子に
-	// CameraComponent付きGameObjectを置いて追従させようとしたが、シーン内にCameraComponentが
-	// 1つでもあるとSceneBase::ResolveGameCameraがそちらをGameビュー用カメラとして自動優先して
-	// しまい、プレイヤーの縦移動・イージングの揺れをそのまま拾って見づらくなる問題があったため、
-	// GameObject/CameraComponentは使わず、SceneBase::camera_（このシーン専用の固定カメラ）を
-	// 直接動かす方式に変更した
-	void UpdateCameraFollow();
+	// 毎フレーム呼ぶ。GridBoardPlayerComponent::ConsumeTriggeredItems()で「直前のUpdateで
+	// 新たに発動したアイテムGameObject一覧」を取り出し、DeleteObjectsで削除する。アイテムの
+	// 発動判定・効果適用自体はGridBoardPlayerComponent側で完結しており、このシーン側は
+	// 「拾われたアイテムを盤面から取り除く」削除の実行だけを担当する（コンポーネントは
+	// シーンのオブジェクト所有権を持たないため）
+	void ProcessTriggeredItems();
 
-	// カメラが実際に追従している現在のX座標（指数減衰の途中経過）。OnInitialize()で盤面初期表示の
-	// 中心Xへリセットする
-	float cameraFollowX_ = 0.0f;
+	// 毎フレーム呼ぶ。tag==kGridItemTagの各GameObjectについて、GridItemComponent::color
+	// （Inspectorで調整可能）を兄弟のCubeRenderComponent::colorへコピーする。アイテムの色は
+	// GridItemComponent側が真の値で、実際の描画色（CubeRenderComponent::color）は
+	// 常にそれに追従させる
+	void SyncItemColors();
 };
