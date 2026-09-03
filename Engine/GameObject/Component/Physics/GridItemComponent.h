@@ -28,10 +28,10 @@ public:
 	int col = 0;
 	int row = 0;
 
-	// 見た目色。GridPuzzleScene::EnsureInitialObjectsExistが配置時にtype別の既定色
-	// （攻撃力=赤、コスト固定=青、コストリスキー=紫）を初期値として渡すが、Inspectorから
-	// 自由に上書きできる。実際の描画は兄弟のCubeRenderComponent::colorが担うため、
-	// GridPuzzleSceneがこの値をCubeRenderComponent::colorへ毎フレーム同期する
+	// 見た目色。GridPuzzleScene::SpawnItemsFromConfigが生成時にGridItemSpawnComponent::
+	// SpawnEntry::color（スポナー側でtype別に設定する色）を初期値として渡すが、生成後は
+	// Inspectorから個別に自由に上書きできる。実際の描画は兄弟のCubeRenderComponent::colorが
+	// 担うため、GridPuzzleScene::SyncItemsがこの値をCubeRenderComponent::colorへ毎フレーム同期する
 	Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 	void OnTriggerEnter(GameObject& other) override;

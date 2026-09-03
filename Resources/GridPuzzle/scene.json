@@ -5,18 +5,18 @@
                 {
                     "data": {
                         "cellSpacing": 1.5,
-                        "columns": 5,
+                        "columns": 15,
                         "rows": 15,
                         "tileColorA": [
-                            0.800000011920929,
-                            0.8199999928474426,
-                            0.8600000143051147,
+                            0.058228105306625366,
+                            0.06198475882411003,
+                            0.06949806213378906,
                             1.0
                         ],
                         "tileColorB": [
-                            0.550000011920929,
-                            0.5799999833106995,
-                            0.6399999856948853,
+                            0.04409594088792801,
+                            0.06672034412622452,
+                            0.11196911334991455,
                             1.0
                         ]
                     },
@@ -114,7 +114,7 @@
                             0.3499999940395355,
                             1.0
                         ],
-                        "maxCost": 10,
+                        "maxCost": 20,
                         "moveSpeed": 5.0,
                         "reservedColor": [
                             1.0,
@@ -170,8 +170,8 @@
                     0.9000000357627869
                 ],
                 "translation": [
-                    4.5,
-                    -6.0,
+                    9.0,
+                    -16.5,
                     -0.5
                 ]
             }
@@ -180,28 +180,53 @@
             "components": [
                 {
                     "data": {
-                        "farClip": 1000.0,
-                        "fov": 45.0,
-                        "nearClip": 0.10000000149011612,
-                        "positionOffset": [
+                        "collectedDisplaySpacing": 1.0,
+                        "collectedDisplayTop": [
+                            -2.5,
                             0.0,
-                            0.0,
-                            0.0
+                            -0.30000001192092896
                         ],
-                        "rotationOffset": [
-                            0.0,
-                            0.0,
-                            0.0
+                        "spawnEntries": [
+                            {
+                                "color": [
+                                    1.0,
+                                    0.0,
+                                    0.0,
+                                    1.0
+                                ],
+                                "count": 20,
+                                "type": 0
+                            },
+                            {
+                                "color": [
+                                    0.007843137718737125,
+                                    1.0,
+                                    0.0,
+                                    1.0
+                                ],
+                                "count": 20,
+                                "type": 1
+                            },
+                            {
+                                "color": [
+                                    0.0,
+                                    0.0,
+                                    1.0,
+                                    1.0
+                                ],
+                                "count": 20,
+                                "type": 2
+                            }
                         ]
                     },
-                    "type": "Camera"
+                    "type": "GridItemSpawn"
                 }
             ],
             "excludeFromGizmoList": false,
-            "excludeFromPicking": false,
-            "name": "kamera ",
+            "excludeFromPicking": true,
+            "name": "ItemSpawner",
             "parentIndex": -1,
-            "tag": "",
+            "tag": "GridItemSpawner",
             "transform": {
                 "is2D": false,
                 "rotation": [
@@ -216,8 +241,8 @@
                 ],
                 "translation": [
                     0.0,
-                    -9.65999984741211,
-                    -30.18000030517578
+                    0.0,
+                    0.0
                 ]
             }
         },
@@ -230,9 +255,9 @@
                         "blendMode": "None",
                         "blendStrength": 1.0,
                         "color": [
-                            0.8999999761581421,
-                            0.20000000298023224,
-                            0.20000000298023224,
+                            1.0,
+                            0.0,
+                            0.0,
                             1.0
                         ],
                         "lighting": false
@@ -241,11 +266,11 @@
                 },
                 {
                     "data": {
-                        "col": 1,
+                        "col": 7,
                         "color": [
-                            0.8999999761581421,
-                            0.20000000298023224,
-                            0.20000000298023224,
+                            1.0,
+                            0.0,
+                            0.0,
                             1.0
                         ],
                         "row": 3,
@@ -283,7 +308,2497 @@
             "excludeFromGizmoList": false,
             "excludeFromPicking": false,
             "name": "Item",
-            "parentIndex": -1,
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    10.5,
+                    -4.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 2,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 5,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    3.0,
+                    -7.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 12,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 0,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    18.0,
+                    -0.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 5,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 3,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    7.5,
+                    -4.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 13,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    0.0,
+                    -19.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 13,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 5,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    19.5,
+                    -7.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 4,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 7,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    6.0,
+                    -10.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 3,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 14,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    4.5,
+                    -21.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 2,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 13,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    3.0,
+                    -19.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 4,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 11,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    6.0,
+                    -16.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 7,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 7,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    10.5,
+                    -10.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 7,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 12,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    10.5,
+                    -18.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 5,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 8,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    7.5,
+                    -12.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 7,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 1,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    10.5,
+                    -1.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 14,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 1,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    21.0,
+                    -1.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 14,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 4,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    21.0,
+                    -6.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 10,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 3,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    15.0,
+                    -4.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 12,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 11,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    18.0,
+                    -16.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 9,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 0,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    13.5,
+                    -0.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 9,
+                        "color": [
+                            1.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 3,
+                        "type": 0
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    13.5,
+                    -4.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 2,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 12,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    3.0,
+                    -18.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 2,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    0.0,
+                    -3.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 8,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 8,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    12.0,
+                    -12.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 8,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    0.0,
+                    -12.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 5,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 6,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    7.5,
+                    -9.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 7,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 5,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    10.5,
+                    -7.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 12,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 3,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    18.0,
+                    -4.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 3,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 6,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    4.5,
+                    -9.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 10,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 10,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    15.0,
+                    -15.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 8,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 9,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    12.0,
+                    -13.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 1,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 2,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
             "tag": "GridItem",
             "transform": {
                 "is2D": false,
@@ -299,8 +2814,2473 @@
                 ],
                 "translation": [
                     1.5,
+                    -3.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 7,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 0,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    10.5,
+                    -0.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 7,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 9,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    10.5,
+                    -13.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 5,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 10,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    7.5,
+                    -15.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 2,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 9,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    3.0,
+                    -13.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 3,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 13,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    4.5,
+                    -19.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 12,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 8,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    18.0,
+                    -12.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 12,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 7,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    18.0,
+                    -10.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 8,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 3,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    12.0,
                     -4.5,
                     -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 11,
+                        "color": [
+                            0.007843137718737125,
+                            1.0,
+                            0.0,
+                            1.0
+                        ],
+                        "row": 7,
+                        "type": 1
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    16.5,
+                    -10.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 12,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    0.0,
+                    -18.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 6,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    0.0,
+                    -9.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 14,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 7,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    21.0,
+                    -10.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 3,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 8,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    4.5,
+                    -12.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 13,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 14,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    19.5,
+                    -21.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 13,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 12,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    19.5,
+                    -18.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 10,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 13,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    15.0,
+                    -19.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 13,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 3,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    19.5,
+                    -4.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 4,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 8,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    6.0,
+                    -12.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 1,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 7,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    1.5,
+                    -10.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 3,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 2,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    4.5,
+                    -3.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 12,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 14,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    18.0,
+                    -21.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 5,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 1,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    7.5,
+                    -1.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 1,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 5,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    1.5,
+                    -7.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 3,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    0.0,
+                    -4.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 12,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 13,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    18.0,
+                    -19.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 9,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 1,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    13.5,
+                    -1.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 14,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 14,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    21.0,
+                    -21.0,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 9,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    0.0,
+                    -13.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "None",
+                        "blendStrength": 1.0,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "lighting": false
+                    },
+                    "type": "CubeRender"
+                },
+                {
+                    "data": {
+                        "col": 6,
+                        "color": [
+                            0.0,
+                            0.0,
+                            1.0,
+                            1.0
+                        ],
+                        "row": 7,
+                        "type": 2
+                    },
+                    "type": "GridItem"
+                },
+                {
+                    "data": {
+                        "collidesWith": [
+                            true,
+                            true,
+                            true,
+                            true,
+                            true,
+                            true
+                        ],
+                        "halfSize": [
+                            0.30000001192092896,
+                            0.30000001192092896,
+                            0.30000001192092896
+                        ],
+                        "isStatic": false,
+                        "isTrigger": true,
+                        "layer": "Item",
+                        "offset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "OBBCollider"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Item",
+            "parentIndex": 3,
+            "tag": "GridItem",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    0.6000000238418579,
+                    0.6000000238418579,
+                    0.6000000238418579
+                ],
+                "translation": [
+                    9.0,
+                    -10.5,
+                    -0.30000001192092896
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "farClip": 1000.0,
+                        "fov": 42.369998931884766,
+                        "nearClip": 0.10000000149011612,
+                        "positionOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "rotationOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "Camera"
+                },
+                {
+                    "data": {
+                        "boxCenter": [
+                            9.699999809265137,
+                            -10.800000190734863,
+                            -23.200000762939453
+                        ],
+                        "distance": 8.199999809265137,
+                        "enabled": false,
+                        "pitchDegrees": 0.0
+                    },
+                    "type": "CameraObliqueView"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "新規追加 291",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    1.1680668592453003,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -4.2376508712768555,
+                    -10.800000190734863,
+                    -31.400001525878906
                 ]
             }
         }

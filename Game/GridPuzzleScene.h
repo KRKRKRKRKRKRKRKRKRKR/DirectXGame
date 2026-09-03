@@ -12,6 +12,9 @@
 // 攻撃力+1／コスト+2固定／コスト±4リスキーの3種）を配置する画面。アイテムの取得判定は
 // マス座標比較ではなく、Player/Item双方に付与したOBBColliderComponent(isTrigger=true)による
 // ColliderSystemの当たり判定（重なった瞬間にGridItemComponent::OnTriggerEnterが発火）で行う。
+// 取得したアイテムは即座に盤面へ戻さず、GridItemSpawnComponent::collectedDisplayTopを基準に
+// 盤面外へ取得順に積み重ねて表示し（UpdateCollectedItemsDisplay）、プレイヤーの行動（実行フェーズ）が
+// 全て終わったタイミングでまとめて空きマスへ再配置する（FinalizeCollectedItemsOnTurnEnd）。
 // 盤面サイズ・マス間隔はGridBoardComponentが唯一のデータソース。
 // SceneBase（GameObjectエディタ機能一式）をそのまま使い、PlayScene（REFLEX固有の計画/実行
 // フェーズ等）は経由しない
@@ -61,27 +64,67 @@ private:
 	// 該当するタイルだけハイライト色にする（それ以外は市松模様の基本色に戻す）
 	void UpdateTileHighlights();
 
-	// 毎フレーム呼ぶ。GridBoardPlayerComponentは実行フェーズ完了時に自分自身で計画フェーズへ
-	// 自動遷移するため（ReflexPlayerComponentのような、シーン側がFinishPreparing()を呼んで
-	// 明示的に戻す準備フェーズを持たない）、現在は何もしない
+	// 毎フレーム呼ぶ。GridBoardPlayerComponentの現在フェーズを前フレームと比較し、
+	// 「実行フェーズ（kExecuting）からちょうど計画フェーズ（kPlanning）へ戻った瞬間」を検知したら
+	// FinalizeCollectedItemsOnTurnEndを呼ぶ（GridBoardPlayerComponentはReflexPlayerComponentと
+	// 異なり、シーン側が明示的に戻す準備フェーズを持たないため、シーン側でできることは
+	// このタイミングを検知して他の処理をトリガーすることだけ）
 	void AdvanceTurnIfExecutionFinished();
+
+	// 直前フレームでGridBoardPlayerComponent::GetPhase()がkExecutingだったかどうか。
+	// AdvanceTurnIfExecutionFinishedが「ちょうど今フレームで実行フェーズが終わった」ことを
+	// 検知するための前フレーム比較に使う
+	bool wasExecutingLastFrame_ = false;
+
+	// 現在のターン（計画→実行の1サイクル）で取得された（triggered==trueになった）アイテムを、
+	// 取得した順に保持する非所有ポインタ一覧。UpdateCollectedItemsDisplayが追加し、
+	// FinalizeCollectedItemsOnTurnEndが実際の盤面再配置後にクリアする
+	std::vector<GameObject*> collectedItemsThisTurn_;
 
 	// 毎フレーム呼ぶ。SceneBase::Render内のcolliderSystem_.ResolveAndDraw（このメソッドより前に
 	// 実行される）がPlayer/Itemの重なりを検知してGridItemComponent::OnTriggerEnterを発火させ、
-	// 効果適用済みのアイテムはtriggered=trueになっている。ここではtriggered==trueの
-	// tag==kGridItemTagを検索し、削除せずに空きマス（他のアイテム・プレイヤーの現在マスと
-	// 重ならないマス）をランダムに選んでcol/rowを書き換え、triggeredをfalseへ戻す
-	// （＝1体拾うたびに即座に別の場所へリスポーンし、常に盤面上に3体存在し続ける）。
-	// 実際の座標反映（Transform.translation）はSyncItemsに任せる
-	void RespawnTriggeredItems();
+	// 効果適用済みのアイテムはtriggered=trueになっている。ここでは新たにtriggered==trueになった
+	// アイテムをcollectedItemsThisTurn_へ取得順に追加し、リスト内の全アイテムを
+	// GridItemSpawnComponent::collectedDisplayTop（プレイヤーの取得済み表示、Inspectorで調整可能）
+	// を基準に上から下へ積み重ねて表示する（実際に盤面へ戻すのはFinalizeCollectedItemsOnTurnEndが
+	// ターン終了時にまとめて行う。ここでは表示だけを更新し、col/row・盤面への配置は変えない）
+	void UpdateCollectedItemsDisplay();
+
+	// AdvanceTurnIfExecutionFinishedが実行フェーズ終了を検知した瞬間に呼ぶ。
+	// collectedItemsThisTurn_内の各アイテムへ、現在の空きマスからランダムに選んだcol/rowを
+	// 書き換えてtriggeredをfalseへ戻す（＝取得済み表示から盤面へ戻す「リセット」演出）。
+	// 処理後、collectedItemsThisTurn_を空にして次のターンに備える
+	void FinalizeCollectedItemsOnTurnEnd();
 
 	// 毎フレーム呼ぶ。シーン内にtag==kGridItemTagが1つも存在しなければ（起動直後）、
-	// 固定座標(kInitialItemPlacements)へ攻撃力+1／コスト+2固定／コスト±4リスキーの3種を配置する
-	// （初回配置専用。2回目以降はRespawnTriggeredItemsが1体ずつ個別に場所を変えるため出番がない）
+	// GridItemSpawnComponent::spawnEntriesを読み、各エントリのcount個ぶんをランダムな空きマスへ
+	// 配置する（初回配置専用。2回目以降はFinalizeCollectedItemsOnTurnEndがターン終了ごとに
+	// 個別に場所を変えるため出番がない）。生成したアイテムはスポナーGameObject
+	// （tag==kGridItemSpawnerTag）の子にする
 	void RespawnItemsIfNoneExist();
 
-	// RespawnTriggeredItems/RespawnItemsIfNoneExistの空きマス抽選に使う乱数生成器
+	// 毎フレーム呼ぶ。GridItemSpawnComponent::ConsumeResetRequested()（Inspectorの「リセット」
+	// ボタン）がtrueを返した瞬間、既存のtag==kGridItemTagを全部削除してから、SpawnItemsFromConfigで
+	// spawnEntries通りに新しく配置し直す（RespawnItemsIfNoneExistと違い、既にアイテムが
+	// 存在していても強制的に作り直す）
+	void ResetItemsIfRequested();
+
+	// spawner（GridItemSpawnComponent付き）のspawnEntriesを読み、種別ごとにcount個ぶんを現在の
+	// 空きマスからランダムに抽選して生成する実処理。RespawnItemsIfNoneExist（初回のみ）と
+	// ResetItemsIfRequested（リセットボタン、既存削除後）の両方から呼ばれる共通ロジック
+	void SpawnItemsFromConfig(GameObject& spawner, class GridItemSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
+
+	// FinalizeCollectedItemsOnTurnEnd/RespawnItemsIfNoneExist/ResetItemsIfRequestedの空きマス
+	// 抽選に使う乱数生成器
 	std::mt19937 rng_{ std::random_device{}() };
+
+	// 現在プレイヤーがいるマス・既存の（triggeredでない）アイテムが置かれているマスの一覧を返す。
+	// RespawnItemsIfNoneExist/FinalizeCollectedItemsOnTurnEndが空きマス抽選の母集団を作るのに
+	// 共通で使う
+	std::vector<std::pair<int, int>> ComputeOccupiedCells(class GridBoardComponent* boardSize);
+
+	// boardSize->columns×rowsの全マスから、occupiedに含まれるものを除いた空きマス一覧を返す
+	std::vector<std::pair<int, int>> ComputeFreeCells(class GridBoardComponent* boardSize, const std::vector<std::pair<int, int>>& occupied);
 
 	// 毎フレーム呼ぶ。tag==kGridItemTagの各GameObjectについて、GridItemComponent::color
 	// （Inspectorで調整可能）を兄弟のCubeRenderComponent::colorへ、col/row（配置マス座標）を

@@ -90,6 +90,47 @@ std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetValidTargets(const
 	return result;
 }
 
+std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetReservedPathCells(const Transform& transform, const std::vector<GameObject*>* sceneObjects) const {
+	std::vector<std::pair<int, int>> cells;
+	if (waypoints_.empty()) return cells;
+
+	// 実行フェーズ中は既に通過し終えた区間（currentWaypointIndex_より前）を対象から除外し、
+	// 現在向かっている区間以降だけを計算する。計画フェーズ中はcurrentWaypointIndex_が
+	// 常に0のため、実質全区間が対象になる（＝計画フェーズ・実行フェーズを問わず同じロジックで
+	// 「これから進む残りのマス」を返せる）。
+	// 現在地（transform.translation）は、実行フェーズ中はイージング補間中の座標だが、
+	// 移動は常に現在向かっている区間の直線（同じ行 or 同じ列）上を動くため、その直線上の
+	// 最寄りマスへは正しく丸められる。既に通過済みの区間（別の直線上にある）を含めてしまうと、
+	// この現在地との位置関係が軸に沿わなくなり、斜め方向にマスを拾ってしまうバグになるため、
+	// 対象を現在の区間以降だけに絞ることが重要
+	if (currentWaypointIndex_ >= waypoints_.size()) return cells;
+
+	const GridBoardComponent* board = FindBoard(sceneObjects);
+	int curCol = 0, curRow = 0;
+	if (board) {
+		board->WorldToNearestGrid(transform.translation, curCol, curRow);
+	}
+
+	// 現在地→waypoints_[currentWaypointIndex_]→…と区間ごとに、1マスずつ進みながら通過マスを
+	// 全て積んでいく（移動は常に同じ行/列上の直線のため、列と行のどちらか一方だけが
+	// 1マスずつ変化する）
+	for (size_t i = currentWaypointIndex_; i < waypoints_.size(); ++i) {
+		const auto& waypoint = waypoints_[i];
+		int stepCol = (waypoint.first > curCol) - (waypoint.first < curCol);
+		int stepRow = (waypoint.second > curRow) - (waypoint.second < curRow);
+		int steps = (std::max)(std::abs(waypoint.first - curCol), std::abs(waypoint.second - curRow));
+
+		for (int s = 1; s <= steps; ++s) {
+			cells.push_back({ curCol + stepCol * s, curRow + stepRow * s });
+		}
+
+		curCol = waypoint.first;
+		curRow = waypoint.second;
+	}
+
+	return cells;
+}
+
 void GridBoardPlayerComponent::ClearWaypoints() {
 	// 予約時に即時消費した分をまとめて払い戻す（消費距離の合計 = マス数の合計）。
 	// 発動済みのアイテム効果（attackPower_・コスト増減）は巻き戻さない

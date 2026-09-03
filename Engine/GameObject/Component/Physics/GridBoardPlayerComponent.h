@@ -85,11 +85,18 @@ public:
 	// 盤面が見つからない場合は空を返す
 	std::vector<std::pair<int, int>> GetValidTargets(const Transform& transform, const std::vector<GameObject*>* sceneObjects) const;
 
-	// 現在予約済みの経路（列,行）一覧をそのまま返す。GridPuzzleScene::UpdateTileHighlightsが
-	// 予約済みマスをreservedColorで塗るために使う（実行フェーズ中は「まだ通過していない」
-	// 残りの区間のみを返す想定はしていない。全区間を返し続けるが、実行フェーズ中は
-	// GetValidTargets()が空になるため見分けが付く）
+	// 現在予約済みの経路（列,行）一覧をそのまま返す。予約地点（クリックした先端マス）だけで、
+	// 途中で飛び越えるマスは含まない（実行フェーズ中は「まだ通過していない」残りの区間のみを
+	// 返す想定はしていない。全区間を返し続けるが、実行フェーズ中はGetValidTargets()が
+	// 空になるため見分けが付く）
 	const std::vector<std::pair<int, int>>& GetReservedWaypoints() const { return waypoints_; }
+
+	// 現在地から各予約地点まで、実際に通過する（飛び越える）マスも含めた全マスの一覧を返す
+	// （GetReservedWaypointsが予約地点＝先端マスだけなのに対し、こちらは各区間の途中マスも
+	// 全て含む）。GridPuzzleScene::UpdateTileHighlightsが「これから進むマス」をまとめて
+	// reservedColorで塗るために使う。呼び出し側の引数の意味・盤面が見つからない場合の挙動は
+	// GetValidTargetsと同じ
+	std::vector<std::pair<int, int>> GetReservedPathCells(const Transform& transform, const std::vector<GameObject*>* sceneObjects) const;
 
 	// GridItemComponent::OnTriggerEnterから呼ばれる。渡されたアイテムの種別に応じて効果を
 	// 即時適用する（kAttackPower：attackPower_+1、kCostFixed：currentCost_+2、kCostRisky：

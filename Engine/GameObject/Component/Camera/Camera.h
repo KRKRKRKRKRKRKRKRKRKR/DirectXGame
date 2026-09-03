@@ -3,4 +3,5 @@
 // 個別のパスを知らなくても #include "Component/Camera/Camera.h" だけで済む
 #include "CameraComponent.h"
 #include "CameraFollowComponent.h"
+#include "CameraObliqueViewComponent.h"
 #include "RankingCameraScrollerComponent.h"

@@ -65,26 +65,17 @@ void RegisterEngineComponents() {
 		},
 		"スプライト描画");
 
-	// TextRenderComponent：txtFilePath/fontFilePath/fontSize/lineSpacingを読んでからLoad()し直す。
-	// dynamicText（Camera座標表示等）の場合はtxtFilePathを使わないためLoadDynamic()を呼ぶ
-	// （実際の文字列は呼び出し元が毎フレームSetText()で与える必要がある）。
-	// SpriteRenderComponentと同じくis3D/TransformComponent::is2Dは常に逆の関係であるべきなので、
-	// ロードのたびに強制的に同期し直す（過去にSpriteRenderで起きた食い違いバグの再発防止）
-	ComponentRegistry::Register<TextRenderComponent>("TextRender",
+	// TextSpriteComponent：AddComponent直後にRebuild(ctx.renderer)を呼んでビットマップを
+	// 作らないと何も表示されないままになるため、SimpleComponentではなくここで手書きする
+	// （text自体はJSONに直接保存するので、txtFilePath等の外部ファイル読み込みは不要）
+	ComponentRegistry::Register<TextSpriteComponent>("TextSprite",
 		[](GameObject& obj, const ComponentLoadContext& ctx, const nlohmann::json& data) {
-			TextRenderComponent* c = obj.AddComponent<TextRenderComponent>();
+			TextSpriteComponent* c = obj.AddComponent<TextSpriteComponent>();
 			c->FromJson(data);
-			if (TransformComponent* transform = obj.GetComponent<TransformComponent>()) {
-				transform->is2D = !c->is3D;
-			}
-			if (c->dynamicText) {
-				c->LoadDynamic(ctx.renderer);
-			} else {
-				c->Load(ctx.renderer);
-			}
+			c->Rebuild(ctx.renderer);
 		},
-		[](GameObject& obj) { return obj.RemoveComponent<TextRenderComponent>(); },
-		"テキスト描画");
+		[](GameObject& obj) { return obj.RemoveComponent<TextSpriteComponent>(); },
+		"テキストスプライト");
 
 	// TextureSelectorComponent：同じGameObjectに既に復元済みのRenderComponentBaseと、
 	// ComponentLoadContext.textures（名前→現在のindex変換用）が必要

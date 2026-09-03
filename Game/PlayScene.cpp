@@ -123,47 +123,11 @@ void PlayScene::DrawSceneSpecificInspectorExtensions(GameObject& selected) {
 	ImGui::DragInt("目標ラウンド数", &spawnerConfig->totalRounds, 0.2f, 1, 999);
 }
 
-std::vector<std::pair<std::string, SceneBase::HudDefinition>> PlayScene::BuildHudDefinitions() {
-	// 基底（Camera Coord/FPS）に、PlayScene固有の3つ（実行タイマー・撃破数・コンボ）を追加する
-	auto definitions = SceneBase::BuildHudDefinitions();
-
-	definitions.push_back({ "Execution Timer", HudDefinition{ 256, 64, [this]() {
-		char buf[64];
-		std::snprintf(buf, sizeof(buf), "Time: %.1f", executionTimer_);
-		return std::string(buf);
-	} } });
-	definitions.push_back({ "Kill Count", HudDefinition{ 256, 64, [this]() {
-		char buf[64];
-		std::snprintf(buf, sizeof(buf), "Kills: %d", killCount_);
-		return std::string(buf);
-	} } });
-	definitions.push_back({ "Combo Count", HudDefinition{ 256, 64, [this]() {
-		// このHUDは連続撃破数（comboCount_）そのものではなく、現在の実行フェーズ中に
-		// 稼いだスコアの累計（phaseScore_）を表示する
-		char buf[64];
-		std::snprintf(buf, sizeof(buf), "Combo: %d", phaseScore_);
-		return std::string(buf);
-	} } });
-	definitions.push_back({ "Score", HudDefinition{ 256, 64, [this]() {
-		char buf[64];
-		std::snprintf(buf, sizeof(buf), "Score: %d", score_);
-		return std::string(buf);
-	} } });
-
-	return definitions;
-}
-
 void PlayScene::OnInitialize() {
-	// Camera座標を毎フレーム表示するHUD。表示内容はTextProviderとして1回登録するだけで、
-	// 以降はSceneBase::Render内の汎用ループが毎フレーム自動的にUpdateDynamicText()を呼んでくれる
-	CreateHud("Camera Coord");
-
-	// 実行タイマー・撃破数・コンボ数・スコアのHUDはここでは自動生成しない。BuildHudDefinitions()に
-	// エントリを追加済みのため、Inspectorの「Objects」パネル→選択中オブジェクトのTextRender
-	// 「HUD種別」コンボに"Execution Timer"/"Kill Count"/"Combo Count"/"Score"として現れる。
-	// 必要な人が必要なタイミングで手動追加できるようにするため、自動生成は行わない。
+	// Camera座標・実行タイマー・撃破数・コンボ数・スコアの動的HUD表示は、旧TextRenderComponent
+	// ベースの仕組み（BuildHudDefinitions/CreateHud）ごと削除済み（分析・削除の経緯はメモリ参照）。
 	// 残りラウンド数はKillCountAlphabetと同じ運用（タグ"RoundCountAlphabet"のAlphabetTextComponent
-	// にHandleSceneTransitionInputがTextProviderを紐付ける）のため、ここでも何もしない
+	// にHandleSceneTransitionInputがTextProviderを紐付ける）のため、ここでは何もしない
 
 	// 敵の種類は「シーン上に配置されたテンプレートGameObject」（ReflexEnemyComponent::isTemplate=true、
 	// 例：tag="A"）で表す。テンプレート自体が本物の敵として動いてしまわないよう、当たり判定を外し・

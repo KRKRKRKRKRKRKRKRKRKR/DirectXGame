@@ -140,7 +140,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Render\TriangleRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\ModelRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\SpriteRenderComponent.cpp" />
-    <ClCompile Include="Engine\GameObject\Component\Render\TextRenderComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Render\TextSpriteComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\AlphabetTextComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\DashedLineComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\RankingComponent.cpp" />
@@ -156,6 +156,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Physics\GridBoardComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridItemComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridItemSpawnComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.cpp" />
@@ -180,6 +181,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Engine\GameObject\Component\Audio\SpawnSoundComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\CameraFollowComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Camera\CameraObliqueViewComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\RankingCameraScrollerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Camera\GamepadCameraLookComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GravityFlipComponent.cpp" />
@@ -274,7 +276,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Render\TriangleRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\ModelRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\SpriteRenderComponent.h" />
-    <ClInclude Include="Engine\GameObject\Component\Render\TextRenderComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Render\TextSpriteComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\AlphabetTextComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\DashedLineComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\RankingComponent.h" />
@@ -293,6 +295,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Physics\GridBoardComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridItemComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridItemSpawnComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.h" />
@@ -326,6 +329,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Engine\GameObject\Component\Audio\Audio.h" />
     <ClInclude Include="Engine\GameObject\Component\Camera\CameraComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Camera\CameraFollowComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Camera\CameraObliqueViewComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Camera\RankingCameraScrollerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Camera\GamepadCameraLookComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Camera\Camera.h" />

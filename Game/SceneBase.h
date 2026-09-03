@@ -97,12 +97,6 @@ protected:
 	};
 	ButtonInteractionResult UpdateButtonAndReflectHover(const char* hitboxTag, const char* textTag);
 
-	// GameObject生成・スクリーン空間設定・TextRenderComponent::CreateDynamic呼び出し・
-	// SetTextProviderをまとめて行う（Camera座標HUD等、呼び出し側の引数を
-	// 「何を・どのフォントで・何を表示するか」だけに絞るためのラッパー）
-	GameObject& CreateDynamicTextObject(const std::string& name, const std::string& fontPath, float fontSize,
-		TextRenderComponent::TextProvider provider, uint32_t canvasWidth = 512, uint32_t canvasHeight = 32);
-
 	// Gizmoパネルで選択中のオブジェクトをobjects_から削除する
 	void DeleteSelectedObject();
 
@@ -124,10 +118,10 @@ protected:
 	// で1回だけ作った値を全ブロックで使い回す（既存の挙動を維持するため引数で渡す）
 	void DrawAddModelRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
 	void DrawAddSpriteRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
+	void DrawAddTextSpriteNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
 	void DrawAddTextureSelectorNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddMirrorNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddReflexEnemyHealthBarNode(GameObject& selected, const ComponentLoadContext& ctx);
-	void DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool hasNonTextRenderComponent);
 	void DrawAddAudioSourceNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddHitSoundNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddSpawnSoundNode(GameObject& selected, const ComponentLoadContext& ctx);
@@ -147,38 +141,9 @@ protected:
 	std::vector<std::string> savedSnapshotNames_;
 	int selectedSnapshotIndex_ = 0;
 
-	// HUD1種類分の定義。providerは[this]をキャプチャするラムダで、camera_/lastDeltaTime_等
-	// 「呼び出し時点の最新値」をthis経由で毎回読むため、CreateHud時とLoad後の再バインド時とで
-	// 同じインスタンスを使い回してよい（作り直す必要はない）
-	struct HudDefinition {
-		uint32_t canvasWidth;
-		uint32_t canvasHeight;
-		TextRenderComponent::TextProvider provider;
-	};
-
-	// HUD名→定義のテーブルを構築する。providerがcamera_/lastDeltaTime_等をキャプチャするため
-	// インスタンスメソッドとして組み立てる。新しいHUDを追加したい場合はSceneBase.cppの
-	// BuildHudDefinitions()に1エントリ足すだけでよく、CreateHud/RebindDynamicTextProvidersの
-	// 分岐を増やす必要はない。呼び出し側はInitialize()で一度構築されるhudDefinitions_を使う
-	// （毎回vector/ラムダを作り直さないように、テーブル自体はキャッシュする）。
-	// virtual化してあるのは、PlayScene等の派生シーンが自分だけが持つ値（実行タイマー・撃破数等）を
-	// キャプチャするHUDエントリを追加できるようにするため。派生側はSceneBase::BuildHudDefinitions()の
-	// 戻り値に自分のエントリをpush_backして返す（基底のCamera Coord/FPSは維持する）
-	virtual std::vector<std::pair<std::string, HudDefinition>> BuildHudDefinitions();
-
-	// BuildHudDefinitions()の結果をInitialize()で一度だけ構築してキャッシュしたもの
-	std::vector<std::pair<std::string, HudDefinition>> hudDefinitions_;
-
-	// TextProviderはラムダ（camera_等をキャプチャ）のためJSONに保存できない。Load直後は
-	// dynamicTextなTextRenderComponentが空文字列のまま更新されなくなるため、名前で判別して
-	// 対応するTextProviderを付け直す（hudDefinitions_のテーブルを参照する）
-	void RebindDynamicTextProviders();
-
-	// Objectsパネルの"Create HUD"ボタン用。HUD名からCreateDynamicTextObject呼び出しまでをまとめる
-	// （hudDefinitions_のテーブルを参照する）
-	void CreateHud(const std::string& hudName);
-
-	// Render()の最後に更新する直近のdeltaTime（hudDefinitions_内のFPS用providerが参照する）
+	// Render()の最後に更新する直近のdeltaTime。PlayScene::UpdatePreparingPhase等、
+	// HandleSceneTransitionInput（引数を持たない）側から「今フレームのdeltaTime」を
+	// 参照したい派生シーンのために保持する
 	float lastDeltaTime_ = 0.0f;
 
 	// excludeFromGizmoListを見てgizmoTargets_をobjects_から作り直す。
@@ -306,13 +271,10 @@ protected:
 	// CameraFollowComponentのtarget解決（タグ"Player"優先、無ければAutoRunComponent持ちにフォールバック）
 	void UpdateAutoRunCameraFollowTarget();
 
-	// TextProviderを持つdynamicTextなTextRenderComponentを毎フレーム更新する
-	void UpdateDynamicTextComponents();
-
 	// AlphabetTextComponentを持つ全GameObjectについて、text（今回表示したい文字列）が
 	// lastBuiltText（前回子GameObjectを組み立てた時点の文字列）と食い違っていたら、
 	// 既存の文字の子GameObjectを全部削除してtextに応じて作り直す。Render()から毎フレーム呼ぶ
-	// （UpdateDynamicTextComponentsと対になる仕組み。詳しくはAlphabetTextComponent.h参照）
+	// （詳しくはAlphabetTextComponent.h参照）
 	void UpdateAlphabetTextComponents();
 
 	// ownerの子のうちtag==kAlphabetCharTagのものを全部削除する（RebuildAlphabetTextChildrenが

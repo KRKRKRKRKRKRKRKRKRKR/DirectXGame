@@ -5,6 +5,7 @@
 #include "../Engine/GameObject/Component/Physics/GridBoardComponent.h"
 #include "../Engine/GameObject/Component/Physics/GridBoardPlayerComponent.h"
 #include "../Engine/GameObject/Component/Physics/GridItemComponent.h"
+#include "../Engine/GameObject/Component/Physics/GridItemSpawnComponent.h"
 #include "../Engine/GameObject/Component/Physics/OBBColliderComponent.h"
 #include "../Engine/GameObject/Component/Lighting/DirectionalLightComponent.h"
 #include <algorithm>
@@ -37,23 +38,13 @@ namespace {
 	constexpr const char* kGridBoardFolderTag = "GridBoard";
 	constexpr const char* kGridLightTag = "GridPuzzleLight";
 	constexpr const char* kGridItemTag = "GridItem";
+	constexpr const char* kGridItemSpawnerTag = "GridItemSpawner";
 
-	// アイテムの見た目サイズ（マス間隔に対する比率）・色（種別ごと）。プレイヤーと同じく
-	// タイルより少しカメラ側に置く
+	// アイテムの見た目サイズ（マス間隔に対する比率）。プレイヤーと同じくタイルより少し
+	// カメラ側に置く。生成時の色自体はGridItemSpawnComponent::SpawnEntry::colorが持つ
+	// （種別ごとの既定色をここに固定で持たない）
 	constexpr float kItemSize = kCellSpacing * 0.4f;
 	constexpr float kItemZOffset = -0.3f;
-	constexpr Vector4 kItemColorAttackPower = { 0.9f, 0.2f, 0.2f, 1.0f };  // 赤：攻撃力+1
-	constexpr Vector4 kItemColorCostFixed = { 0.2f, 0.5f, 0.95f, 1.0f };   // 青：コスト+2固定
-	constexpr Vector4 kItemColorCostRisky = { 0.85f, 0.55f, 0.95f, 1.0f }; // 紫：コスト±4リスキー
-
-	// アイテムの固定配置（列,行）。盤面リセット時のランダム再配置は未実装のため、起動時に
-	// 一度だけこの座標へ配置する（初期盤面5列×15行、プレイヤー初期位置は中央(2,7)を避ける）
-	struct ItemPlacement { int col; int row; };
-	constexpr ItemPlacement kInitialItemPlacements[] = {
-		{ 1, 3 },  // 攻撃力+1
-		{ 3, 7 },  // コスト+2固定
-		{ 1, 11 }, // コスト±4リスキー
-	};
 
 	// カメラの固定位置（初期盤面の中心を画面中央に収める）。追従は行わず常にこの位置のまま
 	constexpr float kCameraCenterX = (kInitialColumns - 1) * 0.5f * kCellSpacing;
@@ -90,16 +81,18 @@ void GridPuzzleScene::HandleSceneTransitionInput() {
 	// 起動直後（lastBoardColumns_/Rows_が初期値0のまま）は必ずここで初めて生成される
 	RebuildTilesIfBoardSizeChanged();
 
-	// 実行フェーズが終わってPhase::kPreparingに落ちたままになっていたら、即座に計画フェーズへ戻す
-	// （このシーンには敵が居らず、待つ理由が無いため）
+	// 新たに取得（triggered==true）されたアイテムを取得済み表示リストへ追加し、積み重ね表示する
+	UpdateCollectedItemsDisplay();
+
+	// 実行フェーズがちょうど終わった瞬間を検知したら、取得済みアイテムを盤面へ戻す
+	// （プレイヤーの行動が全て終わるまでは盤面へ戻さない）
 	AdvanceTurnIfExecutionFinished();
 
-	// プレイヤーが直前のフレームで新たに拾った（発動した）アイテムを、削除せず空きマスへ
-	// 即座にリスポーンさせる（常に盤面上に3体存在し続ける）
-	RespawnTriggeredItems();
-
-	// アイテムが1つも無ければ（起動直後）、固定座標へ3種を配置する
+	// アイテムが1つも無ければ（起動直後）、GridItemSpawnComponentの設定通りに配置する
 	RespawnItemsIfNoneExist();
+
+	// Inspectorの「リセット」ボタンが押されていたら、既存アイテムを全部消して配置し直す
+	ResetItemsIfRequested();
 
 	// Inspectorで変更されたGridItemComponent::color/col/rowを、兄弟のCubeRenderComponent::color・
 	// Transform.translationへ反映する
@@ -184,6 +177,16 @@ void GridPuzzleScene::EnsureInitialObjectsExist() {
 		playerCollider->halfSize = { kPlayerSize * 0.5f, kPlayerSize * 0.5f, kPlayerSize * 0.5f };
 	}
 
+	// アイテムスポナー（見た目・当たり判定を持たない空のGameObject）。GridItemSpawnComponentが
+	// 「どの種類を何個、盤面に存在させ続けるか」の設定を持つ。生成されたアイテムはこの
+	// GameObjectの子としてぶら下がる（RespawnItemsIfNoneExist参照）
+	if (!FindObjectByTag(kGridItemSpawnerTag)) {
+		GameObject& spawner = CreateObject("ItemSpawner");
+		spawner.tag = kGridItemSpawnerTag;
+		spawner.excludeFromPicking = true;
+		spawner.AddComponent<GridItemSpawnComponent>();
+	}
+
 	// アイテムの初回配置（起動時に1つも存在しなければ配置する）はRespawnItemsIfNoneExist
 	// （HandleSceneTransitionInputが毎フレーム呼ぶ）に委ねる。「全部拾ったらまた3つ出現する」
 	// 挙動を実現するため、起動直後だけでなく毎フレーム判定する必要があるため、EnsureInitialObjectsExist
@@ -258,30 +261,21 @@ void GridPuzzleScene::RebuildTilesIfBoardSizeChanged() {
 }
 
 void GridPuzzleScene::AdvanceTurnIfExecutionFinished() {
+	GameObject* player = FindObjectByTag(GameTags::kPlayer);
+	auto* playerMove = player ? player->GetComponent<GridBoardPlayerComponent>() : nullptr;
+	bool isExecutingNow = playerMove && playerMove->GetPhase() == GridBoardPlayerComponent::Phase::kExecuting;
+
 	// GridBoardPlayerComponentはReflexPlayerComponentと異なり「実行フェーズ完了→シーン側が
-	// 明示的に計画フェーズへ戻す」準備フェーズを持たない。実行フェーズが完了した瞬間に
-	// コンポーネント自身が計画フェーズへ自動遷移するため、シーン側で何もする必要が無い
+	// 明示的に計画フェーズへ戻す」準備フェーズを持たない（コンポーネント自身が自動遷移する）。
+	// そのためシーン側は「実行フェーズだったか」を前フレームと比較するだけで、
+	// kExecuting→kPlanningへ切り替わった瞬間（＝プレイヤーの行動マスが全て終わった瞬間）を検知する
+	if (wasExecutingLastFrame_ && !isExecutingNow) {
+		FinalizeCollectedItemsOnTurnEnd();
+	}
+	wasExecutingLastFrame_ = isExecutingNow;
 }
 
-void GridPuzzleScene::RespawnTriggeredItems() {
-	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
-	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
-	if (!boardSize || boardSize->columns <= 0 || boardSize->rows <= 0) return;
-
-	// GridItemComponent::OnTriggerEnter（ColliderSystem::ResolveAndDraw経由）が効果適用済みの
-	// アイテムにtriggered=trueを立てている。これを検索し、削除せずに空きマスへcol/rowを
-	// 書き換えて即座にリスポーンさせる（＝常に盤面上に3体存在し続ける）
-	std::vector<GameObject*> triggered;
-	for (auto& obj : objects_) {
-		if (obj->tag != kGridItemTag) continue;
-		auto* itemComp = obj->GetComponent<GridItemComponent>();
-		if (itemComp && itemComp->triggered) triggered.push_back(obj.get());
-	}
-	if (triggered.empty()) return;
-
-	// 現在プレイヤーがいるマス・他の（triggeredでない）アイテムが既に置かれているマスは
-	// 抽選候補から除外する。triggered中のアイテム同士が同じ抽選プールを取り合う場合に備え、
-	// 1体ごとの抽選結果もoccupiedへ都度追加していく
+std::vector<std::pair<int, int>> GridPuzzleScene::ComputeOccupiedCells(GridBoardComponent* boardSize) {
 	std::vector<std::pair<int, int>> occupied;
 	if (GameObject* player = FindObjectByTag(GameTags::kPlayer)) {
 		int pc, pr;
@@ -293,7 +287,10 @@ void GridPuzzleScene::RespawnTriggeredItems() {
 		auto* itemComp = obj->GetComponent<GridItemComponent>();
 		if (itemComp && !itemComp->triggered) occupied.push_back({ itemComp->col, itemComp->row });
 	}
+	return occupied;
+}
 
+std::vector<std::pair<int, int>> GridPuzzleScene::ComputeFreeCells(GridBoardComponent* boardSize, const std::vector<std::pair<int, int>>& occupied) {
 	std::vector<std::pair<int, int>> freeCells;
 	for (int row = 0; row < boardSize->rows; ++row) {
 		for (int col = 0; col < boardSize->columns; ++col) {
@@ -304,8 +301,59 @@ void GridPuzzleScene::RespawnTriggeredItems() {
 			if (!isOccupied) freeCells.push_back({ col, row });
 		}
 	}
+	return freeCells;
+}
 
-	for (GameObject* obj : triggered) {
+void GridPuzzleScene::UpdateCollectedItemsDisplay() {
+	GameObject* spawner = FindObjectByTag(kGridItemSpawnerTag);
+	auto* spawnConfig = spawner ? spawner->GetComponent<GridItemSpawnComponent>() : nullptr;
+	if (!spawnConfig) return;
+
+	// GridItemComponent::OnTriggerEnter（ColliderSystem::ResolveAndDraw経由）が効果適用済みの
+	// アイテムにtriggered=trueを立てている。まだ取得済みリストに入っていないものだけを、
+	// 見つけた順（＝取得した順）で追加する
+	for (auto& obj : objects_) {
+		if (obj->tag != kGridItemTag) continue;
+		auto* itemComp = obj->GetComponent<GridItemComponent>();
+		if (!itemComp || !itemComp->triggered) continue;
+
+		bool alreadyListed = false;
+		for (GameObject* listed : collectedItemsThisTurn_) {
+			if (listed == obj.get()) { alreadyListed = true; break; }
+		}
+		if (!alreadyListed) collectedItemsThisTurn_.push_back(obj.get());
+	}
+
+	// 取得済みリストの全アイテムを、collectedDisplayTopを基準に上から下へ積み重ねて配置する。
+	// col/rowは盤面へ戻すまで変更しない（SyncItemsもtriggered==trueの間はここで設定した位置を
+	// 上書きしない）
+	for (size_t i = 0; i < collectedItemsThisTurn_.size(); ++i) {
+		GameObject* item = collectedItemsThisTurn_[i];
+		if (!item) continue;
+		Vector3 pos = spawnConfig->collectedDisplayTop;
+		pos.y -= static_cast<float>(i) * spawnConfig->collectedDisplaySpacing;
+		item->GetTransform().translation = pos;
+	}
+}
+
+void GridPuzzleScene::FinalizeCollectedItemsOnTurnEnd() {
+	if (collectedItemsThisTurn_.empty()) return;
+
+	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
+	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
+	if (!boardSize || boardSize->columns <= 0 || boardSize->rows <= 0) {
+		collectedItemsThisTurn_.clear();
+		return;
+	}
+
+	// 現在プレイヤーがいるマス・他の（取得済みでない）アイテムが既に置かれているマスを除いた
+	// 空きマス一覧を抽選母集団にする（取得済みアイテム同士が同じマスを取り合わないよう、
+	// 1体ごとの抽選結果を都度取り除いていく）
+	std::vector<std::pair<int, int>> occupied = ComputeOccupiedCells(boardSize);
+	std::vector<std::pair<int, int>> freeCells = ComputeFreeCells(boardSize, occupied);
+
+	for (GameObject* obj : collectedItemsThisTurn_) {
+		if (!obj) continue;
 		auto* itemComp = obj->GetComponent<GridItemComponent>();
 		if (!itemComp) continue;
 		if (freeCells.empty()) {
@@ -323,14 +371,16 @@ void GridPuzzleScene::RespawnTriggeredItems() {
 		itemComp->col = picked.first;
 		itemComp->row = picked.second;
 		itemComp->triggered = false;
-		occupied.push_back(picked);
 	}
+
+	// 次のターンに備えてリストを空にする（＝取得済み表示のリセット演出）
+	collectedItemsThisTurn_.clear();
 }
 
 void GridPuzzleScene::RespawnItemsIfNoneExist() {
 	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
 	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
-	if (!boardSize) return;
+	if (!boardSize || boardSize->columns <= 0 || boardSize->rows <= 0) return;
 
 	bool anyItemExists = false;
 	for (auto& obj : objects_) {
@@ -338,11 +388,48 @@ void GridPuzzleScene::RespawnItemsIfNoneExist() {
 	}
 	if (anyItemExists) return;
 
+	// アイテムはスポナー（tag==kGridItemSpawnerTag、GridItemSpawnComponent::spawnEntriesが
+	// 「種別ごとに何個出すか」を持つ）の子として生成する。無ければ何も生成しない
+	// （EnsureInitialObjectsExistが必ず1つ用意するはずだが、念のためガードする）
+	GameObject* spawner = FindObjectByTag(kGridItemSpawnerTag);
+	auto* spawnConfig = spawner ? spawner->GetComponent<GridItemSpawnComponent>() : nullptr;
+	if (!spawner || !spawnConfig) return;
+
+	SpawnItemsFromConfig(*spawner, *spawnConfig, *boardSize);
+}
+
+void GridPuzzleScene::ResetItemsIfRequested() {
+	GameObject* spawner = FindObjectByTag(kGridItemSpawnerTag);
+	auto* spawnConfig = spawner ? spawner->GetComponent<GridItemSpawnComponent>() : nullptr;
+	if (!spawner || !spawnConfig) return;
+	if (!spawnConfig->ConsumeResetRequested()) return;
+
+	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
+	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
+	if (!boardSize || boardSize->columns <= 0 || boardSize->rows <= 0) return;
+
+	// 現在盤面にあるアイテムを全部削除してから、spawnEntries通りに新しく配置し直す
+	// （RespawnItemsIfNoneExistと異なり、既にアイテムが存在していても強制的に作り直す）
+	std::vector<GameObject*> existingItems;
+	for (auto& obj : objects_) {
+		if (obj->tag == kGridItemTag) existingItems.push_back(obj.get());
+	}
+	if (!existingItems.empty()) DeleteObjects(existingItems);
+
+	SpawnItemsFromConfig(*spawner, *spawnConfig, *boardSize);
+}
+
+void GridPuzzleScene::SpawnItemsFromConfig(GameObject& spawner, GridItemSpawnComponent& spawnConfig, GridBoardComponent& boardSize) {
+	// 現時点で空いている全マスから、種別ごとの個数ぶんだけ重複なくランダムに抽選する
+	std::vector<std::pair<int, int>> occupied = ComputeOccupiedCells(&boardSize);
+	std::vector<std::pair<int, int>> freeCells = ComputeFreeCells(&boardSize, occupied);
+
 	auto spawnItem = [&](GridItemComponent::Type type, int col, int row, const Vector4& color) {
 		GameObject& item = CreateObject("Item");
 		item.tag = kGridItemTag;
+		item.SetParent(&spawner);
 		item.GetTransform().scale = { kItemSize, kItemSize, kItemSize };
-		Vector3 pos = boardSize->GridToWorld(col, row);
+		Vector3 pos = boardSize.GridToWorld(col, row);
 		item.GetTransform().translation = { pos.x, pos.y, kItemZOffset };
 
 		auto* render = item.AddComponent<CubeRenderComponent>();
@@ -353,7 +440,7 @@ void GridPuzzleScene::RespawnItemsIfNoneExist() {
 		itemComp->type = type;
 		itemComp->col = col;
 		itemComp->row = row;
-		itemComp->color = color; // Inspectorで調整する色の初期値（種別ごとの既定色）
+		itemComp->color = color; // Inspectorで調整する色の初期値（GridItemSpawnComponent::spawnEntriesの設定色）
 
 		// プレイヤーとの当たり判定（アイテム取得）用。isTrigger=trueで押し戻しは行わない
 		auto* itemCollider = item.AddComponent<OBBColliderComponent>();
@@ -362,9 +449,18 @@ void GridPuzzleScene::RespawnItemsIfNoneExist() {
 		itemCollider->halfSize = { kItemSize * 0.5f, kItemSize * 0.5f, kItemSize * 0.5f };
 		};
 
-	spawnItem(GridItemComponent::Type::kAttackPower, kInitialItemPlacements[0].col, kInitialItemPlacements[0].row, kItemColorAttackPower);
-	spawnItem(GridItemComponent::Type::kCostFixed, kInitialItemPlacements[1].col, kInitialItemPlacements[1].row, kItemColorCostFixed);
-	spawnItem(GridItemComponent::Type::kCostRisky, kInitialItemPlacements[2].col, kInitialItemPlacements[2].row, kItemColorCostRisky);
+	for (const auto& entry : spawnConfig.spawnEntries) {
+		for (int i = 0; i < entry.count; ++i) {
+			if (freeCells.empty()) break; // 空きマスが尽きたらそれ以上は生成しない
+
+			std::uniform_int_distribution<size_t> dist(0, freeCells.size() - 1);
+			size_t pickedIndex = dist(rng_);
+			std::pair<int, int> picked = freeCells[pickedIndex];
+			freeCells.erase(freeCells.begin() + pickedIndex);
+
+			spawnItem(entry.type, picked.first, picked.second, entry.color);
+		}
+	}
 
 	// CreateObjectで追加したGameObjectをgizmoTargets_（Update/Draw対象一覧）に反映する
 	RebuildDerivedLists();
@@ -381,6 +477,11 @@ void GridPuzzleScene::SyncItems() {
 
 		auto* render = obj->GetComponent<CubeRenderComponent>();
 		if (render) render->color = itemComp->color;
+
+		// 取得済み（triggered==true）のアイテムはUpdateCollectedItemsDisplayが取得済み表示位置へ
+		// 直接Transformを書き換えているため、ここでは位置を触らない（触るとcol/row由来の
+		// 古い盤面位置へ引き戻されてしまい、表示演出が機能しなくなる）
+		if (itemComp->triggered) continue;
 
 		// col/row（配置マス座標）からワールド座標へ変換してTransformへ反映する。手動でInspectorから
 		// GridItemComponentをAdd Componentしてcol/rowを入力しただけでは、GameObject自体の
@@ -410,9 +511,10 @@ void GridPuzzleScene::UpdateTileHighlights() {
 	// 調整可能）を都度参照する。GridBoardPlayerComponentは自分専用の位置状態・盤面参照を
 	// 持たないため、オーナーの現在Transformとシーン内GameObject一覧（GridBoardComponent検索用）を
 	// 引数で渡す。経路の可視化は波紋マーカー・破線を使わず、予約済みマス自体をタイルの色塗りで
-	// 表現する（reservedColor、GetReservedWaypoints()）
+	// 表現する（reservedColor）。GetReservedPathCellsは予約地点（先端マス）だけでなく、
+	// 実際に飛び越える途中のマスも含めた「これから進む全マス」を返す
 	std::vector<std::pair<int, int>> validTargets = playerMove ? playerMove->GetValidTargets(player->GetTransform(), &gizmoTargets_) : std::vector<std::pair<int, int>>{};
-	std::vector<std::pair<int, int>> reservedWaypoints = playerMove ? playerMove->GetReservedWaypoints() : std::vector<std::pair<int, int>>{};
+	std::vector<std::pair<int, int>> reservedPathCells = playerMove ? playerMove->GetReservedPathCells(player->GetTransform(), &gizmoTargets_) : std::vector<std::pair<int, int>>{};
 	Vector4 highlightColor = playerMove ? playerMove->highlightColor : boardSize->tileColorA;
 	Vector4 reservedColor = playerMove ? playerMove->reservedColor : boardSize->tileColorA;
 
@@ -424,7 +526,7 @@ void GridPuzzleScene::UpdateTileHighlights() {
 			if (!render) continue;
 
 			bool isReserved = false;
-			for (const auto& cell : reservedWaypoints) {
+			for (const auto& cell : reservedPathCells) {
 				if (cell.first == col && cell.second == row) { isReserved = true; break; }
 			}
 			bool isValidTarget = false;

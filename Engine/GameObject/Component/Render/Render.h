@@ -9,7 +9,7 @@
 #include "TriangleRenderComponent.h"
 #include "ModelRenderComponent.h"
 #include "SpriteRenderComponent.h"
-#include "TextRenderComponent.h"
+#include "TextSpriteComponent.h"
 #include "AlphabetTextComponent.h"
 #include "DashedLineComponent.h"
 #include "RankingComponent.h"

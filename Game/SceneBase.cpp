@@ -67,21 +67,6 @@ SceneBase::ButtonInteractionResult SceneBase::UpdateButtonAndReflectHover(const 
 	return result;
 }
 
-GameObject& SceneBase::CreateDynamicTextObject(const std::string& name, const std::string& fontPath, float fontSize,
-	TextRenderComponent::TextProvider provider, uint32_t canvasWidth, uint32_t canvasHeight) {
-	GameObject& obj = CreateObject(name);
-	obj.excludeFromGizmoList = true; // Sprite2Dと同じくスクリーン空間UIなのでGizmo選択対象からは外す
-	obj.GetTransform().translation = { 10.0f, 10.0f, 0.0f };
-
-	TextRenderComponent* text = TextRenderComponent::CreateDynamic(obj, renderer_, fontPath, fontSize, canvasWidth, canvasHeight);
-	text->hudKey = name; // 呼び出し元は常にhudDefinitions_のキー名をnameとして渡す（CreateHud参照）
-	// renderer_を渡すことで、登録直後に1回SetText()させ、次のUpdateDynamicTextComponentsフレームを
-	// 待たずに実文字列サイズへlocalScaleを確定させる（autoSize=trueが既定のため）
-	text->SetTextProvider(std::move(provider), renderer_);
-
-	return obj;
-}
-
 void SceneBase::SaveScene(const std::string& saveName) {
 	SceneObjectStore::Save(assetFolder_, objects_, saveName);
 	// 名前付きスナップショットを保存した直後は一覧に反映しておく（既定保存では一覧は変わらない）
@@ -91,8 +76,6 @@ void SceneBase::SaveScene(const std::string& saveName) {
 void SceneBase::LoadScene(const std::string& saveName) {
 	ComponentLoadContext ctx = MakeComponentLoadContext();
 	if (SceneObjectStore::Load(assetFolder_, objects_, ctx, saveName)) {
-		RebindDynamicTextProviders();
-
 		// AlphabetTextComponentが生成する文字の子GameObject（RebuildAlphabetTextChildren参照）は
 		// excludeFromSave=trueのため、ここでロードされた直後は元々存在しない。ただしcomp自身の
 		// lastBuiltTextはtext（今回表示したい文字列）と同じ値で保存されている可能性があるため、
@@ -215,11 +198,7 @@ void SceneBase::Initialize(Renderer* renderer, Camera* camera, const std::string
 	// projectModels_（プロジェクトパネル用の一覧）の構築もここで済ませる
 	RescanProjectAssets();
 
-	// HUDテーブルはcamera_等をキャプチャするラムダを含むため、Initialize後の状態で一度だけ
-	// 構築してキャッシュする（CreateHud/RebindDynamicTextProviders/DrawImGuiが毎回作り直さない）
-	hudDefinitions_ = BuildHudDefinitions();
-
-	OnInitialize(); // シーン固有の初期HUD等はここで生成する
+	OnInitialize(); // シーン固有の初期化はここで行う
 
 	// Resources/{assetFolder_}/ui.json・scene.jsonが既に存在するなら、起動直後に自動で読み込む。
 	// LoadScene()はファイルが無ければ何もせず終わる（SceneSerializer::Loadがfalseを返すだけ）ため、
@@ -519,54 +498,8 @@ void SceneBase::CreateNewScript(const std::string& baseName, const std::string& 
 	Logger::Log("CreateNewScript: " + className + " を作成し、vcxproj/filtersへ登録しました\n");
 }
 
-std::vector<std::pair<std::string, SceneBase::HudDefinition>> SceneBase::BuildHudDefinitions() {
-	// 新しいHUDを追加する場合はここに1エントリ足すだけでよい（CreateHud/RebindDynamicTextProviders
-	// 側の分岐は変更不要）
-	return {
-		{ "Camera Coord", HudDefinition{ 512, 64, [this]() {
-			const Vector3& camPos = camera_->GetCameraData().position;
-			char buf[128];
-			std::snprintf(buf, sizeof(buf), "Camera: (%.2f, %.2f, %.2f)", camPos.x, camPos.y, camPos.z);
-			return std::string(buf);
-		} } },
-		{ "FPS", HudDefinition{ 256, 64, [this]() {
-			// 0除算を避ける（起動直後の1フレーム目はlastDeltaTime_が0のまま呼ばれる可能性がある）
-			float fps = (lastDeltaTime_ > 0.0f) ? (1.0f / lastDeltaTime_) : 0.0f;
-			char buf[64];
-			std::snprintf(buf, sizeof(buf), "FPS: %.1f", fps);
-			return std::string(buf);
-		} } },
-	};
-}
-
-void SceneBase::CreateHud(const std::string& hudName) {
-	for (auto& entry : hudDefinitions_) {
-		if (entry.first != hudName) continue;
-		const HudDefinition& def = entry.second;
-		CreateDynamicTextObject(hudName, "Resources/Font/font.ttf", 20.0f, def.provider, def.canvasWidth, def.canvasHeight);
-		RebuildDerivedLists();
-		return;
-	}
-}
-
-void SceneBase::RebindDynamicTextProviders() {
-	// TextProviderはラムダのためJSONに保存できず、Load直後は空になっている。
-	// hudKeyでhudDefinitions_を引いて対応するProviderを付け直す。hudKeyが空のまま保存された
-	// 古いシーンデータ（hudKeyフィールド追加前）に限りGameObject名をフォールバックに使う
-	for (auto& obj : objects_) {
-		auto* text = obj->GetComponent<TextRenderComponent>();
-		if (!text || !text->dynamicText) continue;
-		const std::string& key = !text->hudKey.empty() ? text->hudKey : obj->name;
-		for (auto& entry : hudDefinitions_) {
-			if (entry.first != key) continue;
-			text->SetTextProvider(entry.second.provider);
-			break;
-		}
-	}
-}
-
 void SceneBase::Render(float deltaTime) {
-	lastDeltaTime_ = deltaTime; // hudDefinitions_内のFPS用providerが参照する直近のフレーム時間
+	lastDeltaTime_ = deltaTime; // HandleSceneTransitionInput（引数なし）側から参照できるよう保持する
 
 	// ImGui::NewFrame()の後、ImGui::Render()の前に呼ぶ必要がある
 	ImGuizmo::BeginFrame();
@@ -587,11 +520,8 @@ void SceneBase::Render(float deltaTime) {
 	Matrix4x4 proj = camera_->GetProjectionMatrix(
 		camera_->GetAspectRatio(renderer_->GetSceneViewportWidth(), renderer_->GetSceneViewportHeight()));
 
-	UpdateDynamicTextComponents();
-
 	// AlphabetTextComponentの子GameObject組み立ては、DeleteObjects/CreateObjectでobjects_自体を
-	// 書き換えるため、直前のUpdateDynamicTextComponents（objects_を読み取りながらのループ）が
-	// 完全に終わった後のこのタイミングで行う
+	// 書き換えるため、他のobjects_走査ループの後のこのタイミングで行う
 	UpdateAlphabetTextComponents();
 
 	// DashedLineComponentの子GameObject組み立ても同じ理由でこのタイミングで行う
@@ -685,19 +615,6 @@ void SceneBase::UpdateAutoRunCameraFollowTarget() {
 	for (auto& obj : objects_) {
 		if (auto* follow = obj->GetComponent<CameraFollowComponent>()) {
 			follow->target = autoRunTarget;
-		}
-	}
-}
-
-void SceneBase::UpdateDynamicTextComponents() {
-	// TextProviderを持つdynamicTextを毎フレーム更新する（Camera座標HUD等）。同じテクスチャの
-	// 中身を書き換えるだけなので、新しいテクスチャハンドルを発行せず毎フレーム呼んでも枯渇しない。
-	// HUDが増えてもこのループは変更不要（各Textが自分のTextProviderを持っているだけ）。
-	// GetComponents（複数形）：1GameObjectに複数のTextRenderComponentが付いていても
-	// 「最初の1個」だけでなく全部を更新する
-	for (auto& obj : objects_) {
-		for (auto* text : obj->GetComponents<TextRenderComponent>()) {
-			text->UpdateDynamicText(renderer_);
 		}
 	}
 }
@@ -1466,22 +1383,12 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 	// ここで既に1個持っていたら「モデル描画」「スプライト描画」の追加自体をブロックする
 	bool alreadyHasRenderComponent = selected.GetComponent<RenderComponentBase>() != nullptr;
 
-	// TextRenderComponentだけは例外的に複数付与を許可する（例：同じGameObjectに撃破数とコンボを
-	// 2行として重ねる用途）。RenderMainPass/RenderMirrorPassがGetComponents<RenderComponentBase>()
-	// （複数形）で全部描画するよう対応済みのため、Text同士の重複は「無言で無視される」問題が
-	// 起きない。一方Model/Sprite等、他の描画コンポーネントと混在させるとTextureSelectorの依存解決
-	// （「最初の1個」しか見ない）が壊れるため、それらが既に付いている場合はテキストの追加も禁止する
-	bool hasNonTextRenderComponent = false;
-	for (auto* r : selected.GetComponents<RenderComponentBase>()) {
-		if (!dynamic_cast<TextRenderComponent*>(r)) { hasNonTextRenderComponent = true; break; }
-	}
-
 	DrawAddModelRenderNode(selected, ctx, alreadyHasRenderComponent);
 	DrawAddSpriteRenderNode(selected, ctx, alreadyHasRenderComponent);
+	DrawAddTextSpriteNode(selected, ctx, alreadyHasRenderComponent);
 	DrawAddTextureSelectorNode(selected, ctx);
 	DrawAddMirrorNode(selected, ctx);
 	DrawAddReflexEnemyHealthBarNode(selected, ctx);
-	DrawAddTextRenderNode(selected, ctx, hasNonTextRenderComponent);
 
 	// AlphabetTextComponent：RenderComponentBase派生ではない（GameObject本体は描画を持たず、
 	// SceneBase::RebuildAlphabetTextChildrenが生成する子GameObject側がModelRenderComponentで
@@ -1570,6 +1477,27 @@ void SceneBase::DrawAddSpriteRenderNode(GameObject& selected, const ComponentLoa
 	}
 }
 
+void SceneBase::DrawAddTextSpriteNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent) {
+	// TextSprite：常にスクリーン空間UI（is2D=true）専用（TextRenderComponentのような3D配置
+	// オプションは持たない。詳しくはTextSpriteComponent.hのコメント参照）。他の描画コンポーネントと
+	// 排他（RenderComponentBaseを既に持つGameObjectには追加できない）にすることで、
+	// TextRenderComponent時代にあった「同一GameObjectへの複数付与」特別扱いを廃した
+	if (ImGui::TreeNode("テキストスプライト")) {
+		if (alreadyHasRenderComponent) {
+			ImGui::TextDisabled("(既に描画コンポーネントが付いています。先に既存のものを削除してください)");
+		} else if (ImGui::Button("追加##TextSprite")) {
+			ComponentRegistry::Create("TextSprite", selected, ctx, nlohmann::json::object());
+			TransformComponent* transform = selected.GetComponent<TransformComponent>();
+			transform->is2D = true;
+			transform->translationSpeed = 1.0f; transform->translationMin = 0.0f; transform->translationMax = 1920.0f;
+			transform->scaleSpeed = 1.0f; transform->scaleMin = 1.0f; transform->scaleMax = 1920.0f;
+			RebuildDerivedLists(); // is2Dが変わったのでgizmoTargets_/screenTargets_に反映させる
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::TreePop();
+	}
+}
+
 void SceneBase::DrawAddTextureSelectorNode(GameObject& selected, const ComponentLoadContext& ctx) {
 	// TextureSelector：同じGameObjectに既にRenderComponentBase系（CubeRender/SphereRender/
 	// SpriteRender等）が付いていることが前提。無ければ追加できないようにする。
@@ -1617,75 +1545,6 @@ void SceneBase::DrawAddReflexEnemyHealthBarNode(GameObject& selected, const Comp
 			ComponentRegistry::Create("ReflexEnemyHealthBar", selected, ctx, nlohmann::json::object());
 			ImGui::CloseCurrentPopup();
 		}
-		ImGui::TreePop();
-	}
-}
-
-void SceneBase::DrawAddTextRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool hasNonTextRenderComponent) {
-	// TextRender：HUD（動的、hudDefinitions_のテンプレートから選ぶ）と静的テキスト
-	// （内容を打ち込む）の2種類をここから選択中オブジェクトへ直接アタッチする
-	// （旧ヒエラルキー「HUD/テキストを作成」は専用の新規オブジェクトを作る方式だったが、
-	// こちらは他の描画コンポーネントと同じくAdd Componentから選択中オブジェクトへ付与する）。
-	// TextRenderComponent同士は複数付けられる（RenderMainPass/RenderMirrorPassが
-	// GetComponents<RenderComponentBase>()で全部描画するため）ので、既にText以外の
-	// 描画コンポーネント（Model/Sprite等）が付いている場合のみブロックする
-	if (ImGui::TreeNode("テキスト描画")) {
-		if (hasNonTextRenderComponent) {
-			ImGui::TextDisabled("(既に別の描画コンポーネントが付いています。先に既存のものを削除してください)");
-		}
-		static bool textIs3D = false;
-		ImGui::Checkbox("3D（ワールド空間に置く。オフなら従来通り画面UI）", &textIs3D);
-		static bool isDynamicHud = true;
-		ImGui::Checkbox("HUD（動的）", &isDynamicHud);
-		if (hasNonTextRenderComponent) ImGui::BeginDisabled();
-		if (isDynamicHud) {
-			static int hudIndex = 0;
-			// コンボの表示だけ日本語にする。TextRenderComponent::hudKeyに書き込むのは
-			// entry.first（英語キー）のほう（RebindDynamicTextProvidersの照合に使うため）
-			std::vector<std::string> hudDisplayNames;
-			for (auto& entry : hudDefinitions_) {
-				hudDisplayNames.push_back(entry.first == "Camera Coord" ? "カメラ座標" : entry.first);
-			}
-			std::vector<const char*> hudNamesRaw;
-			for (auto& n : hudDisplayNames) hudNamesRaw.push_back(n.c_str());
-			if (!hudNamesRaw.empty()) {
-				if (hudIndex >= static_cast<int>(hudNamesRaw.size())) hudIndex = 0;
-				ImGui::Combo("HUD種別", &hudIndex, hudNamesRaw.data(), static_cast<int>(hudNamesRaw.size()));
-				if (ImGui::Button("追加##TextRenderHud")) {
-					const auto& [hudName, def] = hudDefinitions_[hudIndex];
-					TextRenderComponent* text = TextRenderComponent::CreateDynamic(
-						selected, renderer_, "Resources/Font/font.ttf", 20.0f, def.canvasWidth, def.canvasHeight, textIs3D);
-					text->hudKey = hudName;
-					text->SetTextProvider(def.provider, renderer_);
-					RebuildDerivedLists(); // is2Dが変わったのでgizmoTargets_/screenTargets_に反映させる（さもないとHierarchyから選択できなくなる）
-					ImGui::CloseCurrentPopup();
-				}
-			}
-		} else {
-			// 静的テキストはGameObjectの名前をそのままファイル名に使う（Resources/{assetFolder_}/
-			// Text/{name}.txt）。ImGuiのInputTextからのUTF-8文字列をそのままstd::ofstream(std::string)に
-			// 渡すと実行時ロケール（日本語環境ならShift-JIS）でパスが解釈され文字化けするため、
-			// wstring版に変換してから渡す。"/"・"\"・":"はディレクトリ脱出防止のため取り除く
-			static char staticTextContentBuf[1024] = "";
-			ImGui::InputTextMultiline("内容", staticTextContentBuf, sizeof(staticTextContentBuf), ImVec2(0, 80));
-			bool canAdd = staticTextContentBuf[0] != '\0';
-			if (!canAdd) ImGui::BeginDisabled();
-			if (ImGui::Button("追加##TextRenderStatic")) {
-				std::string sanitizedName = selected.name;
-				sanitizedName.erase(std::remove_if(sanitizedName.begin(), sanitizedName.end(),
-					[](char c) { return c == '/' || c == '\\' || c == ':'; }), sanitizedName.end());
-				std::string txtPath = "Resources/" + assetFolder_ + "/Text/" + sanitizedName + ".txt";
-				std::ofstream file(StringUtils::ConvertString(txtPath), std::ios::binary);
-				file << staticTextContentBuf;
-				file.close();
-				TextRenderComponent::CreateStatic(selected, renderer_, txtPath, "Resources/Font/font.ttf", 32.0f, textIs3D);
-				staticTextContentBuf[0] = '\0';
-				RebuildDerivedLists(); // is2Dが変わったのでgizmoTargets_/screenTargets_に反映させる（さもないとHierarchyから選択できなくなる）
-				ImGui::CloseCurrentPopup();
-			}
-			if (!canAdd) ImGui::EndDisabled();
-		}
-		if (hasNonTextRenderComponent) ImGui::EndDisabled();
 		ImGui::TreePop();
 	}
 }

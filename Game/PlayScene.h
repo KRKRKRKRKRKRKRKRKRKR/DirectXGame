@@ -24,11 +24,6 @@ protected:
 	void OnInitialize() override;
 	void HandleSceneTransitionInput() override;
 
-	// SceneBase::BuildHudDefinitions()（Camera Coord/FPS）に加えて、PlayScene固有のHUD
-	// （実行タイマー・撃破数・コンボ）を追加登録する。providerはexecutionTimer_/killCount_/
-	// comboCount_をキャプチャする都合上、SceneBase側ではなくここで組み立てる必要がある
-	std::vector<std::pair<std::string, HudDefinition>> BuildHudDefinitions() override;
-
 	// SceneBase::DrawInspector()が汎用UI描画の直後に呼ぶ拡張フック。ReflexEnemySpawnerComponent
 	// （敵の種類＋出現数のリストUI）はシーン内のテンプレート一覧を参照する必要があり
 	// IComponent::DrawImGui単体では描画できないため、PlayScene固有の拡張としてここに実装する
