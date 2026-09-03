@@ -7,9 +7,9 @@
 #include <string>
 
 void GridWallSpawnComponent::DrawImGui(const char* namePrefix) {
-	std::string countLabel = std::string(namePrefix) + "壁の数";
-	ImGui::DragInt(countLabel.c_str(), &wallCount, 1.0f, 0, 999);
-	wallCount = (std::max)(wallCount, 0);
+	std::string countLabel = std::string(namePrefix) + "壁ブロックの数(テトロミノ1個=4マス)";
+	ImGui::DragInt(countLabel.c_str(), &pieceCount, 1.0f, 0, 999);
+	pieceCount = (std::max)(pieceCount, 0);
 
 	std::string passCostLabel = std::string(namePrefix) + "通過コスト(初期値)";
 	ImGui::DragInt(passCostLabel.c_str(), &passCost, 1, 1, 999);
@@ -23,13 +23,13 @@ void GridWallSpawnComponent::DrawImGui(const char* namePrefix) {
 }
 
 void GridWallSpawnComponent::ToJson(nlohmann::json& out) const {
-	out["wallCount"] = wallCount;
+	out["pieceCount"] = pieceCount;
 	out["passCost"] = passCost;
 	out["wallColor"] = Vector4ToJson(wallColor);
 }
 
 void GridWallSpawnComponent::FromJson(const nlohmann::json& in) {
-	wallCount = in.value("wallCount", wallCount);
+	pieceCount = in.value("pieceCount", pieceCount);
 	passCost = in.value("passCost", passCost);
 	if (in.contains("wallColor")) wallColor = Vector4FromJson(in["wallColor"]);
 }

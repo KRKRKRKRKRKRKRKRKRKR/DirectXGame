@@ -122,20 +122,21 @@ private:
 	void SpawnItemsFromConfig(GameObject& spawner, class GridItemSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
 
 	// 毎フレーム呼ぶ。シーン内にtag==kGridWallTagが1つも存在しなければ（起動直後）、
-	// GridWallSpawnComponent::wallCountぶんをランダムな空きマスへ配置する（初回配置専用。
-	// RespawnItemsIfNoneExistと同じ理由で、EnsureInitialObjectsExist（初回フレームのみ）とは
-	// 別の関数にしてある。アイテムと違い壁は踏んでも消えないため、通常はここで一度配置したら
-	// 「リセット」ボタンを押すまでそのまま居座り続ける）
+	// GridWallSpawnComponent::pieceCountぶんの壁ブロック（テトロミノ形、4マス連結）をランダムな
+	// 形状・向き・位置で配置する（初回配置専用。RespawnItemsIfNoneExistと同じ理由で、
+	// EnsureInitialObjectsExist（初回フレームのみ）とは別の関数にしてある。アイテムと違い壁は
+	// 踏んでも消えないため、通常はここで一度配置したら「リセット」ボタンを押すまでそのまま居座り続ける）
 	void RespawnWallsIfNoneExist();
 
 	// 毎フレーム呼ぶ。GridWallSpawnComponent::ConsumeResetRequested()（Inspectorの「リセット」
 	// ボタン）がtrueを返した瞬間、既存のtag==kGridWallTagを全部削除してから、SpawnWallsFromConfigで
-	// wallCount枚を新しく配置し直す（ResetItemsIfRequestedと同じ、既存削除後の強制再配置）
+	// pieceCount個ぶんの壁ブロックを新しく配置し直す（ResetItemsIfRequestedと同じ、既存削除後の強制再配置）
 	void ResetWallsIfRequested();
 
-	// spawner（GridWallSpawnComponent付き）のwallCount/passCost/wallColorを読み、現在の空きマスから
-	// wallCount枚をランダムに抽選して生成する実処理。SpawnItemsFromConfigの壁版
-	// （種類が1つしか無いため、種別ごとのループが無い分シンプル）
+	// spawner（GridWallSpawnComponent付き）のpieceCount/passCost/wallColorを読み、テトロミノ7種
+	// （I/O/T/S/Z/J/L、ランダムな向きに回転）からランダムに1つ選んで現在の空きマスへ配置する処理を
+	// pieceCount回繰り返す実処理（1回につきGridWallComponent付きGameObjectが4個生成される）。
+	// SpawnItemsFromConfigの壁版（形状抽選が入る分、単純な1マスずつの抽選ではない）
 	void SpawnWallsFromConfig(GameObject& spawner, class GridWallSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
 
 	// 毎フレーム呼ぶ。tag==kGridWallTagの各GameObjectについて、GridWallComponent::color

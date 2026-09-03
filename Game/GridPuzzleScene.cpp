@@ -67,6 +67,46 @@ namespace {
 	constexpr float kCameraCenterZ = -(kInitialRows - 1) * 0.5f * kCellSpacing;
 	constexpr float kCameraHeight = 30.0f;
 
+	// 壁ブロックの形状（テトロミノ7種、回転前の基本形）。各要素は(col,row)のローカルオフセットで、
+	// 4マスとも(0,0)から見て右(+col)・下(+row)方向のみの正の値になるよう定義している
+	// （後述のRotateAndNormalizeShapeが原点合わせし直すため、ここでの基準位置は厳密でなくてよい）
+	std::vector<std::vector<std::pair<int, int>>> TetrominoBaseShapes() {
+		return {
+			{ {0,0}, {1,0}, {2,0}, {3,0} }, // I
+			{ {0,0}, {1,0}, {0,1}, {1,1} }, // O（回転しても形が変わらない）
+			{ {0,0}, {1,0}, {2,0}, {1,1} }, // T
+			{ {1,0}, {2,0}, {0,1}, {1,1} }, // S
+			{ {0,0}, {1,0}, {1,1}, {2,1} }, // Z
+			{ {0,0}, {0,1}, {1,1}, {2,1} }, // J
+			{ {2,0}, {0,1}, {1,1}, {2,1} }, // L
+		};
+	}
+
+	// cellsを90度回転をrotationCount回(0〜3)適用し、左上が(0,0)に来るよう正規化して返す。
+	// GridPuzzleScene::SpawnWallsFromConfigがランダムな向きの壁ブロックを配置するために使う
+	std::vector<std::pair<int, int>> RotateAndNormalizeShape(std::vector<std::pair<int, int>> cells, int rotationCount) {
+		for (int r = 0; r < rotationCount; ++r) {
+			for (auto& cell : cells) {
+				cell = { -cell.second, cell.first };
+			}
+		}
+		int minCol = cells[0].first;
+		int minRow = cells[0].second;
+		for (const auto& cell : cells) {
+			minCol = (std::min)(minCol, cell.first);
+			minRow = (std::min)(minRow, cell.second);
+		}
+		for (auto& cell : cells) {
+			cell.first -= minCol;
+			cell.second -= minRow;
+		}
+		return cells;
+	}
+
+	// SpawnWallsFromConfigが1つの壁ブロックにつき盤面上の空き場所を探す試行回数の上限。
+	// 盤面が狭い・既に埋まっている等で置き場所が見つからない場合に無限ループしないための保険
+	constexpr int kWallPlacementMaxAttempts = 50;
+
 	// Camera::GetViewMatrixはrotationをXMMatrixRotationRollPitchYaw(pitch=x, yaw=y, roll=z)で
 	// 解釈し、rotation={0,0,0}のときの正面方向は+Z。pitch(rotation.x)をちょうど+90度にすると
 	// 正面方向が真下(-Y)を向く（真上から真下を見下ろす姿勢になる）
@@ -599,24 +639,23 @@ void GridPuzzleScene::ResetWallsIfRequested() {
 }
 
 void GridPuzzleScene::SpawnWallsFromConfig(GameObject& spawner, GridWallSpawnComponent& spawnConfig, GridBoardComponent& boardSize) {
-	// 現時点で空いている全マス（プレイヤー・既存アイテムの位置を除く）からwallCount枚だけ
-	// 重複なくランダムに抽選する
+	// occupiedは「既に何かがあるマス」の一覧。プレイヤー・アイテムで初期化した後、配置が決まった
+	// 壁ブロックのマスもその場で追加していく（同じ抽選内で複数の壁ブロックが重ならないようにするため）
 	std::vector<std::pair<int, int>> occupied = ComputeOccupiedCells(&boardSize);
-	std::vector<std::pair<int, int>> freeCells = ComputeFreeCells(&boardSize, occupied);
 
-	for (int i = 0; i < spawnConfig.wallCount; ++i) {
-		if (freeCells.empty()) break; // 空きマスが尽きたらそれ以上は生成しない
+	auto isOccupied = [&](int col, int row) {
+		for (const auto& cell : occupied) {
+			if (cell.first == col && cell.second == row) return true;
+		}
+		return false;
+	};
 
-		std::uniform_int_distribution<size_t> dist(0, freeCells.size() - 1);
-		size_t pickedIndex = dist(rng_);
-		std::pair<int, int> picked = freeCells[pickedIndex];
-		freeCells.erase(freeCells.begin() + pickedIndex);
-
+	auto spawnWallCell = [&](int col, int row) {
 		GameObject& wall = CreateObject("Wall");
 		wall.tag = kGridWallTag;
 		wall.SetParent(&spawner);
 		wall.GetTransform().scale = { kWallSize, kWallSize, kWallSize };
-		Vector3 pos = boardSize.GridToWorld(picked.first, picked.second);
+		Vector3 pos = boardSize.GridToWorld(col, row);
 		wall.GetTransform().translation = { pos.x, kWallHeightOffset, pos.z };
 
 		auto* render = wall.AddComponent<CubeRenderComponent>();
@@ -624,10 +663,50 @@ void GridPuzzleScene::SpawnWallsFromConfig(GameObject& spawner, GridWallSpawnCom
 		render->lighting = false;
 
 		auto* wallComp = wall.AddComponent<GridWallComponent>();
-		wallComp->col = picked.first;
-		wallComp->row = picked.second;
+		wallComp->col = col;
+		wallComp->row = row;
 		wallComp->passCost = spawnConfig.passCost;
 		wallComp->color = spawnConfig.wallColor; // Inspectorで調整する色の初期値
+	};
+
+	// 形状はIミノ（4マス直線）のみを使う（TetrominoBaseShapes()の他6種は今のところ未使用。
+	// 将来また複数形状に戻す場合に備えて残してある）。回転（0〜3）はランダムに選ぶため、
+	// 横向き・縦向き両方の直線壁が出現する
+	std::vector<std::pair<int, int>> iShape = TetrominoBaseShapes().front();
+	std::uniform_int_distribution<int> rotationDist(0, 3);
+	std::uniform_int_distribution<int> colDist(0, (std::max)(boardSize.columns - 1, 0));
+	std::uniform_int_distribution<int> rowDist(0, (std::max)(boardSize.rows - 1, 0));
+
+	// Iミノ（4マス直線）の壁ブロックをpieceCount個ぶん、ランダムな向き・位置で配置する。
+	// 1個につき「ランダムな起点マスに、ランダムに選んだ向きを当てはめて、盤面内に収まり
+	// かつ全マスが空いているか」をkWallPlacementMaxAttempts回まで試す（ダーツ方式）。
+	// 見つからなければそのブロックは諦めて次へ進む（盤面が狭い・埋まっている場合の保険）
+	for (int i = 0; i < spawnConfig.pieceCount; ++i) {
+		std::vector<std::pair<int, int>> shapeCells = RotateAndNormalizeShape(iShape, rotationDist(rng_));
+
+		for (int attempt = 0; attempt < kWallPlacementMaxAttempts; ++attempt) {
+			int anchorCol = colDist(rng_);
+			int anchorRow = rowDist(rng_);
+
+			std::vector<std::pair<int, int>> targetCells;
+			bool fits = true;
+			for (const auto& offset : shapeCells) {
+				int col = anchorCol + offset.first;
+				int row = anchorRow + offset.second;
+				if (col < 0 || col >= boardSize.columns || row < 0 || row >= boardSize.rows || isOccupied(col, row)) {
+					fits = false;
+					break;
+				}
+				targetCells.push_back({ col, row });
+			}
+			if (!fits) continue;
+
+			for (const auto& cell : targetCells) {
+				spawnWallCell(cell.first, cell.second);
+				occupied.push_back(cell);
+			}
+			break; // このブロックは配置できたので次のブロックへ
+		}
 	}
 
 	// CreateObjectで追加したGameObjectをgizmoTargets_（Update/Draw対象一覧）に反映する
