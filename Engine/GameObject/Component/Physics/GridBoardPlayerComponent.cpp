@@ -2,6 +2,7 @@
 #include "GridBoardPlayerComponent.h"
 #include "GridBoardComponent.h"
 #include "GridItemComponent.h"
+#include "GridWallComponent.h"
 #include "../../ComponentRegistry.h"
 #include "../../GameObject.h"
 #include "../../Systems/ScreenRay.h"
@@ -22,6 +23,40 @@ namespace {
 		}
 		return nullptr;
 	}
+
+	// sceneObjectsから指定マス(col,row)にあるGridWallComponentを探して返す（無ければnullptr）。
+	// 壁の数は数個〜十数個程度の想定のため、毎回シーン全体を線形探索しても実用上問題にならない
+	const GridWallComponent* FindWallAt(const std::vector<GameObject*>* sceneObjects, int col, int row) {
+		if (!sceneObjects) return nullptr;
+		for (GameObject* obj : *sceneObjects) {
+			if (!obj) continue;
+			if (auto* wall = obj->GetComponent<GridWallComponent>()) {
+				if (wall->col == col && wall->row == row) return wall;
+			}
+		}
+		return nullptr;
+	}
+
+	// 1マスぶんの移動コスト。壁マスならその壁のpassCost、無ければ通常の1
+	int CellMoveCost(const std::vector<GameObject*>* sceneObjects, int col, int row) {
+		const GridWallComponent* wall = FindWallAt(sceneObjects, col, row);
+		return wall ? wall->passCost : 1;
+	}
+
+	// (fromCol,fromRow)から(toCol,toRow)まで（同じ行/列上の直線移動）実際に通過する各マスの
+	// コストを合計する。GridBoardPlayerComponent::GetReservedPathCellsと同じ「1マスずつ進みながら
+	// 通過マスを数える」ロジックをコスト集計用に転用したもの
+	int ComputePathCost(const std::vector<GameObject*>* sceneObjects, int fromCol, int fromRow, int toCol, int toRow) {
+		int stepCol = (toCol > fromCol) - (toCol < fromCol);
+		int stepRow = (toRow > fromRow) - (toRow < fromRow);
+		int steps = (std::max)(std::abs(toCol - fromCol), std::abs(toRow - fromRow));
+
+		int cost = 0;
+		for (int s = 1; s <= steps; ++s) {
+			cost += CellMoveCost(sceneObjects, fromCol + stepCol * s, fromRow + stepRow * s);
+		}
+		return cost;
+	}
 }
 
 bool GridBoardPlayerComponent::TryPickCell(const Transform& transform, const UpdateContext& ctx, int& outCol, int& outRow) const {
@@ -33,9 +68,9 @@ bool GridBoardPlayerComponent::TryPickCell(const Transform& transform, const Upd
 
 	Collision::Ray ray = ScreenRay::FromMouse(ctx.renderer, ctx.view, ctx.proj);
 
-	// このゲームはX-Y平面上で進行するため、プレイヤーと同じZ座標のX-Y平面（法線Z+）を
-	// クリック対象の面とみなす（ReflexPlayerComponent::TryPickPointと同じ考え方）
-	Collision::Plane fieldPlane{ { 0.0f, 0.0f, 1.0f }, transform.translation.z };
+	// このゲームはX-Z平面（水平な地面）上で進行するため、プレイヤーと同じ高さ(Y座標)の
+	// X-Z平面（法線Y+）をクリック対象の面とみなす（見下ろしカメラからのレイと地面の交点を求める）
+	Collision::Plane fieldPlane{ { 0.0f, 1.0f, 0.0f }, transform.translation.y };
 	float t;
 	Vector3 hitPoint;
 	if (!Collision::RayPlane(ray, fieldPlane, t, hitPoint)) return false;
@@ -74,18 +109,26 @@ std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetValidTargets(const
 		originRow = waypoints_.back().second;
 	}
 
-	// 横方向：originColを中心に左右へ、盤面端 or 残コストで届く範囲まで
-	for (int col = originCol - currentCost_; col <= originCol + currentCost_; ++col) {
-		if (col == originCol) continue;
-		if (col < 0 || col >= board->columns) continue;
-		result.push_back({ col, originRow });
-	}
-	// 縦方向：originRowを中心に上下へ、盤面端 or 残コストで届く範囲まで
-	for (int row = originRow - currentCost_; row <= originRow + currentCost_; ++row) {
-		if (row == originRow) continue;
-		if (row < 0 || row >= board->rows) continue;
-		result.push_back({ originCol, row });
-	}
+	// 4方向それぞれへ1マスずつ進みながら、通過するマスのコスト（壁マスはGridWallComponent::
+	// passCost、それ以外は1）を積算していく。積算コストが残りコストを超えた時点でその方向は
+	// 打ち切る（壁を挟むと、同じ残りコストでも届く距離が短くなる）
+	auto walk = [&](int colStep, int rowStep) {
+		int accumulated = 0;
+		int col = originCol;
+		int row = originRow;
+		for (;;) {
+			col += colStep;
+			row += rowStep;
+			if (col < 0 || col >= board->columns || row < 0 || row >= board->rows) break;
+			accumulated += CellMoveCost(sceneObjects, col, row);
+			if (accumulated > currentCost_) break;
+			result.push_back({ col, row });
+		}
+	};
+	walk(1, 0);
+	walk(-1, 0);
+	walk(0, 1);
+	walk(0, -1);
 
 	return result;
 }
@@ -132,10 +175,15 @@ std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetReservedPathCells(
 }
 
 void GridBoardPlayerComponent::ClearWaypoints() {
-	// 予約時に即時消費した分をまとめて払い戻す（消費距離の合計 = マス数の合計）。
+	// 予約時に即時消費した分をまとめて払い戻す。waypointCosts_に各予約が実際に消費した
+	// コスト（壁マスを含む区間ほど大きい）を控えてあるため、その合計を払い戻す
+	// （waypoints_.size()＝クリック回数はコストの合計とは限らないため使わない）。
 	// 発動済みのアイテム効果（attackPower_・コスト増減）は巻き戻さない
-	currentCost_ = (std::min)(currentCost_ + static_cast<int>(waypoints_.size()), maxCost);
+	int refund = 0;
+	for (int cost : waypointCosts_) refund += cost;
+	currentCost_ = (std::min)(currentCost_ + refund, maxCost);
 	waypoints_.clear();
+	waypointCosts_.clear();
 }
 
 void GridBoardPlayerComponent::ApplyItemEffect(GridItemComponent::Type type) {
@@ -181,10 +229,13 @@ void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, con
 				bool sameRow = (row == prevRow && col != prevCol);
 				bool sameCol = (col == prevCol && row != prevRow);
 				if (sameRow || sameCol) {
-					int distance = sameRow ? std::abs(col - prevCol) : std::abs(row - prevRow);
-					if (distance <= currentCost_) {
+					// 経路上に壁マスがあれば、その区間の消費コストは距離（マス数）そのままではなく
+					// 壁のpassCostぶん上乗せされる（ComputePathCost参照）
+					int pathCost = ComputePathCost(ctx.sceneObjects, prevCol, prevRow, col, row);
+					if (pathCost <= currentCost_) {
 						waypoints_.push_back({ col, row });
-						currentCost_ -= distance;
+						waypointCosts_.push_back(pathCost);
+						currentCost_ -= pathCost;
 
 						// アイテム発動はColliderSystemのOnTriggerEnter経由（GridItemComponent側）で
 						// 行うため、ここではマス座標を見た判定は行わない
@@ -224,12 +275,13 @@ void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, con
 
 	if (t >= 1.0f) {
 		transform.translation.x = segmentEnd_.x;
-		transform.translation.y = segmentEnd_.y;
+		transform.translation.z = segmentEnd_.z;
 		++currentWaypointIndex_;
 		if (currentWaypointIndex_ >= waypoints_.size()) {
 			// 実行完了：次ターンへ。コスト・攻撃力は満タン/0へリセットする
 			phase_ = Phase::kPlanning;
 			waypoints_.clear();
+			waypointCosts_.clear();
 			currentWaypointIndex_ = 0;
 			segmentStarted_ = false;
 			currentCost_ = maxCost;
@@ -242,7 +294,7 @@ void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, con
 		float easedT = Easing::Apply(easingType, t);
 		Vector3 lerped = segmentStart_ + (segmentEnd_ - segmentStart_) * easedT;
 		transform.translation.x = lerped.x;
-		transform.translation.y = lerped.y;
+		transform.translation.z = lerped.z;
 	}
 }
 

@@ -1,3 +1,115 @@
 {
-    "objects": []
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "anchorOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "entries": [
+                            {
+                                "color": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ],
+                                "fontSize": 32.0,
+                                "horizontalAlign": 0,
+                                "text": "RED = Attack+1"
+                            },
+                            {
+                                "color": [
+                                    1.0,
+                                    1.0,
+                                    1.0,
+                                    1.0
+                                ],
+                                "fontSize": 32.0,
+                                "horizontalAlign": 0,
+                                "text": "BLUE = スタミナ"
+                            }
+                        ],
+                        "spacing": 40.0,
+                        "stackDirection": 0
+                    },
+                    "type": "TextGroup"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "新規追加 103",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    102.67376708984375,
+                    75.42855834960938,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 28.0,
+                        "horizontalAlign": 0,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "text": "行動可能マス: 20 / 20"
+                    },
+                    "type": "TextSprite"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
+            "name": "CostText",
+            "parentIndex": -1,
+            "tag": "GridCostText",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    20.0,
+                    20.0,
+                    0.0
+                ]
+            }
+        }
+    ]
 }

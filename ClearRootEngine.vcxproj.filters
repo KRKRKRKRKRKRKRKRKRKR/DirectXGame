@@ -83,6 +83,7 @@
     <ClCompile Include="Engine\GameObject\Component\Render\ModelRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\SpriteRenderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\TextSpriteComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Render\TextGroupComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\AlphabetTextComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\DashedLineComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Render\RankingComponent.cpp" />
@@ -99,6 +100,8 @@
     <ClCompile Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridItemComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridItemSpawnComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridWallComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridWallSpawnComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.cpp" />
@@ -265,6 +268,7 @@
     <ClInclude Include="Engine\GameObject\Component\Render\ModelRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\SpriteRenderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\TextSpriteComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Render\TextGroupComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\AlphabetTextComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\DashedLineComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Render\RankingComponent.h" />
@@ -284,6 +288,8 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridItemComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridItemSpawnComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridWallComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridWallSpawnComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleEmitterComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleTemplateComponent.h" />

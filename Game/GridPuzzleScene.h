@@ -64,6 +64,13 @@ private:
 	// 該当するタイルだけハイライト色にする（それ以外は市松模様の基本色に戻す）
 	void UpdateTileHighlights();
 
+	// 毎フレーム呼ぶ。GridBoardPlayerComponent::GetCurrentCost()/maxCost（行動可能マス数＝残り
+	// 移動コスト）を文字列化し、前回表示した内容と違う時だけtag==kGridCostTextTagの
+	// TextSpriteComponent::textを書き換えてRebuildする（値が変わらない間は毎フレームの
+	// テクスチャ再生成を避けるため。TextSpriteComponentは元々「保存ボタンで確定した時だけ
+	// Rebuildする」静的テキスト専用の設計だが、変更検知を自前で行えばこのような準動的な表示にも使える）
+	void UpdateCostText();
+
 	// 毎フレーム呼ぶ。GridBoardPlayerComponentの現在フェーズを前フレームと比較し、
 	// 「実行フェーズ（kExecuting）からちょうど計画フェーズ（kPlanning）へ戻った瞬間」を検知したら
 	// FinalizeCollectedItemsOnTurnEndを呼ぶ（GridBoardPlayerComponentはReflexPlayerComponentと
@@ -114,12 +121,37 @@ private:
 	// ResetItemsIfRequested（リセットボタン、既存削除後）の両方から呼ばれる共通ロジック
 	void SpawnItemsFromConfig(GameObject& spawner, class GridItemSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
 
-	// FinalizeCollectedItemsOnTurnEnd/RespawnItemsIfNoneExist/ResetItemsIfRequestedの空きマス
-	// 抽選に使う乱数生成器
+	// 毎フレーム呼ぶ。シーン内にtag==kGridWallTagが1つも存在しなければ（起動直後）、
+	// GridWallSpawnComponent::wallCountぶんをランダムな空きマスへ配置する（初回配置専用。
+	// RespawnItemsIfNoneExistと同じ理由で、EnsureInitialObjectsExist（初回フレームのみ）とは
+	// 別の関数にしてある。アイテムと違い壁は踏んでも消えないため、通常はここで一度配置したら
+	// 「リセット」ボタンを押すまでそのまま居座り続ける）
+	void RespawnWallsIfNoneExist();
+
+	// 毎フレーム呼ぶ。GridWallSpawnComponent::ConsumeResetRequested()（Inspectorの「リセット」
+	// ボタン）がtrueを返した瞬間、既存のtag==kGridWallTagを全部削除してから、SpawnWallsFromConfigで
+	// wallCount枚を新しく配置し直す（ResetItemsIfRequestedと同じ、既存削除後の強制再配置）
+	void ResetWallsIfRequested();
+
+	// spawner（GridWallSpawnComponent付き）のwallCount/passCost/wallColorを読み、現在の空きマスから
+	// wallCount枚をランダムに抽選して生成する実処理。SpawnItemsFromConfigの壁版
+	// （種類が1つしか無いため、種別ごとのループが無い分シンプル）
+	void SpawnWallsFromConfig(GameObject& spawner, class GridWallSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
+
+	// 毎フレーム呼ぶ。tag==kGridWallTagの各GameObjectについて、GridWallComponent::color
+	// （Inspectorで調整可能）を兄弟のCubeRenderComponent::colorへ、col/row（配置マス座標）を
+	// GridBoardComponent::GridToWorld経由でTransform.translationへ同期する。SyncItemsの壁版
+	// （壁にはtriggered相当の「取得済み」状態が無いため、そちらより単純）
+	void SyncWalls();
+
+	// FinalizeCollectedItemsOnTurnEnd/RespawnItemsIfNoneExist/ResetItemsIfRequested/
+	// RespawnWallsIfNoneExist/ResetWallsIfRequestedの空きマス抽選に使う乱数生成器
 	std::mt19937 rng_{ std::random_device{}() };
 
-	// 現在プレイヤーがいるマス・既存の（triggeredでない）アイテムが置かれているマスの一覧を返す。
-	// RespawnItemsIfNoneExist/FinalizeCollectedItemsOnTurnEndが空きマス抽選の母集団を作るのに
+	// 現在プレイヤーがいるマス・既存の（triggeredでない）アイテムが置かれているマス・既存の壁が
+	// 置かれているマスの一覧を返す。アイテムと壁は互いのスポーン抽選母集団からも除外し合う
+	// （同じマスに重ねて生成されないようにするため）。RespawnItemsIfNoneExist/
+	// FinalizeCollectedItemsOnTurnEnd/RespawnWallsIfNoneExistが空きマス抽選の母集団を作るのに
 	// 共通で使う
 	std::vector<std::pair<int, int>> ComputeOccupiedCells(class GridBoardComponent* boardSize);
 

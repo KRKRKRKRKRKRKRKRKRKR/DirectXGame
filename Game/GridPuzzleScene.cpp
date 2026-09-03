@@ -6,9 +6,14 @@
 #include "../Engine/GameObject/Component/Physics/GridBoardPlayerComponent.h"
 #include "../Engine/GameObject/Component/Physics/GridItemComponent.h"
 #include "../Engine/GameObject/Component/Physics/GridItemSpawnComponent.h"
+#include "../Engine/GameObject/Component/Physics/GridWallComponent.h"
+#include "../Engine/GameObject/Component/Physics/GridWallSpawnComponent.h"
 #include "../Engine/GameObject/Component/Physics/OBBColliderComponent.h"
 #include "../Engine/GameObject/Component/Lighting/DirectionalLightComponent.h"
+#include "../Engine/GameObject/Component/Render/TextSpriteComponent.h"
 #include <algorithm>
+#include <numbers>
+#include <string>
 
 namespace {
 	// 盤面の初期サイズ（企画書の「5×15マスの縦長グリッド」）。GridBoardComponentのデフォルト値と
@@ -27,8 +32,9 @@ namespace {
 	constexpr float kTileThickness = 0.3f;
 	constexpr float kPlayerSize = kCellSpacing * 0.6f;
 
-	// プレイヤーをタイルより少しカメラ側（Z-方向）に置き、重なっても手前に見えるようにする
-	constexpr float kPlayerZOffset = -0.5f;
+	// 盤面はX-Z平面（水平な地面、Y=0）に広がる見下ろし視点のため、プレイヤーは地面より
+	// 少し高い位置（+Y）に置いて重なっても地面より手前（上）に見えるようにする
+	constexpr float kPlayerHeightOffset = 0.5f;
 
 	// タイルはlighting=trueのため、DirectionalLightComponentが無いと真っ黒になってしまう
 	// （EnsureInitialObjectsExistで光源を1つ置く）
@@ -39,30 +45,44 @@ namespace {
 	constexpr const char* kGridLightTag = "GridPuzzleLight";
 	constexpr const char* kGridItemTag = "GridItem";
 	constexpr const char* kGridItemSpawnerTag = "GridItemSpawner";
+	constexpr const char* kGridWallTag = "GridWall";
+	constexpr const char* kGridWallSpawnerTag = "GridWallSpawner";
+	constexpr const char* kGridCostTextTag = "GridCostText";
 
-	// アイテムの見た目サイズ（マス間隔に対する比率）。プレイヤーと同じくタイルより少し
-	// カメラ側に置く。生成時の色自体はGridItemSpawnComponent::SpawnEntry::colorが持つ
+	// アイテムの見た目サイズ（マス間隔に対する比率）。プレイヤーと同じく地面より少し高い位置
+	// （+Y）に置く。生成時の色自体はGridItemSpawnComponent::SpawnEntry::colorが持つ
 	// （種別ごとの既定色をここに固定で持たない）
 	constexpr float kItemSize = kCellSpacing * 0.4f;
-	constexpr float kItemZOffset = -0.3f;
+	constexpr float kItemHeightOffset = 0.3f;
 
-	// カメラの固定位置（初期盤面の中心を画面中央に収める）。追従は行わず常にこの位置のまま
+	// 壁の見た目サイズ（マス間隔に対する比率）。アイテムより一回り大きくして、マスをほぼ覆う
+	// ように見せる（見下ろし視点のため高さでの区別はほぼ付かず、色とサイズで見分ける）
+	constexpr float kWallSize = kCellSpacing * 0.85f;
+	constexpr float kWallHeightOffset = 0.35f;
+
+	// カメラの固定位置（初期盤面の中心を画面中央に収める）。追従は行わず常にこの位置のまま。
+	// 盤面はX-Z平面上（GridBoardComponent::GridToWorld参照）に広がるため、カメラは盤面の
+	// 真上（+Y）から真下（-Y方向）を見下ろす姿勢にする
 	constexpr float kCameraCenterX = (kInitialColumns - 1) * 0.5f * kCellSpacing;
-	constexpr float kCameraCenterY = -(kInitialRows - 1) * 0.5f * kCellSpacing;
-	constexpr float kCameraZ = -30.0f;
+	constexpr float kCameraCenterZ = -(kInitialRows - 1) * 0.5f * kCellSpacing;
+	constexpr float kCameraHeight = 30.0f;
+
+	// Camera::GetViewMatrixはrotationをXMMatrixRotationRollPitchYaw(pitch=x, yaw=y, roll=z)で
+	// 解釈し、rotation={0,0,0}のときの正面方向は+Z。pitch(rotation.x)をちょうど+90度にすると
+	// 正面方向が真下(-Y)を向く（真上から真下を見下ろす姿勢になる）
+	constexpr float kCameraPitchStraightDown = std::numbers::pi_v<float> * 0.5f;
 }
 
 void GridPuzzleScene::OnInitialize() {
-	// このシーン専用のカメラ設定。REFLEXと同じくX-Y平面上でゲームが進行する擬似2D
-	// （Z座標は固定、カメラは奥から正面を見る）ため、盤面全体（初期15行ぶん）が収まるよう
-	// 十分に引いた位置へ固定する。カメラはシーン間で共有されるGameObject非依存の存在なので、
-	// 他シーンの操作（マウスドラッグ等）で動いていても、このシーンを開くたびに必ずここへ戻す。
-	// タイル・プレイヤーの座標は「マス(0,0)が常にワールド原点」の固定アンカー方式
-	// （GridBoardComponent::GridToWorld参照）のため、盤面は原点から右下方向へ広がる。
-	// 初期サイズ(kInitialColumns×kInitialRows)の中心が画面中央に来るよう、カメラのX/Yを
-	// その中心座標へ固定する（追従はしない）
-	camera_->SetPosition({ kCameraCenterX, kCameraCenterY, kCameraZ });
-	camera_->SetRotation({ 0.0f, 0.0f, 0.0f });
+	// このシーン専用のカメラ設定。盤面はX-Z平面（水平な地面、Y=0）上に広がるため、カメラは
+	// 盤面の真上（+Y）から真下を見下ろす姿勢に固定する。カメラはシーン間で共有される
+	// GameObject非依存の存在なので、他シーンの操作（マウスドラッグ等）で動いていても、
+	// このシーンを開くたびに必ずここへ戻す。タイル・プレイヤーの座標は「マス(0,0)が常に
+	// ワールド原点」の固定アンカー方式（GridBoardComponent::GridToWorld参照）のため、盤面は
+	// 原点からX+・Z-方向へ広がる。初期サイズ(kInitialColumns×kInitialRows)の中心が画面中央に
+	// 来るよう、カメラのX/Zをその中心座標へ固定する（追従はしない）
+	camera_->SetPosition({ kCameraCenterX, kCameraHeight, kCameraCenterZ });
+	camera_->SetRotation({ kCameraPitchStraightDown, 0.0f, 0.0f });
 	camera_->SetFov(45.0f);
 }
 
@@ -94,9 +114,22 @@ void GridPuzzleScene::HandleSceneTransitionInput() {
 	// Inspectorの「リセット」ボタンが押されていたら、既存アイテムを全部消して配置し直す
 	ResetItemsIfRequested();
 
+	// 壁が1つも無ければ（起動直後）、GridWallSpawnComponentの設定通りに配置する
+	RespawnWallsIfNoneExist();
+
+	// Inspectorの「リセット」ボタンが押されていたら、既存の壁を全部消して配置し直す
+	ResetWallsIfRequested();
+
 	// Inspectorで変更されたGridItemComponent::color/col/rowを、兄弟のCubeRenderComponent::color・
 	// Transform.translationへ反映する
 	SyncItems();
+
+	// Inspectorで変更されたGridWallComponent::color/col/rowを、兄弟のCubeRenderComponent::color・
+	// Transform.translationへ反映する
+	SyncWalls();
+
+	// 行動可能マス数（残り移動コスト）のテキスト表示を最新の値に更新する
+	UpdateCostText();
 
 	// 計画フェーズ中にクリックできるマスを毎フレーム塗り直す。isPlaying_を問わず呼んで良い
 	// （Stop中は単に直近の状態のまま表示され続けるだけで、実害は無い）
@@ -159,9 +192,9 @@ void GridPuzzleScene::EnsureInitialObjectsExist() {
 		if (boardSize) {
 			Vector3 centerPos = boardSize->GridToWorld(boardSize->columns / 2, boardSize->rows / 2);
 			player.GetTransform().translation.x = centerPos.x;
-			player.GetTransform().translation.y = centerPos.y;
+			player.GetTransform().translation.z = centerPos.z;
 		}
-		player.GetTransform().translation.z = kPlayerZOffset;
+		player.GetTransform().translation.y = kPlayerHeightOffset;
 
 		auto* playerRender = player.AddComponent<CubeRenderComponent>();
 		playerRender->color = kPlayerColor;
@@ -191,6 +224,39 @@ void GridPuzzleScene::EnsureInitialObjectsExist() {
 	// （HandleSceneTransitionInputが毎フレーム呼ぶ）に委ねる。「全部拾ったらまた3つ出現する」
 	// 挙動を実現するため、起動直後だけでなく毎フレーム判定する必要があるため、EnsureInitialObjectsExist
 	// （needsInitialSpawn_の初回フレームでしか呼ばれない）とは別の関数にしてある
+
+	// 壁スポナー（見た目・当たり判定を持たない空のGameObject）。GridWallSpawnComponentが
+	// 「盤面に何枚の壁を存在させ続けるか」の設定を持つ。生成された壁はこのGameObjectの子として
+	// ぶら下がる（RespawnWallsIfNoneExist参照）
+	if (!FindObjectByTag(kGridWallSpawnerTag)) {
+		GameObject& wallSpawner = CreateObject("WallSpawner");
+		wallSpawner.tag = kGridWallSpawnerTag;
+		wallSpawner.excludeFromPicking = true;
+		wallSpawner.AddComponent<GridWallSpawnComponent>();
+	}
+
+	// 壁の初回配置はRespawnWallsIfNoneExist（HandleSceneTransitionInputが毎フレーム呼ぶ）に委ねる
+	// （アイテムと同じ理由。壁は踏んでも消えないため通常は初回の1回しか出番が無いが、
+	// 「リセット」ボタンで作り直した後の再配置にも同じ判定を使い回せるようにするため）
+
+	// 行動可能マス数（残り移動コスト）を表示するテキスト（スクリーン空間UI）。実際の文字列は
+	// 毎フレームUpdateCostTextが更新するため、ここでは箱だけ用意して仮の文字列でRebuildしておく。
+	// Inspectorで位置・フォントサイズ・色を調整でき、その設定はscene.jsonに保存される
+	// （textの中身自体は保存されても次フレームで必ず上書きされるため実害はない）
+	if (!FindObjectByTag(kGridCostTextTag)) {
+		GameObject& costText = CreateObject("CostText");
+		costText.tag = kGridCostTextTag;
+		costText.excludeFromPicking = true;
+		costText.GetTransform().translation = { 20.0f, 20.0f, 0.0f };
+
+		auto* text = costText.AddComponent<TextSpriteComponent>();
+		text->fontSize = 28.0f;
+		text->horizontalAlign = TextSpriteComponent::HorizontalAlign::kLeft;
+		text->text = "行動可能マス: - / -";
+		text->Rebuild(renderer_);
+
+		costText.GetComponent<TransformComponent>()->is2D = true;
+	}
 
 	// CreateObjectで追加したGameObjectをgizmoTargets_（Update/Draw対象一覧）に反映する
 	RebuildDerivedLists();
@@ -230,9 +296,10 @@ void GridPuzzleScene::RebuildTiles(int columns, int rows) {
 			Transform& t = tile.GetTransform();
 			t.translation = boardSize->GridToWorld(col, row);
 			// タイルの見た目サイズもboardSize->cellSpacing基準（マス間隔よりわずかに小さくして
-			// 目地の隙間を作る）。Inspectorでマス間隔を変えるとタイルサイズもその場で追従する
+			// 目地の隙間を作る）。Inspectorでマス間隔を変えるとタイルサイズもその場で追従する。
+			// 盤面はX-Z平面（水平な地面）のため、薄くする軸はY（高さ方向）にする
 			float tileSize = boardSize->cellSpacing * 0.9f;
-			t.scale = { tileSize, tileSize, kTileThickness };
+			t.scale = { tileSize, kTileThickness, tileSize };
 
 			auto* render = tile.AddComponent<CubeRenderComponent>();
 			render->color = ((row + col) % 2 == 0) ? boardSize->tileColorA : boardSize->tileColorB;
@@ -258,6 +325,25 @@ void GridPuzzleScene::RebuildTilesIfBoardSizeChanged() {
 	lastBoardColumns_ = columns;
 	lastBoardRows_ = rows;
 	lastBoardCellSpacing_ = boardSize->cellSpacing;
+}
+
+void GridPuzzleScene::UpdateCostText() {
+	GameObject* textObj = FindObjectByTag(kGridCostTextTag);
+	auto* text = textObj ? textObj->GetComponent<TextSpriteComponent>() : nullptr;
+	if (!text) return;
+
+	GameObject* player = FindObjectByTag(GameTags::kPlayer);
+	auto* playerMove = player ? player->GetComponent<GridBoardPlayerComponent>() : nullptr;
+	if (!playerMove) return;
+
+	std::string newText = "行動可能マス: " + std::to_string(playerMove->GetCurrentCost()) + " / " + std::to_string(playerMove->maxCost);
+
+	// 値が変わった時だけRebuild（＝内部でCreateTextureFromPixelsを呼びテクスチャハンドルを新規消費する）
+	// する。毎フレーム無条件に呼ぶとハンドルを際限なく浪費してしまうため
+	if (newText != text->text) {
+		text->text = newText;
+		text->Rebuild(renderer_);
+	}
 }
 
 void GridPuzzleScene::AdvanceTurnIfExecutionFinished() {
@@ -286,6 +372,13 @@ std::vector<std::pair<int, int>> GridPuzzleScene::ComputeOccupiedCells(GridBoard
 		if (obj->tag != kGridItemTag) continue;
 		auto* itemComp = obj->GetComponent<GridItemComponent>();
 		if (itemComp && !itemComp->triggered) occupied.push_back({ itemComp->col, itemComp->row });
+	}
+	// 壁もアイテムと同じマスを取り合わないよう抽選母集団から除外する（アイテム側の抽選にも
+	// 壁側の抽選にもこの関数を共通で使うため、双方が互いを避け合う形になる）
+	for (auto& obj : objects_) {
+		if (obj->tag != kGridWallTag) continue;
+		auto* wallComp = obj->GetComponent<GridWallComponent>();
+		if (wallComp) occupied.push_back({ wallComp->col, wallComp->row });
 	}
 	return occupied;
 }
@@ -331,7 +424,7 @@ void GridPuzzleScene::UpdateCollectedItemsDisplay() {
 		GameObject* item = collectedItemsThisTurn_[i];
 		if (!item) continue;
 		Vector3 pos = spawnConfig->collectedDisplayTop;
-		pos.y -= static_cast<float>(i) * spawnConfig->collectedDisplaySpacing;
+		pos.z -= static_cast<float>(i) * spawnConfig->collectedDisplaySpacing;
 		item->GetTransform().translation = pos;
 	}
 }
@@ -430,7 +523,7 @@ void GridPuzzleScene::SpawnItemsFromConfig(GameObject& spawner, GridItemSpawnCom
 		item.SetParent(&spawner);
 		item.GetTransform().scale = { kItemSize, kItemSize, kItemSize };
 		Vector3 pos = boardSize.GridToWorld(col, row);
-		item.GetTransform().translation = { pos.x, pos.y, kItemZOffset };
+		item.GetTransform().translation = { pos.x, kItemHeightOffset, pos.z };
 
 		auto* render = item.AddComponent<CubeRenderComponent>();
 		render->color = color;
@@ -466,6 +559,104 @@ void GridPuzzleScene::SpawnItemsFromConfig(GameObject& spawner, GridItemSpawnCom
 	RebuildDerivedLists();
 }
 
+void GridPuzzleScene::RespawnWallsIfNoneExist() {
+	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
+	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
+	if (!boardSize || boardSize->columns <= 0 || boardSize->rows <= 0) return;
+
+	bool anyWallExists = false;
+	for (auto& obj : objects_) {
+		if (obj->tag == kGridWallTag) { anyWallExists = true; break; }
+	}
+	if (anyWallExists) return;
+
+	GameObject* spawner = FindObjectByTag(kGridWallSpawnerTag);
+	auto* spawnConfig = spawner ? spawner->GetComponent<GridWallSpawnComponent>() : nullptr;
+	if (!spawner || !spawnConfig) return;
+
+	SpawnWallsFromConfig(*spawner, *spawnConfig, *boardSize);
+}
+
+void GridPuzzleScene::ResetWallsIfRequested() {
+	GameObject* spawner = FindObjectByTag(kGridWallSpawnerTag);
+	auto* spawnConfig = spawner ? spawner->GetComponent<GridWallSpawnComponent>() : nullptr;
+	if (!spawner || !spawnConfig) return;
+	if (!spawnConfig->ConsumeResetRequested()) return;
+
+	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
+	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
+	if (!boardSize || boardSize->columns <= 0 || boardSize->rows <= 0) return;
+
+	// 現在盤面にある壁を全部削除してから、wallCount枚を新しく配置し直す
+	// （RespawnWallsIfNoneExistと異なり、既に壁が存在していても強制的に作り直す）
+	std::vector<GameObject*> existingWalls;
+	for (auto& obj : objects_) {
+		if (obj->tag == kGridWallTag) existingWalls.push_back(obj.get());
+	}
+	if (!existingWalls.empty()) DeleteObjects(existingWalls);
+
+	SpawnWallsFromConfig(*spawner, *spawnConfig, *boardSize);
+}
+
+void GridPuzzleScene::SpawnWallsFromConfig(GameObject& spawner, GridWallSpawnComponent& spawnConfig, GridBoardComponent& boardSize) {
+	// 現時点で空いている全マス（プレイヤー・既存アイテムの位置を除く）からwallCount枚だけ
+	// 重複なくランダムに抽選する
+	std::vector<std::pair<int, int>> occupied = ComputeOccupiedCells(&boardSize);
+	std::vector<std::pair<int, int>> freeCells = ComputeFreeCells(&boardSize, occupied);
+
+	for (int i = 0; i < spawnConfig.wallCount; ++i) {
+		if (freeCells.empty()) break; // 空きマスが尽きたらそれ以上は生成しない
+
+		std::uniform_int_distribution<size_t> dist(0, freeCells.size() - 1);
+		size_t pickedIndex = dist(rng_);
+		std::pair<int, int> picked = freeCells[pickedIndex];
+		freeCells.erase(freeCells.begin() + pickedIndex);
+
+		GameObject& wall = CreateObject("Wall");
+		wall.tag = kGridWallTag;
+		wall.SetParent(&spawner);
+		wall.GetTransform().scale = { kWallSize, kWallSize, kWallSize };
+		Vector3 pos = boardSize.GridToWorld(picked.first, picked.second);
+		wall.GetTransform().translation = { pos.x, kWallHeightOffset, pos.z };
+
+		auto* render = wall.AddComponent<CubeRenderComponent>();
+		render->color = spawnConfig.wallColor;
+		render->lighting = false;
+
+		auto* wallComp = wall.AddComponent<GridWallComponent>();
+		wallComp->col = picked.first;
+		wallComp->row = picked.second;
+		wallComp->passCost = spawnConfig.passCost;
+		wallComp->color = spawnConfig.wallColor; // Inspectorで調整する色の初期値
+	}
+
+	// CreateObjectで追加したGameObjectをgizmoTargets_（Update/Draw対象一覧）に反映する
+	RebuildDerivedLists();
+}
+
+void GridPuzzleScene::SyncWalls() {
+	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
+	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
+
+	for (auto& obj : objects_) {
+		if (obj->tag != kGridWallTag) continue;
+		auto* wallComp = obj->GetComponent<GridWallComponent>();
+		if (!wallComp) continue;
+
+		auto* render = obj->GetComponent<CubeRenderComponent>();
+		if (render) render->color = wallComp->color;
+
+		// col/row（配置マス座標）からワールド座標へ変換してTransformへ反映する。SyncItemsと同じ理由
+		// （手動でInspectorからGridWallComponentをAdd Componentしてcol/rowを入力しただけでは、
+		// GameObject自体のTransform.translationは変わらず盤面外に取り残されて見えなくなるため）
+		if (boardSize) {
+			Vector3 pos = boardSize->GridToWorld(wallComp->col, wallComp->row);
+			obj->GetTransform().translation.x = pos.x;
+			obj->GetTransform().translation.z = pos.z;
+		}
+	}
+}
+
 void GridPuzzleScene::SyncItems() {
 	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
 	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
@@ -490,7 +681,7 @@ void GridPuzzleScene::SyncItems() {
 		if (boardSize) {
 			Vector3 pos = boardSize->GridToWorld(itemComp->col, itemComp->row);
 			obj->GetTransform().translation.x = pos.x;
-			obj->GetTransform().translation.y = pos.y;
+			obj->GetTransform().translation.z = pos.z;
 		}
 	}
 }

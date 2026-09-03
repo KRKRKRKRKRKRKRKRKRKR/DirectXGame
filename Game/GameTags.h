@@ -27,6 +27,11 @@ namespace GameTags {
 	// ClearDashedLineSegmentsの一括削除に巻き込まれるため、他の用途では使わないこと
 	inline constexpr const char* kDashedLineSegment = "DashedLineSegment";
 
+	// SceneBase::RebuildTextGroupChildrenが生成する、TextGroupComponent1エントリぶんの
+	// 子GameObject（TextSpriteComponent付き）の目印。ユーザーが手動でこのタグを付けたGameObjectが
+	// あるとClearTextGroupChildrenの一括削除に巻き込まれるため、他の用途では使わないこと
+	inline constexpr const char* kTextGroupEntry = "TextGroupEntry";
+
 	// PlayScene::OnInitializeが起動時に探す、撃破数をAlphabetTextComponentの3Dモデル文字で
 	// 表示するGameObjectの目印。ユーザーがInspectorでAlphabetTextComponentを追加したGameObjectに
 	// このタグを付けると、PlayScene側がkillCount_を文字列化するTextProviderを自動で紐付ける

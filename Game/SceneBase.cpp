@@ -93,6 +93,11 @@ void SceneBase::LoadScene(const std::string& saveName) {
 				dashedLine->lastBuiltDashCount = -1;
 				dashedLine->lastBuiltDashWidth = -1.0f;
 			}
+			// TextGroupComponentの子GameObject（RebuildTextGroupChildren参照）も同じ理由で
+			// builtOnceをfalseへ戻し、次フレームのUpdateTextGroupComponentsが必ず子を作り直すようにする
+			if (auto* textGroup = obj->GetComponent<TextGroupComponent>()) {
+				textGroup->builtOnce = false;
+			}
 		}
 
 		// ComboPopupComponentが生成するポップアップもexcludeFromSave=trueのため、ここでロードされた
@@ -524,6 +529,9 @@ void SceneBase::Render(float deltaTime) {
 	// 書き換えるため、他のobjects_走査ループの後のこのタイミングで行う
 	UpdateAlphabetTextComponents();
 
+	// TextGroupComponentの子GameObject組み立ても同じ理由でこのタイミングで行う
+	UpdateTextGroupComponents();
+
 	// DashedLineComponentの子GameObject組み立ても同じ理由でこのタイミングで行う
 	UpdateDashedLineComponents();
 
@@ -819,6 +827,110 @@ void SceneBase::UpdateAlphabetTextComponents() {
 	}
 	for (auto& [owner, comp] : toRebuild) {
 		RebuildAlphabetTextChildren(*owner, *comp);
+	}
+}
+
+void SceneBase::ClearTextGroupChildren(GameObject& owner) {
+	// ClearAlphabetTextChildrenと全く同じ理由・同じ実装パターン（GetChildren()はDeleteObjects内での
+	// SetParent(nullptr)によりイテレート中に書き換わるため、先にコピーを取ってから対象を集める）
+	std::vector<GameObject*> children = owner.GetChildren();
+	std::vector<GameObject*> toDelete;
+	for (GameObject* child : children) {
+		if (child->tag == GameTags::kTextGroupEntry) toDelete.push_back(child);
+	}
+	if (!toDelete.empty()) DeleteObjects(toDelete);
+}
+
+void SceneBase::RebuildTextGroupChildren(GameObject& owner, TextGroupComponent& comp) {
+	// RebuildAlphabetTextChildrenと同じ理由：ClearTextGroupChildren→DeleteObjectsが末尾で
+	// gizmoController_.ResetSelection()を無条件に呼ぶため、削除前に選択中オブジェクトを控えておき、
+	// 再構築後に選択し直す
+	GameObject* previouslySelected = gizmoController_.GetSelectedPreferLatest(gizmoTargets_, screenTargets_);
+	bool previouslySelectedIsRebuiltChild = previouslySelected
+		&& previouslySelected->GetParent() == &owner
+		&& previouslySelected->tag == GameTags::kTextGroupEntry;
+
+	ClearTextGroupChildren(owner);
+
+	ComponentLoadContext ctx = MakeComponentLoadContext();
+	for (size_t i = 0; i < comp.entries.size(); ++i) {
+		const TextGroupComponent::Entry& entry = comp.entries[i];
+
+		GameObject& entryObj = CreateObject("TextGroupEntry" + std::to_string(i));
+		entryObj.tag = GameTags::kTextGroupEntry;
+		// entries（表示内容）が変わるたびに作り直される一時的な子GameObjectのため保存対象外にする
+		// （AlphabetTextComponentの子と同じ理由）
+		entryObj.excludeFromSave = true;
+		entryObj.SetParent(&owner);
+
+		// stackDirectionの方向へi個ぶんspacing間隔だけずらした位置に並べる。SetParent後の
+		// translationは親からの相対座標として解釈される（GameObject::GetWorldTransform参照）
+		Vector3 offset = comp.anchorOffset;
+		float advance = comp.spacing * static_cast<float>(i);
+		if (comp.stackDirection == TextGroupComponent::StackDirection::kVertical) {
+			offset.y += advance;
+		} else {
+			offset.x += advance;
+		}
+		entryObj.GetTransform().translation = offset;
+
+		// TextSpriteComponentはRebuild(renderer)をAddComponent直後に呼ぶ必要があるため
+		// （テクスチャのラスタライズ）、REGISTER_SIMPLE_COMPONENTではなくComponentRegistry::Create
+		// 経由で生成する（ComponentRegistration.cppのcreator参照）。data経由でtext/fontSize/
+		// horizontalAlign/colorを渡せば、Inspectorの「保存」ボタンを介さず直接確定させられる
+		nlohmann::json data;
+		data["text"] = entry.text;
+		data["fontSize"] = entry.fontSize;
+		data["horizontalAlign"] = static_cast<int>(entry.horizontalAlign);
+		data["color"] = Vector4ToJson(entry.color);
+		ComponentRegistry::Create("TextSprite", entryObj, ctx, data);
+
+		// TextSpriteComponentは常にTransformComponent::is2D==trueのスクリーン空間で使う想定
+		// （DrawAddTextSpriteNode参照）。ownerと同じ2D空間に子を配置する
+		entryObj.GetComponent<TransformComponent>()->is2D = true;
+	}
+
+	comp.lastBuiltEntries = comp.entries;
+	comp.lastBuiltAnchorOffset = comp.anchorOffset;
+	comp.lastBuiltSpacing = comp.spacing;
+	comp.lastBuiltStackDirection = comp.stackDirection;
+	comp.builtOnce = true;
+	RebuildDerivedLists(); // 新規生成した子をscreenTargets_等に反映する
+
+	// 選択復元：RebuildAlphabetTextChildrenと同じロジック
+	if (previouslySelected && !previouslySelectedIsRebuiltChild) {
+		bool is2D = previouslySelected->GetComponent<TransformComponent>()->is2D;
+		if (is2D) {
+			gizmoController_.SetSelected2D(previouslySelected, screenTargets_);
+		} else {
+			gizmoController_.SetSelected(previouslySelected, gizmoTargets_);
+		}
+	}
+}
+
+void SceneBase::UpdateTextGroupComponents() {
+	// entries/anchorOffset/spacing/stackDirectionのいずれかが前回組み立てた時点の値と変わっていたら
+	// 子GameObjectを作り直す（UpdateAlphabetTextComponentsと同じ変更検知パターン）。
+	// RebuildTextGroupChildrenはDeleteObjects/CreateObject経由でobjects_自体（vector）を書き換える
+	// ため、objects_をイテレート中に直接呼ぶとイテレータが無効化される。先に対象だけ集め、
+	// ループを抜けてから処理する
+	std::vector<std::pair<GameObject*, TextGroupComponent*>> toRebuild;
+	for (auto& obj : objects_) {
+		if (auto* comp = obj->GetComponent<TextGroupComponent>()) {
+			bool changed = !comp->builtOnce
+				|| comp->entries != comp->lastBuiltEntries
+				|| comp->anchorOffset.x != comp->lastBuiltAnchorOffset.x
+				|| comp->anchorOffset.y != comp->lastBuiltAnchorOffset.y
+				|| comp->anchorOffset.z != comp->lastBuiltAnchorOffset.z
+				|| comp->spacing != comp->lastBuiltSpacing
+				|| comp->stackDirection != comp->lastBuiltStackDirection;
+			if (changed) {
+				toRebuild.push_back({ obj.get(), comp });
+			}
+		}
+	}
+	for (auto& [owner, comp] : toRebuild) {
+		RebuildTextGroupChildren(*owner, *comp);
 	}
 }
 
@@ -1385,7 +1497,7 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 
 	DrawAddModelRenderNode(selected, ctx, alreadyHasRenderComponent);
 	DrawAddSpriteRenderNode(selected, ctx, alreadyHasRenderComponent);
-	DrawAddTextSpriteNode(selected, ctx, alreadyHasRenderComponent);
+	DrawAddTextSpriteNode(selected, ctx);
 	DrawAddTextureSelectorNode(selected, ctx);
 	DrawAddMirrorNode(selected, ctx);
 	DrawAddReflexEnemyHealthBarNode(selected, ctx);
@@ -1398,6 +1510,17 @@ void SceneBase::DrawAddComponentMenu(GameObject& selected) {
 	if (!selected.GetComponent<AlphabetTextComponent>()) {
 		if (ImGui::Selectable("アルファベット文字列")) {
 			ComponentRegistry::Create("AlphabetText", selected, ctx, nlohmann::json::object());
+			ImGui::CloseCurrentPopup();
+		}
+	}
+
+	// TextGroupComponent：AlphabetTextComponentと同じ理由でRenderComponentBase派生ではない
+	// （GameObject本体は描画を持たず、SceneBase::RebuildTextGroupChildrenが生成する子GameObject側が
+	// TextSpriteComponentで描画する）ため、Model/Spriteとの排他チェック対象外。自動一覧には出さず、
+	// ここに個別のSelectableとして置く
+	if (!selected.GetComponent<TextGroupComponent>()) {
+		if (ImGui::Selectable("テキストグループ")) {
+			ComponentRegistry::Create("TextGroup", selected, ctx, nlohmann::json::object());
 			ImGui::CloseCurrentPopup();
 		}
 	}
@@ -1477,15 +1600,15 @@ void SceneBase::DrawAddSpriteRenderNode(GameObject& selected, const ComponentLoa
 	}
 }
 
-void SceneBase::DrawAddTextSpriteNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent) {
+void SceneBase::DrawAddTextSpriteNode(GameObject& selected, const ComponentLoadContext& ctx) {
 	// TextSprite：常にスクリーン空間UI（is2D=true）専用（TextRenderComponentのような3D配置
-	// オプションは持たない。詳しくはTextSpriteComponent.hのコメント参照）。他の描画コンポーネントと
-	// 排他（RenderComponentBaseを既に持つGameObjectには追加できない）にすることで、
-	// TextRenderComponent時代にあった「同一GameObjectへの複数付与」特別扱いを廃した
+	// オプションは持たない。詳しくはTextSpriteComponent.hのコメント参照）。
+	// 他の描画コンポーネントとの排他ガードはユーザー指示により撤廃済み（同一GameObjectに
+	// 複数のRenderComponentBase系を付けられる。TextureSelector/Mirror等、
+	// GetComponent<RenderComponentBase>()で「最初の1個」だけを見る仕組みと組み合わせる場合は
+	// 意図した方が先頭に来るよう追加順に注意すること）
 	if (ImGui::TreeNode("テキストスプライト")) {
-		if (alreadyHasRenderComponent) {
-			ImGui::TextDisabled("(既に描画コンポーネントが付いています。先に既存のものを削除してください)");
-		} else if (ImGui::Button("追加##TextSprite")) {
+		if (ImGui::Button("追加##TextSprite")) {
 			ComponentRegistry::Create("TextSprite", selected, ctx, nlohmann::json::object());
 			TransformComponent* transform = selected.GetComponent<TransformComponent>();
 			transform->is2D = true;

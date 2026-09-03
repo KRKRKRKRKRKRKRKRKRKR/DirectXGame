@@ -41,11 +41,13 @@ public:
 
 	// プレイヤーが取得した（GridItemComponent::triggered==trueになった）アイテムを、盤面外の
 	// 表示領域へ一時的に並べる際の一番上の座標（ワールド座標）。GridPuzzleScene::
-	// UpdateCollectedItemsDisplayが取得した順に、この座標から下（Y-方向）へcollectedDisplaySpacing
-	// 間隔で積み重ねて配置する。既定値は盤面の左側（グリッドタイルの外）を想定した値
-	Vector3 collectedDisplayTop = { -2.5f, 0.0f, -0.3f };
+	// UpdateCollectedItemsDisplayが取得した順に、この座標から奥（Z-方向）へcollectedDisplaySpacing
+	// 間隔で積み重ねて配置する。盤面がX-Z平面（水平な地面、Y=0）上に広がるため、Y成分は
+	// 地面より少し高い位置（プレイヤー・アイテムと同じ考え方）にしておく。既定値は盤面の
+	// 左側（グリッドタイルの外）を想定した値
+	Vector3 collectedDisplayTop = { -2.5f, 0.3f, 0.0f };
 
-	// 取得済みアイテムを積み重ねる間隔（ワールド単位、Y-方向）
+	// 取得済みアイテムを積み重ねる間隔（ワールド単位、Z-方向）
 	float collectedDisplaySpacing = 1.0f;
 
 	void DrawImGui(const char* namePrefix) override;

@@ -29,11 +29,12 @@ public:
 	Vector4 tileColorA = { 0.80f, 0.82f, 0.86f, 1.0f };
 	Vector4 tileColorB = { 0.55f, 0.58f, 0.64f, 1.0f };
 
-	// マス(0,0)が常にワールド原点になる固定アンカー方式の座標変換。行は値が大きいほど下
-	// （Y-方向）へ進む（見た目の「上から下へ数える」感覚に合わせる）。タイル生成・プレイヤー
-	// 移動判定のどちらも必ずこの関数経由で計算し、式を手書きで複製しない
+	// マス(0,0)が常にワールド原点になる固定アンカー方式の座標変換。盤面はX-Z平面（水平な地面）
+	// 上に広がり、Yは常に0（高さ0＝地面の高さ）。行は値が大きいほど奥（Z-方向）へ進む
+	// （見た目の「手前から奥へ数える」感覚に合わせる）。タイル生成・プレイヤー移動判定の
+	// どちらも必ずこの関数経由で計算し、式を手書きで複製しない
 	Vector3 GridToWorld(int col, int row) const {
-		return { static_cast<float>(col) * cellSpacing, -static_cast<float>(row) * cellSpacing, 0.0f };
+		return { static_cast<float>(col) * cellSpacing, 0.0f, -static_cast<float>(row) * cellSpacing };
 	}
 
 	// GridToWorldの逆変換。四捨五入で最寄りのマスへスナップする

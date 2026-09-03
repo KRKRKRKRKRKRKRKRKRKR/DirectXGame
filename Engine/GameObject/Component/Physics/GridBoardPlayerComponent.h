@@ -38,8 +38,14 @@ class GameObject;
 // 予約済みマス自体をタイルの色塗りで表現する方式にしている（このコンポーネント自身は
 // 経路の描画を一切行わない）。
 //
-// 壁マスのコスト追加消費・アイテム・ダメージ・盤面リセットは今回のスコープ外
-// （docs/ComponentPlanTemplate.mdの計画書参照。実装は次段階で追加する）
+// 壁（GridWallComponent）：プレイヤーの通行を塞ぐ障害物ではなく、「通過にpassCostぶんの
+// コストがかかる」マスの目印。Collider/OnTriggerEnterは使わず、経路上の各マスのcol/rowを
+// 直接GridWallComponentと比較して判定する（GetValidTargets・Update内のクリック処理・
+// ComputePathCost/CellMoveCostヘルパー（GridBoardPlayerComponent.cpp内の無名namespace）参照）。
+// 壁が無いマスは通常通りコスト1として扱う。
+//
+// ダメージ・盤面リセットは今回のスコープ外（docs/ComponentPlanTemplate.mdの計画書参照。
+// 実装は次段階で追加する）
 class GridBoardPlayerComponent : public IComponent {
 public:
 	enum class Phase { kPlanning, kExecuting };
@@ -112,6 +118,10 @@ private:
 	bool isFirstUpdate_ = true;
 
 	std::vector<std::pair<int, int>> waypoints_; // 予約した経路（列,行）。プレイヤーの現在地は含まない
+	// waypoints_[i]を予約した際に実際に消費したコスト（壁マスを含む区間ほど大きくなる）。
+	// ClearWaypoints()が「予約時に消費した分をそのまま正確に払い戻す」ために使う
+	// （waypoints_.size()＝クリック回数であって消費コストの合計ではないため、別に持つ必要がある）
+	std::vector<int> waypointCosts_;
 	size_t currentWaypointIndex_ = 0;
 
 	Vector3 segmentStart_{ 0.0f, 0.0f, 0.0f };

@@ -118,7 +118,7 @@ protected:
 	// で1回だけ作った値を全ブロックで使い回す（既存の挙動を維持するため引数で渡す）
 	void DrawAddModelRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
 	void DrawAddSpriteRenderNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
-	void DrawAddTextSpriteNode(GameObject& selected, const ComponentLoadContext& ctx, bool alreadyHasRenderComponent);
+	void DrawAddTextSpriteNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddTextureSelectorNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddMirrorNode(GameObject& selected, const ComponentLoadContext& ctx);
 	void DrawAddReflexEnemyHealthBarNode(GameObject& selected, const ComponentLoadContext& ctx);
@@ -293,6 +293,20 @@ protected:
 	// （LoadModelは呼ぶたびに新しいModelHandle/SRVスロットを消費するため）
 	Renderer::ModelHandle GetOrLoadAlphabetModel(char upperLetter);
 	std::unordered_map<char, Renderer::ModelHandle> alphabetModelCache_;
+
+	// TextGroupComponentを持つ全GameObjectについて、entries/anchorOffset/spacing/stackDirectionが
+	// lastBuilt*（前回子GameObjectを組み立てた時点の値）と食い違っていたら、既存のエントリの
+	// 子GameObjectを全部削除して作り直す。Render()から毎フレーム呼ぶ
+	// （詳しくはTextGroupComponent.h参照。UpdateAlphabetTextComponentsと同じパターン）
+	void UpdateTextGroupComponents();
+
+	// ownerの子のうちtag==kTextGroupEntryのものを全部削除する（RebuildTextGroupChildrenが
+	// 作り直す前の後始末、およびLoadScene直後の「保存されてしまった古い子」の掃除に使う）
+	void ClearTextGroupChildren(GameObject& owner);
+
+	// ownerの下にcomp.entriesの内容に応じたTextSpriteComponent付き子GameObjectを新規生成する。
+	// anchorOffsetを1個目の位置とし、stackDirectionの方向へspacing間隔で並べる
+	void RebuildTextGroupChildren(GameObject& owner, TextGroupComponent& comp);
 
 	// DashedLineComponentを持つ全GameObjectについて、dashCount/dashWidth/dashThickness/
 	// dashSpacingが前回組み立てた時点の値と食い違っていたら、既存のダッシュの子GameObjectを

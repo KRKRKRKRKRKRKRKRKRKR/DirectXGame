@@ -9,7 +9,7 @@
 
 void GridBoardComponent::WorldToNearestGrid(const Vector3& worldPos, int& outCol, int& outRow) const {
 	outCol = static_cast<int>(std::lround(worldPos.x / cellSpacing));
-	outRow = static_cast<int>(std::lround(-worldPos.y / cellSpacing));
+	outRow = static_cast<int>(std::lround(-worldPos.z / cellSpacing));
 }
 
 void GridBoardComponent::DrawImGui(const char* namePrefix) {
