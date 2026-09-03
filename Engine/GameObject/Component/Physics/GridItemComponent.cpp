@@ -1,12 +1,24 @@
 // 10DaysJam
 #include "GridItemComponent.h"
+#include "GridBoardPlayerComponent.h"
 #include "../../ComponentRegistry.h"
+#include "../../GameObject.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include "../../../../Math/JsonUtil.h"
 #include <string>
 
 namespace {
 	constexpr const char* kTypeNames[] = { "攻撃力+1", "コスト+2固定", "コスト±4リスキー" };
+}
+
+void GridItemComponent::OnTriggerEnter(GameObject& other) {
+	if (triggered) return; // 既に発動済み（削除待ち）なら二重発動しない
+
+	auto* playerMove = other.GetComponent<GridBoardPlayerComponent>();
+	if (!playerMove) return; // アイテム同士やその他のTrigger相手には反応しない
+
+	playerMove->ApplyItemEffect(type);
+	triggered = true;
 }
 
 void GridItemComponent::DrawImGui(const char* namePrefix) {

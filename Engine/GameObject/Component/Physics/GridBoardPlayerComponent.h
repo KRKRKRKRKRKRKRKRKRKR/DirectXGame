@@ -1,6 +1,7 @@
 // 10DaysJam
 #pragma once
 #include "../../IComponent.h"
+#include "GridItemComponent.h"
 #include "../../../../Math/MathTypes.h"
 #include "../../../../Math/Easing.h"
 #include "../../../../Math/JsonUtil.h"
@@ -22,15 +23,15 @@ class GameObject;
 // 先頭から順にイージング移動し、すべて終えたら計画フェーズへ戻り、同時にcurrentCost_を
 // maxCostへリセットする（次ターンの開始）。
 //
-// アイテム（GridItemComponent）：経路予約時（クリックした瞬間）、直前地点から今回クリックした
-// マスまでの間（始点を除く、終点を含む）を1マスずつ調べ、GridItemComponentを持つGameObjectが
-// あればその場で即時発動する（kAttackPower：attackPower_+1、kCostFixed：currentCost_+2、
-// kCostRisky：50%でcurrentCost_±4、下限1でクランプ）。発動したアイテムはGameObjectごと
-// 削除する必要があるが、このコンポーネントはシーンのオブジェクト所有権を持たないため、
-// 実際の削除はGridPuzzleScene側に委ねる：ConsumeTriggeredItems()で「今フレーム発動した
-// アイテムGameObjectへの非所有ポインタ一覧」を取り出せるようにし、Scene側が毎フレーム
-// これを取り出してDeleteObjectsする。「経路をクリア」しても発動済みの効果（attackPower_・
-// コスト増減）は巻き戻さない（アイテムは拾ったままにする）。
+// アイテム（GridItemComponent）：発動判定はマス座標比較ではなく、ColliderSystemによる
+// OBBCollider同士の当たり判定（isTrigger=true）で行う。プレイヤー・アイテム双方のGameObjectに
+// OBBColliderComponentが付与されている前提で、実際に重なった瞬間にGridItemComponent::
+// OnTriggerEnterが呼ばれ、そこからこのコンポーネントのApplyItemEffect()を呼んで効果を適用する
+// （kAttackPower：attackPower_+1、kCostFixed：currentCost_+2、kCostRisky：50%でcurrentCost_±4、
+// 下限1でクランプ）。発動したアイテムのGameObject削除はGridItemComponent::triggeredフラグ経由で
+// GridPuzzleScene側が行う（このコンポーネントはアイテムGameObjectの削除には一切関与しない）。
+// 「経路をクリア」しても発動済みの効果（attackPower_・コスト増減）は巻き戻さない
+// （アイテムは拾ったままにする）。
 //
 // 経路の可視化は波紋マーカー・破線（ReflexPathVisualizer、REFLEX本編と共有の描画部品）を
 // 使わない。GridPuzzleScene::UpdateTileHighlightsがGetReservedWaypoints()を参照して、
@@ -75,16 +76,6 @@ public:
 	// 今回のスコープ外で、値を読めるようにするだけ）
 	int GetAttackPower() const { return attackPower_; }
 
-	// 直前のUpdate呼び出しで新しく発動したアイテムのGameObject一覧を取り出し、内部の
-	// 保持リストを空にする（ワンショット）。GridPuzzleScene側が毎フレーム呼び、返ってきた
-	// GameObjectをDeleteObjectsで削除する（このコンポーネントはシーンのオブジェクト所有権を
-	// 持たないため、削除自体はScene側の責務にする）
-	std::vector<GameObject*> ConsumeTriggeredItems() {
-		std::vector<GameObject*> result = std::move(triggeredItems_);
-		triggeredItems_.clear();
-		return result;
-	}
-
 	// 計画フェーズ中のみ、「直前の予約地点（無ければ現在地）と同じ行/列上」にあり、かつ
 	// 残りコストで到達可能な盤面端までの全マスの一覧を返す（縦横、盤面外は含まない）。
 	// GridPuzzleScene側がこの一覧に含まれるタイルをハイライト表示するために使う。このコンポーネントは
@@ -99,6 +90,12 @@ public:
 	// 残りの区間のみを返す想定はしていない。全区間を返し続けるが、実行フェーズ中は
 	// GetValidTargets()が空になるため見分けが付く）
 	const std::vector<std::pair<int, int>>& GetReservedWaypoints() const { return waypoints_; }
+
+	// GridItemComponent::OnTriggerEnterから呼ばれる。渡されたアイテムの種別に応じて効果を
+	// 即時適用する（kAttackPower：attackPower_+1、kCostFixed：currentCost_+2、kCostRisky：
+	// 50%でcurrentCost_±4、下限1でクランプ）。呼び出し元（GridItemComponent）が自分自身の
+	// triggeredフラグを立てて削除待ちにするため、ここではアイテムGameObjectの削除には関与しない
+	void ApplyItemEffect(GridItemComponent::Type type);
 
 private:
 	Phase phase_ = Phase::kPlanning;
@@ -117,7 +114,6 @@ private:
 	bool    segmentStarted_ = false;
 
 	int attackPower_ = 0; // このターン中に発動したkAttackPowerアイテムの合計（実行時状態、非保存）
-	std::vector<GameObject*> triggeredItems_; // 直前のUpdateで新たに発動したアイテム一覧（ConsumeTriggeredItemsで払い出す）
 	std::mt19937 rng_{ std::random_device{}() }; // kCostRiskyの±4抽選用
 
 	// 左クリック位置をレイキャストし、盤面上の最寄りマス（列,行）にスナップする。
@@ -128,8 +124,4 @@ private:
 
 	// waypoints_を全部消し、消費済みコストを予約前の状態へ戻す（DrawImGuiの「経路をクリア」用）
 	void ClearWaypoints();
-
-	// fromCol/fromRowからtoCol/toRowまでの直線上（始点を除く、終点を含む）の各マスを調べ、
-	// GridItemComponentを持つGameObjectがあれば効果を即時発動し、triggeredItems_へ積む
-	void TriggerItemsAlongPath(int fromCol, int fromRow, int toCol, int toRow, const std::vector<GameObject*>* sceneObjects);
 };

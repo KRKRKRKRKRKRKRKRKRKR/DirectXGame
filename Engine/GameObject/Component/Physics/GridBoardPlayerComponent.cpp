@@ -97,40 +97,20 @@ void GridBoardPlayerComponent::ClearWaypoints() {
 	waypoints_.clear();
 }
 
-void GridBoardPlayerComponent::TriggerItemsAlongPath(int fromCol, int fromRow, int toCol, int toRow, const std::vector<GameObject*>* sceneObjects) {
-	if (!sceneObjects) return;
-
-	int stepCol = (toCol > fromCol) ? 1 : (toCol < fromCol) ? -1 : 0;
-	int stepRow = (toRow > fromRow) ? 1 : (toRow < fromRow) ? -1 : 0;
-	int steps = (stepCol != 0) ? std::abs(toCol - fromCol) : std::abs(toRow - fromRow);
-
+void GridBoardPlayerComponent::ApplyItemEffect(GridItemComponent::Type type) {
 	std::uniform_int_distribution<int> coinFlip(0, 1);
 
-	for (int i = 1; i <= steps; i++) {
-		int col = fromCol + stepCol * i;
-		int row = fromRow + stepRow * i;
-
-		for (GameObject* obj : *sceneObjects) {
-			if (!obj) continue;
-			auto* item = obj->GetComponent<GridItemComponent>();
-			if (!item) continue;
-			if (item->col != col || item->row != row) continue;
-
-			switch (item->type) {
-			case GridItemComponent::Type::kAttackPower:
-				attackPower_ += 1;
-				break;
-			case GridItemComponent::Type::kCostFixed:
-				currentCost_ += 2;
-				break;
-			case GridItemComponent::Type::kCostRisky:
-				currentCost_ += (coinFlip(rng_) == 0) ? 4 : -4;
-				currentCost_ = (std::max)(currentCost_, 1);
-				break;
-			}
-			triggeredItems_.push_back(obj);
-			break; // 同じマスに複数アイテムは想定しない
-		}
+	switch (type) {
+	case GridItemComponent::Type::kAttackPower:
+		attackPower_ += 1;
+		break;
+	case GridItemComponent::Type::kCostFixed:
+		currentCost_ += 2;
+		break;
+	case GridItemComponent::Type::kCostRisky:
+		currentCost_ += (coinFlip(rng_) == 0) ? 4 : -4;
+		currentCost_ = (std::max)(currentCost_, 1);
+		break;
 	}
 }
 
@@ -165,10 +145,8 @@ void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, con
 						waypoints_.push_back({ col, row });
 						currentCost_ -= distance;
 
-						// 通過マスにアイテムがあれば即時発動する（攻撃力加算・コスト増減）。
-						// currentCost_が0以下になっていても、アイテムでコストが回復する場合が
-						// あるため、発動判定は必ずここで行ってから下のコスト切れチェックに進む
-						TriggerItemsAlongPath(prevCol, prevRow, col, row, ctx.sceneObjects);
+						// アイテム発動はColliderSystemのOnTriggerEnter経由（GridItemComponent側）で
+						// 行うため、ここではマス座標を見た判定は行わない
 
 						// コストを使い切ったら、それ以上予約できないため自動的に実行フェーズへ移る
 						if (currentCost_ <= 0) {

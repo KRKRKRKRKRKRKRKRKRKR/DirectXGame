@@ -3,10 +3,14 @@
 #include "../../IComponent.h"
 #include "../../../../Math/MathTypes.h"
 
-// パイプ接続パズル企画の盤面アイテム。GridBoardPlayerComponentが経路予約時（クリックした瞬間）に
-// 通過マスへこのコンポーネントを持つGameObjectがあれば効果を発動する（発動・削除の実処理は
-// GridBoardPlayerComponent/GridPuzzleScene側が行う。このコンポーネント自身は種別・配置マス座標・
-// 見た目色を持つだけのデータコンポーネント）。
+class GameObject;
+
+// パイプ接続パズル企画の盤面アイテム。プレイヤーGameObject（GridBoardPlayerComponent+
+// OBBColliderComponent(isTrigger=true)）と、このコンポーネントを持つGameObject自身の
+// OBBColliderComponent(isTrigger=true)がColliderSystem::ResolveAndDraw経由で重なった瞬間、
+// OnTriggerEnterが呼ばれて効果を発動する（実際の効果適用は相手のGridBoardPlayerComponent::
+// ApplyItemEffectに委譲する。発動・削除の実処理はGridBoardPlayerComponent/GridPuzzleScene側が
+// 行う。このコンポーネント自身は種別・配置マス座標・見た目色を持つデータコンポーネント）。
 //
 // 3種類（企画書確定仕様）：
 // - kAttackPower：そのターン限りの攻撃力+1
@@ -18,10 +22,9 @@ public:
 
 	Type type = Type::kAttackPower;
 
-	// 配置マス座標（GridBoardComponent::GridToWorldでワールド座標に変換する）。
-	// GameObjectのTransformとは別に持つ理由：GridBoardPlayerComponentが経路予約時に
-	// 「このマスにアイテムがあるか」を列/行の整数比較だけで判定できるようにするため
-	// （ワールド座標の浮動小数点比較を避ける）
+	// 配置マス座標（GridBoardComponent::GridToWorldでワールド座標に変換する）。GameObjectの
+	// Transformとは別に持つ理由：Inspectorから盤面のマス単位で配置を指定できるようにするため
+	// （GridPuzzleScene::SyncItemsが毎フレームTransform.translationへ反映する）
 	int col = 0;
 	int row = 0;
 
@@ -31,8 +34,17 @@ public:
 	// GridPuzzleSceneがこの値をCubeRenderComponent::colorへ毎フレーム同期する
 	Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 
+	void OnTriggerEnter(GameObject& other) override;
+
 	void DrawImGui(const char* namePrefix) override;
 
 	void ToJson(nlohmann::json& out) const override;
 	void FromJson(const nlohmann::json& in) override;
+
+	// プレイヤーとの重なりを検知して効果を発動した瞬間trueになる（実行時の一時状態、非保存）。
+	// GridItemComponent自身はシーンのオブジェクト所有権を持たず自分のGameObjectを削除できないため、
+	// GridPuzzleScene::ProcessTriggeredItemsが毎フレームこのフラグを見て、trueなGameObjectを
+	// まとめてDeleteObjectsする（削除自体はScene側の責務にする、ReflexEnemyComponent::
+	// pendingDestroyと同じパターン）
+	bool triggered = false;
 };

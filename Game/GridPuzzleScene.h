@@ -1,5 +1,6 @@
 #pragma once
 #include "SceneBase.h"
+#include <random>
 #include <vector>
 
 // パイプ接続パズル企画の最初のプロトタイプ画面。今回は企画書のうち「プレイヤー移動」「アイテム」
@@ -8,7 +9,9 @@
 // （CubeRenderComponent）で表示し、中央にプレイヤー（GridBoardPlayerComponent。ReflexPlayerComponent
 // には依存しない独立実装。同じ行/列上のマスをクリックして経路予約→実行フェーズで移動、
 // 1マスごとにコストを消費するコスト制）を1体、固定座標にアイテム（GridItemComponent、
-// 攻撃力+1／コスト+2固定／コスト±4リスキーの3種）を配置する画面。
+// 攻撃力+1／コスト+2固定／コスト±4リスキーの3種）を配置する画面。アイテムの取得判定は
+// マス座標比較ではなく、Player/Item双方に付与したOBBColliderComponent(isTrigger=true)による
+// ColliderSystemの当たり判定（重なった瞬間にGridItemComponent::OnTriggerEnterが発火）で行う。
 // 盤面サイズ・マス間隔はGridBoardComponentが唯一のデータソース。
 // SceneBase（GameObjectエディタ機能一式）をそのまま使い、PlayScene（REFLEX固有の計画/実行
 // フェーズ等）は経由しない
@@ -63,16 +66,28 @@ private:
 	// 明示的に戻す準備フェーズを持たない）、現在は何もしない
 	void AdvanceTurnIfExecutionFinished();
 
-	// 毎フレーム呼ぶ。GridBoardPlayerComponent::ConsumeTriggeredItems()で「直前のUpdateで
-	// 新たに発動したアイテムGameObject一覧」を取り出し、DeleteObjectsで削除する。アイテムの
-	// 発動判定・効果適用自体はGridBoardPlayerComponent側で完結しており、このシーン側は
-	// 「拾われたアイテムを盤面から取り除く」削除の実行だけを担当する（コンポーネントは
-	// シーンのオブジェクト所有権を持たないため）
-	void ProcessTriggeredItems();
+	// 毎フレーム呼ぶ。SceneBase::Render内のcolliderSystem_.ResolveAndDraw（このメソッドより前に
+	// 実行される）がPlayer/Itemの重なりを検知してGridItemComponent::OnTriggerEnterを発火させ、
+	// 効果適用済みのアイテムはtriggered=trueになっている。ここではtriggered==trueの
+	// tag==kGridItemTagを検索し、削除せずに空きマス（他のアイテム・プレイヤーの現在マスと
+	// 重ならないマス）をランダムに選んでcol/rowを書き換え、triggeredをfalseへ戻す
+	// （＝1体拾うたびに即座に別の場所へリスポーンし、常に盤面上に3体存在し続ける）。
+	// 実際の座標反映（Transform.translation）はSyncItemsに任せる
+	void RespawnTriggeredItems();
+
+	// 毎フレーム呼ぶ。シーン内にtag==kGridItemTagが1つも存在しなければ（起動直後）、
+	// 固定座標(kInitialItemPlacements)へ攻撃力+1／コスト+2固定／コスト±4リスキーの3種を配置する
+	// （初回配置専用。2回目以降はRespawnTriggeredItemsが1体ずつ個別に場所を変えるため出番がない）
+	void RespawnItemsIfNoneExist();
+
+	// RespawnTriggeredItems/RespawnItemsIfNoneExistの空きマス抽選に使う乱数生成器
+	std::mt19937 rng_{ std::random_device{}() };
 
 	// 毎フレーム呼ぶ。tag==kGridItemTagの各GameObjectについて、GridItemComponent::color
-	// （Inspectorで調整可能）を兄弟のCubeRenderComponent::colorへコピーする。アイテムの色は
-	// GridItemComponent側が真の値で、実際の描画色（CubeRenderComponent::color）は
-	// 常にそれに追従させる
-	void SyncItemColors();
+	// （Inspectorで調整可能）を兄弟のCubeRenderComponent::colorへ、col/row（配置マス座標）を
+	// GridBoardComponent::GridToWorld経由でTransform.translationへ同期する。アイテムの色・
+	// 位置はGridItemComponent側（col/row・color）が真の値で、実際の見た目（CubeRenderComponent::
+	// color・Transform.translation）は常にそれに追従させる。Inspectorで手動でGridItemComponentを
+	// Add Componentしてcol/rowを入力するだけで、対応するマスへ自動的に移動して表示される
+	void SyncItems();
 };
