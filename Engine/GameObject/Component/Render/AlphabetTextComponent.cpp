@@ -10,7 +10,7 @@ void AlphabetTextComponent::DrawImGui(const char* namePrefix) {
 	char buf[256];
 	strncpy_s(buf, text.c_str(), sizeof(buf) - 1);
 
-	std::string textLabel = std::string(namePrefix) + "文字列（A-Z・0-9・半角スペースのみ）";
+	std::string textLabel = std::string(namePrefix) + "文字列（A-Z・0-9・'/'・半角スペースのみ）";
 	std::string scaleLabel = std::string(namePrefix) + "文字サイズ";
 	std::string spacingLabel = std::string(namePrefix) + "文字間隔";
 	std::string spaceWidthLabel = std::string(namePrefix) + "スペースの幅";

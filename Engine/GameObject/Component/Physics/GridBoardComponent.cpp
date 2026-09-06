@@ -13,12 +13,8 @@ void GridBoardComponent::WorldToNearestGrid(const Vector3& worldPos, int& outCol
 }
 
 void GridBoardComponent::DrawImGui(const char* namePrefix) {
-	std::string columnsLabel = std::string(namePrefix) + "盤面の列数(横)";
-	std::string rowsLabel = std::string(namePrefix) + "盤面の行数(縦)";
-	ImGui::DragInt(columnsLabel.c_str(), &columns, 1.0f, 1, 50);
-	ImGui::DragInt(rowsLabel.c_str(), &rows, 1.0f, 1, 50);
-	columns = (std::max)(columns, 1);
-	rows = (std::max)(rows, 1);
+	// 盤面サイズは7x7固定（企画上の決定）のため、Inspectorからは変更できない読み取り専用表示にする
+	ImGui::Text("%s", (std::string(namePrefix) + "盤面サイズ: " + std::to_string(columns) + " x " + std::to_string(rows) + " (固定)").c_str());
 
 	std::string spacingLabel = std::string(namePrefix) + "マス間隔";
 	ImGui::DragFloat(spacingLabel.c_str(), &cellSpacing, 0.05f, 0.1f, 10.0f);
@@ -38,8 +34,10 @@ void GridBoardComponent::ToJson(nlohmann::json& out) const {
 }
 
 void GridBoardComponent::FromJson(const nlohmann::json& in) {
-	columns = in.value("columns", columns);
-	rows = in.value("rows", rows);
+	// 盤面サイズは7x7固定（企画上の決定）。古いscene.jsonに別サイズが保存されていても
+	// 読み込み時に強制的に矯正する（保存値は読まない）
+	columns = kFixedColumns;
+	rows = kFixedRows;
 	cellSpacing = in.value("cellSpacing", cellSpacing);
 	if (in.contains("tileColorA")) tileColorA = Vector4FromJson(in["tileColorA"]);
 	if (in.contains("tileColorB")) tileColorB = Vector4FromJson(in["tileColorB"]);

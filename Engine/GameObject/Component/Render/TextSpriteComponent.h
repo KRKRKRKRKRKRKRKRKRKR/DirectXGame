@@ -30,6 +30,18 @@ public:
 	HorizontalAlign horizontalAlign = HorizontalAlign::kCenter;
 	std::string fontFilePath = "Resources/Font/font.ttf";
 
+	// このテキストスプライトの表示/非表示をトグルするキーボードの数字キー（0〜9）。
+	// -1は「割り当てなし」（従来通り、常にtext/textureHandleがあれば表示され続ける）。
+	// Inspectorのコンボボックスから選ぶ。実際のキー入力監視・トグルはSceneBase::
+	// UpdateTextSpriteVisibilityToggles（毎フレーム、Render()から呼ばれる）が行う
+	int assignedNumberKey = -1;
+
+	// 現在表示中かどうか。assignedNumberKeyが割り当てられている間は、対応する数字キーを
+	// 押すたびにSceneBase::UpdateTextSpriteVisibilityTogglesがこれを反転させる。
+	// assignedNumberKey==-1（割り当てなし）の場合はこの値を無視して常に表示する
+	// （Draw参照。既存のtext入力だけで使う既存シーンの見た目を変えないため）
+	bool isVisible = true;
+
 	// 自動スナップ：Rebuild()のたびに、実際にラスタライズした文字列の実寸(px)へ自動的に
 	// 合わせる「箱」のサイズ。GameObject共有のTransform.scaleではなくこちらを使うのは、
 	// Gizmoで誤ってscaleを触っても次のRebuild()で必ず実寸へ戻るようにするため
@@ -46,12 +58,26 @@ public:
 	// text/fontSize/lineSpacing/fontFilePathから合成ビットマップを作り直し、textureHandle・
 	// boxWidth/boxHeightを更新する（＝自動スナップ）。GameObject生成直後
 	// （ComponentRegistration.cppのcreator）と、Inspectorの「保存」「削除」ボタンから呼ぶ。
-	// text==""の場合は何も描画しない状態（textureHandle=kTextureNone）にする
+	// text==""の場合は何も描画しない状態（textureHandle=kTextureNone）にする。
+	// 直前のビットマップと同サイズ（幅・高さとも一致）ならRenderer::UpdateTextureFromPixelsで
+	// 既存のtextureHandleの中身だけを差し替える（新規ハンドルを消費しない）。サイズが変わった
+	// 場合、または初回（textureHandle==kTextureNone）はCreateTextureFromPixelsで新規作成する。
+	// これは元々「保存ボタンで確定した時だけ呼ぶ」静的テキスト専用の想定だったが、
+	// GridPuzzleScene::UpdateCostTextのように値が変わるたびに毎フレーム相当で呼ばれる
+	// 準動的な使い方をすると、差し替え無しでは毎回新規ハンドルを消費し続けて
+	// TextureManager::kMaxTextureCount（500）にすぐ到達してしまうため、Rebuild自体を
+	// 使い回し可能な実装にしてある
 	void Rebuild(Renderer* renderer);
 
 private:
 	Renderer* renderer_ = nullptr; // DrawImGuiの保存/削除ボタンからRebuild()を呼び直すために保持
 	TextBitmapBuilder builder_;    // Rebuild()のたびにフォントファイルを読み直さないよう永続化する
+
+	// 直前にRebuild()で作成/更新したビットマップの実寸(px)。次回Rebuild()時、同サイズなら
+	// UpdateTextureFromPixelsで使い回せるかどうかの判定に使う（textureHandleが既に
+	// kTextureNoneでなく、かつこのサイズと一致する場合のみ使い回す）
+	uint32_t lastBitmapWidth_ = 0;
+	uint32_t lastBitmapHeight_ = 0;
 
 	// ImGui::InputTextMultilineは素のchar[]バッファを要求するため、text（確定済み文字列）とは
 	// 別に編集中の内容を持つ。「編集」ボタンでtextから読み込み直し、「保存」で書き戻す

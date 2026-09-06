@@ -13,9 +13,24 @@
 // マス座標比較ではなく、Player/Item双方に付与したOBBColliderComponent(isTrigger=true)による
 // ColliderSystemの当たり判定（重なった瞬間にGridItemComponent::OnTriggerEnterが発火）で行う。
 // 取得したアイテムは即座に盤面へ戻さず、GridItemSpawnComponent::collectedDisplayTopを基準に
-// 盤面外へ取得順に積み重ねて表示し（UpdateCollectedItemsDisplay）、プレイヤーの行動（実行フェーズ）が
-// 全て終わったタイミングでまとめて空きマスへ再配置する（FinalizeCollectedItemsOnTurnEnd）。
+// 盤面外へ取得順に積み重ねて表示する（UpdateCollectedItemsDisplay）。プレイヤーの行動
+// （実行フェーズ）が全て終わったタイミングで、壁（GridWallComponent）を先に全部削除して
+// FixedWallPatternVariants（手動デザインした固定パターンを回転・反転した最大バリエーション）
+// からランダムに1つ選んで配置し直し（RebuildWalls）、その後で取得済み・未取得を問わず
+// 盤面上の全アイテムを削除してspawnEntries通りに新しいランダムな空きマスへ作り直す
+// （RebuildItems）。壁を先に配置するのは、アイテム側のスポーン抽選（ComputeOccupiedCells）が
+// 新しい壁の位置を避けられるようにするため（逆順だと壁が固定パターンで無条件に配置されるため、
+// アイテムの上に壁が重なって指定した個数のアイテムが実質埋もれてしまう）。両関数は
+// AdvanceTurnIfExecutionFinishedから呼ばれ、プレイヤーが現在いるマスも抽選候補から除外する。
 // 盤面サイズ・マス間隔はGridBoardComponentが唯一のデータソース。
+// 盤面の上（手前）には敵HPバー（EnemyHealthBarComponent、ワールド空間のCube2枚）を4本表示する。
+// 今回は敵の見た目・行動ロジックは実装せず、バーのみ：赤/緑/青の3本はそれぞれ対応する
+// アイテム種別を1個取得するたびにUpdateCollectedItemsDisplayがNotifyItemCollected(type)を呼び、
+// maxCollectCount回取得した時点で0になる（割合表示、なめらかにアニメーションしながら減る）。
+// 4本目のライフバーは「1ターンのうちに赤/緑/青を全部空にできなかった回数」を表す。
+// AdvanceTurnIfExecutionFinishedが実行フェーズ終了の瞬間に3本すべてIsFull()かどうかを判定し、
+// 1本でも空にできていなければNotify1FailureOccurred()でライフバーを1目盛り減らす
+// （ライフバー自体はターンをまたいで貯まり続け、赤/緑/青のようにターンごとにはリセットしない）。
 // SceneBase（GameObjectエディタ機能一式）をそのまま使い、PlayScene（REFLEX固有の計画/実行
 // フェーズ等）は経由しない
 class GridPuzzleScene : public SceneBase {
@@ -73,9 +88,13 @@ private:
 
 	// 毎フレーム呼ぶ。GridBoardPlayerComponentの現在フェーズを前フレームと比較し、
 	// 「実行フェーズ（kExecuting）からちょうど計画フェーズ（kPlanning）へ戻った瞬間」を検知したら
-	// FinalizeCollectedItemsOnTurnEndを呼ぶ（GridBoardPlayerComponentはReflexPlayerComponentと
-	// 異なり、シーン側が明示的に戻す準備フェーズを持たないため、シーン側でできることは
-	// このタイミングを検知して他の処理をトリガーすることだけ）
+	// RebuildWalls（既存の壁を全部削除してFixedWallPatternVariantsからランダムに1つ選んで
+	// 作り直す）を先に呼び、その後でRebuildItems（取得済み・未取得を問わず全アイテムを削除して
+	// 作り直す）を呼ぶ（壁を先にすることで、アイテムのスポーン抽選が新しい壁配置を避けられる。
+	// 逆順だとアイテムの上に壁が重なって配置され、指定した個数のアイテムが実質埋もれてしまう）。
+	// GridBoardPlayerComponentはReflexPlayerComponentと異なり、シーン側が明示的に戻す
+	// 準備フェーズを持たないため、シーン側でできることはこのタイミングを検知して
+	// 他の処理をトリガーすることだけ
 	void AdvanceTurnIfExecutionFinished();
 
 	// 直前フレームでGridBoardPlayerComponent::GetPhase()がkExecutingだったかどうか。
@@ -85,7 +104,7 @@ private:
 
 	// 現在のターン（計画→実行の1サイクル）で取得された（triggered==trueになった）アイテムを、
 	// 取得した順に保持する非所有ポインタ一覧。UpdateCollectedItemsDisplayが追加し、
-	// FinalizeCollectedItemsOnTurnEndが実際の盤面再配置後にクリアする
+	// RebuildItemsが全アイテムを削除する直前にクリアする（削除済みポインタが残らないようにするため）
 	std::vector<GameObject*> collectedItemsThisTurn_;
 
 	// 毎フレーム呼ぶ。SceneBase::Render内のcolliderSystem_.ResolveAndDraw（このメソッドより前に
@@ -93,28 +112,27 @@ private:
 	// 効果適用済みのアイテムはtriggered=trueになっている。ここでは新たにtriggered==trueになった
 	// アイテムをcollectedItemsThisTurn_へ取得順に追加し、リスト内の全アイテムを
 	// GridItemSpawnComponent::collectedDisplayTop（プレイヤーの取得済み表示、Inspectorで調整可能）
-	// を基準に上から下へ積み重ねて表示する（実際に盤面へ戻すのはFinalizeCollectedItemsOnTurnEndが
+	// を基準に上から下へ積み重ねて表示する（実際に盤面から取り除く・作り直すのはRebuildItemsが
 	// ターン終了時にまとめて行う。ここでは表示だけを更新し、col/row・盤面への配置は変えない）
 	void UpdateCollectedItemsDisplay();
 
-	// AdvanceTurnIfExecutionFinishedが実行フェーズ終了を検知した瞬間に呼ぶ。
-	// collectedItemsThisTurn_内の各アイテムへ、現在の空きマスからランダムに選んだcol/rowを
-	// 書き換えてtriggeredをfalseへ戻す（＝取得済み表示から盤面へ戻す「リセット」演出）。
-	// 処理後、collectedItemsThisTurn_を空にして次のターンに備える
-	void FinalizeCollectedItemsOnTurnEnd();
-
 	// 毎フレーム呼ぶ。シーン内にtag==kGridItemTagが1つも存在しなければ（起動直後）、
 	// GridItemSpawnComponent::spawnEntriesを読み、各エントリのcount個ぶんをランダムな空きマスへ
-	// 配置する（初回配置専用。2回目以降はFinalizeCollectedItemsOnTurnEndがターン終了ごとに
-	// 個別に場所を変えるため出番がない）。生成したアイテムはスポナーGameObject
+	// 配置する（初回配置専用。2回目以降はAdvanceTurnIfExecutionFinishedがターン終了ごとに
+	// RebuildItemsを呼んで作り直すため出番がない）。生成したアイテムはスポナーGameObject
 	// （tag==kGridItemSpawnerTag）の子にする
 	void RespawnItemsIfNoneExist();
 
 	// 毎フレーム呼ぶ。GridItemSpawnComponent::ConsumeResetRequested()（Inspectorの「リセット」
-	// ボタン）がtrueを返した瞬間、既存のtag==kGridItemTagを全部削除してから、SpawnItemsFromConfigで
-	// spawnEntries通りに新しく配置し直す（RespawnItemsIfNoneExistと違い、既にアイテムが
-	// 存在していても強制的に作り直す）
+	// ボタン）がtrueを返した瞬間、RebuildItemsを呼ぶ
 	void ResetItemsIfRequested();
+
+	// 現在盤面にあるtag==kGridItemTagを、取得済み（triggered==true）・未取得を問わず全部削除
+	// してから、GridItemSpawnComponent::spawnEntries通りに新しいランダムな空きマスへ配置し直す
+	// 共通処理。ResetItemsIfRequested（Inspectorの「リセット」ボタン）とAdvanceTurnIfExecutionFinished
+	// （実行フェーズがちょうど終わった瞬間、毎ターン自動）の両方から呼ばれる。アイテムスポナー・
+	// 盤面が見つからない場合は何もしない
+	void RebuildItems();
 
 	// spawner（GridItemSpawnComponent付き）のspawnEntriesを読み、種別ごとにcount個ぶんを現在の
 	// 空きマスからランダムに抽選して生成する実処理。RespawnItemsIfNoneExist（初回のみ）と
@@ -122,16 +140,27 @@ private:
 	void SpawnItemsFromConfig(GameObject& spawner, class GridItemSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
 
 	// 毎フレーム呼ぶ。シーン内にtag==kGridWallTagが1つも存在しなければ（起動直後）、
-	// GridWallSpawnComponent::pieceCountぶんの壁ブロック（テトロミノ形、4マス連結）をランダムな
-	// 形状・向き・位置で配置する（初回配置専用。RespawnItemsIfNoneExistと同じ理由で、
-	// EnsureInitialObjectsExist（初回フレームのみ）とは別の関数にしてある。アイテムと違い壁は
-	// 踏んでも消えないため、通常はここで一度配置したら「リセット」ボタンを押すまでそのまま居座り続ける）
+	// FixedWallPatternVariants（手動デザインした複数の固定パターンをそれぞれ回転・反転した
+	// 最大16種類）からランダムに1つ選んで配置する（初回配置専用。RespawnItemsIfNoneExistと
+	// 同じ理由で、EnsureInitialObjectsExist（初回フレームのみ）とは別の関数にしてある）
 	void RespawnWallsIfNoneExist();
 
 	// 毎フレーム呼ぶ。GridWallSpawnComponent::ConsumeResetRequested()（Inspectorの「リセット」
-	// ボタン）がtrueを返した瞬間、既存のtag==kGridWallTagを全部削除してから、SpawnWallsFromConfigで
-	// pieceCount個ぶんの壁ブロックを新しく配置し直す（ResetItemsIfRequestedと同じ、既存削除後の強制再配置）
+	// ボタン）がtrueを返した瞬間、RebuildWallsを呼ぶ
 	void ResetWallsIfRequested();
+
+	// 現在盤面にあるtag==kGridWallTagを全部削除してから、FixedWallPatternVariants（手動デザインした
+	// 複数の固定パターンをそれぞれ回転・反転した最大16種類）からランダムに1つ選んで配置し直す
+	// 共通処理。ResetWallsIfRequested（Inspectorの「リセット」ボタン）とAdvanceTurnIfExecutionFinished
+	// （実行フェーズがちょうど終わった瞬間、毎ターン自動）の両方から呼ばれる。壁スポナー・
+	// 盤面が見つからない場合は何もしない
+	void RebuildWalls();
+
+	// 毎フレーム呼ぶ。GridWallSpawnComponent::ConsumeImpassableToggleRequested()（Inspectorの
+	// 「超えられる／超えられないを切り替え」ボタン）がtrueを返した瞬間、現在盤面上にある
+	// 全tag==kGridWallTagのGridWallComponent::impassableを、spawnConfig.impassableの値へ
+	// 一括で書き換える（削除・再生成はせず、フラグの書き換えのみ）
+	void ApplyImpassableToggleIfRequested();
 
 	// spawner（GridWallSpawnComponent付き）のpieceCount/passCost/wallColorを読み、テトロミノ7種
 	// （I/O/T/S/Z/J/L、ランダムな向きに回転）からランダムに1つ選んで現在の空きマスへ配置する処理を
@@ -145,15 +174,14 @@ private:
 	// （壁にはtriggered相当の「取得済み」状態が無いため、そちらより単純）
 	void SyncWalls();
 
-	// FinalizeCollectedItemsOnTurnEnd/RespawnItemsIfNoneExist/ResetItemsIfRequested/
-	// RespawnWallsIfNoneExist/ResetWallsIfRequestedの空きマス抽選に使う乱数生成器
+	// RebuildItems/RespawnItemsIfNoneExist/RebuildWalls/RespawnWallsIfNoneExistの
+	// 空きマス抽選に使う乱数生成器
 	std::mt19937 rng_{ std::random_device{}() };
 
 	// 現在プレイヤーがいるマス・既存の（triggeredでない）アイテムが置かれているマス・既存の壁が
 	// 置かれているマスの一覧を返す。アイテムと壁は互いのスポーン抽選母集団からも除外し合う
-	// （同じマスに重ねて生成されないようにするため）。RespawnItemsIfNoneExist/
-	// FinalizeCollectedItemsOnTurnEnd/RespawnWallsIfNoneExistが空きマス抽選の母集団を作るのに
-	// 共通で使う
+	// （同じマスに重ねて生成されないようにするため）。RebuildItems/RespawnItemsIfNoneExist/
+	// RebuildWalls/RespawnWallsIfNoneExistが空きマス抽選の母集団を作るのに共通で使う
 	std::vector<std::pair<int, int>> ComputeOccupiedCells(class GridBoardComponent* boardSize);
 
 	// boardSize->columns×rowsの全マスから、occupiedに含まれるものを除いた空きマス一覧を返す
@@ -166,4 +194,20 @@ private:
 	// color・Transform.translation）は常にそれに追従させる。Inspectorで手動でGridItemComponentを
 	// Add Componentしてcol/rowを入力するだけで、対応するマスへ自動的に移動して表示される
 	void SyncItems();
+
+	// 盤面の上に表示する敵HPバー（EnemyHealthBarComponent、赤/緑/青の3本）用のGameObjectを、
+	// まだ無ければ作る。EnsureInitialObjectsExistから呼ぶ。tag==kGridEnemyHealthBarTagで管理する
+	void EnsureEnemyHealthBarExists();
+
+	// tag==kGridEnemyHealthBarTagの全GameObjectのEnemyHealthBarComponent::ResetCollectCount()を
+	// まとめて呼ぶ。AdvanceTurnIfExecutionFinished（毎ターン自動）とResetItemsIfRequested
+	// （Inspectorの手動リセット）の両方から、アイテムが全部作り直されるタイミングで呼ばれる
+	void ResetAllEnemyHealthBars();
+
+	// 毎フレーム呼ぶ。tag==kGridEnemyHealthBarTagの各GameObjectについて、子（tag==
+	// kGridHealthBarLabelTag）のAlphabetTextComponent::textを「残量/最大値」
+	// （EnemyHealthBarComponent::GetRemainingCount()/maxCollectCount、例:"2/3"）へ更新する。
+	// 値が変わらない間もtextへの再代入自体は軽量なため、UpdateCostTextのような変更検知は行わない
+	// （AlphabetTextComponent側がlastBuiltTextとの比較で不要な子GameObject再構築を避ける）
+	void UpdateEnemyHealthBarLabels();
 };

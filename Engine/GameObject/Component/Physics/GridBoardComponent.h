@@ -18,8 +18,14 @@
 // 壁配置等、盤面固有のデータを今後増やす場合の置き場としてもこのコンポーネントを使う想定
 class GridBoardComponent : public IComponent {
 public:
-	int columns = 5;
-	int rows = 15;
+	// 盤面サイズは7x7に固定する（企画上の決定）。Inspectorからは変更できない
+	// （DrawImGuiは読み取り専用表示のみ）。FromJsonでも保存データの値を無視し、常にこの値へ
+	// 強制する（古いscene.jsonに別サイズが残っていても7x7へ矯正する）
+	static constexpr int kFixedColumns = 7;
+	static constexpr int kFixedRows = 7;
+
+	int columns = kFixedColumns;
+	int rows = kFixedRows;
 
 	// マス目の中心間隔（ワールド単位）。タイル生成（GridPuzzleScene::RebuildTiles）と
 	// プレイヤーの移動判定（専用コンポーネント実装後）の両方がこの1つの値だけを参照する想定

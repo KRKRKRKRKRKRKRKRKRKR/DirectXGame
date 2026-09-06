@@ -26,12 +26,11 @@ public:
 		Vector4 color = { 1.0f, 1.0f, 1.0f, 1.0f };
 	};
 
-	// アイテム種類の一覧。GridPuzzleScene::RespawnItemsIfNoneExist/SpawnItemsFromConfigが
-	// （盤面上にtag==kGridItemTagが1つも無い時、またはリセットボタンが押された時）この一覧を読み、
-	// 各エントリのcolorを与えつつcount個ぶんランダムな空きマスへ生成する。1体拾われて再配置される際
-	// （GridPuzzleScene::FinalizeCollectedItemsOnTurnEnd）は色・個数を変えず、同じ種別のまま
-	// 別の空きマスへ移すだけなので、このエントリ一覧を読み直す必要はない。生成済みの子アイテム
-	// 個々の色（GridItemComponent::color）は生成後Inspectorから個別に上書きできる
+	// アイテム種類の一覧。GridPuzzleScene::RespawnItemsIfNoneExist/RebuildItems/
+	// SpawnItemsFromConfigが（盤面上にtag==kGridItemTagが1つも無い時、リセットボタンが押された時、
+	// または実行フェーズが終わって毎ターン作り直す時）この一覧を読み、各エントリのcolorを
+	// 与えつつcount個ぶんランダムな空きマスへ生成し直す。生成済みの子アイテム個々の色
+	// （GridItemComponent::color）は生成後Inspectorから個別に上書きできる
 	// （ここでの色はあくまで新規生成時の初期値）
 	std::vector<SpawnEntry> spawnEntries = {
 		SpawnEntry{ GridItemComponent::Type::kAttackPower, 1, { 0.9f, 0.2f, 0.2f, 1.0f } },  // 赤
@@ -39,16 +38,35 @@ public:
 		SpawnEntry{ GridItemComponent::Type::kCostRisky, 1, { 0.85f, 0.55f, 0.95f, 1.0f } }, // 紫
 	};
 
+	// 同じSpawnEntry内のcount個を、盤面全体からバラバラにランダム配置するのではなく、
+	// ランダムに選んだ1マス（クラスター中心）からマンハッタン距離でこの値以内の空きマスへ
+	// まとめて集める（種別ごとに別々のクラスター中心を選ぶ）。GridPuzzleScene::
+	// SpawnItemsFromConfigが参照する。値を大きくするほど散らばりやすくなる
+	int clusterRadius = 2;
+
 	// プレイヤーが取得した（GridItemComponent::triggered==trueになった）アイテムを、盤面外の
-	// 表示領域へ一時的に並べる際の一番上の座標（ワールド座標）。GridPuzzleScene::
-	// UpdateCollectedItemsDisplayが取得した順に、この座標から奥（Z-方向）へcollectedDisplaySpacing
-	// 間隔で積み重ねて配置する。盤面がX-Z平面（水平な地面、Y=0）上に広がるため、Y成分は
-	// 地面より少し高い位置（プレイヤー・アイテムと同じ考え方）にしておく。既定値は盤面の
-	// 左側（グリッドタイルの外）を想定した値
+	// 表示領域へ一時的に並べる際の一番上（＝1個目）の座標（ワールド座標）。GridPuzzleScene::
+	// UpdateCollectedItemsDisplayが取得した順に、この座標からcollectedDisplayLayoutの向きへ
+	// collectedDisplaySpacing間隔で積み重ねて配置する。盤面がX-Z平面（水平な地面、Y=0）上に
+	// 広がるため、Y成分は地面より少し高い位置（プレイヤー・アイテムと同じ考え方）にしておく。
+	// 既定値は盤面の左側（グリッドタイルの外）を想定した値
 	Vector3 collectedDisplayTop = { -2.5f, 0.3f, 0.0f };
 
-	// 取得済みアイテムを積み重ねる間隔（ワールド単位、Z-方向）
+	// 取得済みアイテムを積み重ねる間隔（ワールド単位）
 	float collectedDisplaySpacing = 1.0f;
+
+	// 取得済みアイテムを並べる向き。kVertical：Z-方向へ1個ずつ奥へ積む（縦並び、既定）。
+	// kHorizontal：X+方向へ1個ずつ並べる（横並び）。DrawImGuiの切り替えボタンで変更する。
+	// GridPuzzleScene::UpdateCollectedItemsDisplayがこの値を見てpos.z/pos.xのどちらを
+	// ずらすかを決める
+	enum class DisplayLayout { kVertical, kHorizontal };
+	DisplayLayout collectedDisplayLayout = DisplayLayout::kVertical;
+
+	// Sceneビュー表示中（ctx.isGameView==false）のみ、collectedDisplayTopの位置へワイヤーフレーム球と、
+	// collectedDisplayLayoutの向き（縦=Z-方向／横=X+方向）へ短い矢印線を描き、積み重ねの先頭座標を
+	// 可視化する。Gameビュー（実プレイ画面）には映り込ませない、ReflexPlayerComponentの
+	// DrawFieldRange等と同じ「デバッグ用の補助線はSceneビューだけ」という既存方針を踏襲する
+	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 
 	void DrawImGui(const char* namePrefix) override;
 

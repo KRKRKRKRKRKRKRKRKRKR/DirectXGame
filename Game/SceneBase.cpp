@@ -15,6 +15,8 @@
 #include "../Engine/Utils/EditorState.h"
 #include "../Engine/GameObject/Systems/HitEffect.h"
 #include "../Engine/GameObject/Component/Physics/SpawnMoveComponent.h"
+#include "../Engine/GameObject/Component/Render/TextSpriteComponent.h"
+#include "../Engine/InputDevice/InputDevice.h"
 #include <cmath>
 #include <algorithm>
 #include <cctype>
@@ -559,6 +561,9 @@ void SceneBase::Render(float deltaTime) {
 	// プレイヤーが高速で移動する際にコンボポップアップの位置が追従1フレーム分だけ遅れて見える
 	UpdateComboPopupComponents(deltaTime);
 
+	// TextSpriteComponentに割り当てた数字キーのトリガー検知・表示トグル
+	UpdateTextSpriteVisibilityToggles();
+
 	// Gizmoのピッキング/操作はScene表示中のみ（Game表示中は選択・編集させない）
 	if (!activeCam.useGameCamera) {
 		UpdateGizmoPicking(activeCam);
@@ -627,13 +632,18 @@ void SceneBase::UpdateAutoRunCameraFollowTarget() {
 	}
 }
 
+std::string SceneBase::AlphabetCharToFilename(char upperLetter) {
+	// '/'はファイル名に使えないため、Resources/Alphabet/slash.objという別名にマッピングする
+	// （新しい記号を追加する場合はここに分岐を足す）
+	if (upperLetter == '/') return "slash.obj";
+	return std::string(1, upperLetter) + ".obj";
+}
+
 Renderer::ModelHandle SceneBase::GetOrLoadAlphabetModel(char upperLetter) {
 	auto it = alphabetModelCache_.find(upperLetter);
 	if (it != alphabetModelCache_.end()) return it->second;
 
-	std::string filename(1, upperLetter);
-	filename += ".obj";
-	Renderer::ModelHandle handle = renderer_->LoadModel("Resources/Alphabet", filename);
+	Renderer::ModelHandle handle = renderer_->LoadModel("Resources/Alphabet", AlphabetCharToFilename(upperLetter));
 	alphabetModelCache_[upperLetter] = handle;
 	return handle;
 }
@@ -713,7 +723,8 @@ void SceneBase::RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextCompo
 		char upper = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 		bool isLetter = upper >= 'A' && upper <= 'Z';
 		bool isDigit = upper >= '0' && upper <= '9'; // 数字はtoupperで変化しないのでcとupperで同じ判定になる
-		if (!isLetter && !isDigit) continue; // 対応する.objが無い文字は無視する
+		bool isSlash = upper == '/'; // Resources/Alphabet/slash.objへマッピングされる特殊文字
+		if (!isLetter && !isDigit && !isSlash) continue; // 対応する.objが無い文字は無視する
 
 		GameObject& charObj = CreateObject(std::string(1, upper));
 		charObj.tag = GameTags::kAlphabetChar;
@@ -730,7 +741,7 @@ void SceneBase::RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextCompo
 
 		auto* render = charObj.AddComponent<ModelRenderComponent>(GetOrLoadAlphabetModel(upper), false);
 		render->directoryPath = "Resources/Alphabet";
-		render->filename = std::string(1, upper) + ".obj";
+		render->filename = AlphabetCharToFilename(upper);
 
 		// 1文字ずつ登場演出：PlayScene::BuildEnemyFromTemplateDataのhasSpawnMove分岐と同じ
 		// SpawnMoveComponentを各文字（子GameObject）に個別付与する。startDelayに
@@ -1163,6 +1174,26 @@ void SceneBase::UpdateComboPopupComponents(float deltaTime) {
 
 	if (!toDestroy.empty() || !toSpawn.empty() || !toExpire.empty()) {
 		RebuildDerivedLists();
+	}
+}
+
+void SceneBase::UpdateTextSpriteVisibilityToggles() {
+	// ImGuiのテキスト入力欄（Inspectorの「テキスト」編集欄等）がキーボードを掴んでいる間は、
+	// 文字入力中の数字キー押下でトグルが誤発火しないようスキップする（ProcessSceneTransitionRequest
+	// のWantCaptureKeyboardガードと同じ考え方）
+	if (ImGui::GetIO().WantCaptureKeyboard) return;
+
+	static const BYTE kNumberKeys[10] = {
+		DIK_0, DIK_1, DIK_2, DIK_3, DIK_4, DIK_5, DIK_6, DIK_7, DIK_8, DIK_9
+	};
+
+	for (auto& obj : objects_) {
+		auto* text = obj->GetComponent<TextSpriteComponent>();
+		if (!text || text->assignedNumberKey < 0 || text->assignedNumberKey > 9) continue;
+
+		if (Input::IsTriggered(kNumberKeys[text->assignedNumberKey])) {
+			text->isVisible = !text->isVisible;
+		}
 	}
 }
 

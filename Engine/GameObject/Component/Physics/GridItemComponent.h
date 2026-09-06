@@ -12,10 +12,9 @@ class GameObject;
 // ApplyItemEffectに委譲する。発動・削除の実処理はGridBoardPlayerComponent/GridPuzzleScene側が
 // 行う。このコンポーネント自身は種別・配置マス座標・見た目色を持つデータコンポーネント）。
 //
-// 3種類（企画書確定仕様）：
-// - kAttackPower：そのターン限りの攻撃力+1
-// - kCostFixed：移動コスト+2固定
-// - kCostRisky：踏んだ瞬間に50%の確率で移動コスト±4（-4を引いてもコストは最低1で下げ止まる）
+// 3種類（Inspector表示名：赤/緑/青）。企画変更により、いずれも移動・コストへの直接効果は
+// 持たない（GridBoardPlayerComponent::ApplyItemEffectは何もしない）。取得すると敵HPバー
+// （EnemyHealthBarComponent）の監視対象種別としてカウントされるだけの純粋な収集アイテム
 class GridItemComponent : public IComponent {
 public:
 	enum class Type { kAttackPower, kCostFixed, kCostRisky };

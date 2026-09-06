@@ -60,6 +60,8 @@ void TextSpriteComponent::Rebuild(Renderer* renderer) {
 		textureHandle = kTextureNone;
 		boxWidth = 0.0f;
 		boxHeight = 0.0f;
+		lastBitmapWidth_ = 0;
+		lastBitmapHeight_ = 0;
 		return;
 	}
 
@@ -78,8 +80,20 @@ void TextSpriteComponent::Rebuild(Renderer* renderer) {
 	}
 
 	// Build()は文字列にちょうど収まるサイズのビットマップを返すため、そのままtextureHandle・
-	// 箱サイズへ使うだけで「自動スナップ」（文字が増減しても箱が実寸に追従する）になる
-	textureHandle = renderer->CreateTextureFromPixels(bitmap.width, bitmap.height, bitmap.rgbaPixels.data());
+	// 箱サイズへ使うだけで「自動スナップ」（文字が増減しても箱が実寸に追従する）になる。
+	// 既にテクスチャを持っていて、かつ直前のビットマップと同サイズなら、TextureManagerの
+	// ハンドルを新規消費せずUpdateTextureFromPixelsで中身だけ差し替える（GridPuzzleScene::
+	// UpdateCostTextのように値が変わるたびに呼ばれるケースで、TextureManager::kMaxTextureCount
+	// にすぐ到達してしまうのを防ぐため）。サイズが変わった・初回の場合は新規作成する
+	bool canReuse = textureHandle != kTextureNone
+		&& bitmap.width == lastBitmapWidth_
+		&& bitmap.height == lastBitmapHeight_
+		&& renderer->UpdateTextureFromPixels(textureHandle, bitmap.width, bitmap.height, bitmap.rgbaPixels.data());
+	if (!canReuse) {
+		textureHandle = renderer->CreateTextureFromPixels(bitmap.width, bitmap.height, bitmap.rgbaPixels.data());
+	}
+	lastBitmapWidth_ = bitmap.width;
+	lastBitmapHeight_ = bitmap.height;
 	boxWidth = static_cast<float>(bitmap.width);
 	boxHeight = static_cast<float>(bitmap.height);
 }
@@ -87,6 +101,10 @@ void TextSpriteComponent::Rebuild(Renderer* renderer) {
 void TextSpriteComponent::Draw(Renderer* renderer, const Transform& transform, float deltaTime) const {
 	(void)deltaTime;
 	if (textureHandle == kTextureNone) return;
+	// assignedNumberKeyが割り当てられている間だけisVisibleを見る（キー未割当の既存の使い方は
+	// 従来通り常に表示され続ける。SceneBase::UpdateTextSpriteVisibilityTogglesが対応する
+	// 数字キーを押すたびにisVisibleを反転させる）
+	if (assignedNumberKey >= 0 && !isVisible) return;
 
 	Transform drawTransform = transform;
 	drawTransform.scale = { boxWidth, boxHeight, 1.0f };
@@ -115,6 +133,26 @@ void TextSpriteComponent::DrawImGui(const char* namePrefix) {
 		std::string alignLabel = std::string(namePrefix) + "揃え";
 		if (ImGui::Combo(alignLabel.c_str(), &alignIndex, kAlignLabels, 3)) {
 			horizontalAlign = static_cast<HorizontalAlign>(alignIndex);
+		}
+	}
+
+	{
+		// 表示中の選択肢は"割り当てなし","0".."9"の11個。assignedNumberKey(-1〜9)を+1した値を
+		// そのままコンボのインデックスとして使う
+		static const char* kKeyLabels[] = { "割り当てなし", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+		int keyIndex = assignedNumberKey + 1;
+		std::string keyLabel = std::string(namePrefix) + "表示トグル用の数字キー";
+		if (ImGui::Combo(keyLabel.c_str(), &keyIndex, kKeyLabels, 11)) {
+			int newKey = keyIndex - 1;
+			// 割り当てなし→いずれかの数字キーへ新規に割り当てた瞬間は、まず非表示から始める
+			// （「起動直後は全部非表示」という既定の運用に合わせる。既に割り当て済みのキーを
+			// 別の数字へ変更する場合はisVisibleの現在値をそのまま維持する）
+			if (assignedNumberKey < 0 && newKey >= 0) isVisible = false;
+			assignedNumberKey = newKey;
+		}
+		if (assignedNumberKey >= 0) {
+			ImGui::SameLine();
+			ImGui::TextDisabled(isVisible ? "(表示中)" : "(非表示)");
 		}
 	}
 
@@ -162,6 +200,8 @@ void TextSpriteComponent::ToJson(nlohmann::json& out) const {
 	out["lineSpacing"] = lineSpacing;
 	out["fontFilePath"] = fontFilePath;
 	out["horizontalAlign"] = static_cast<int>(horizontalAlign);
+	out["assignedNumberKey"] = assignedNumberKey;
+	out["isVisible"] = isVisible;
 }
 
 void TextSpriteComponent::FromJson(const nlohmann::json& in) {
@@ -171,6 +211,8 @@ void TextSpriteComponent::FromJson(const nlohmann::json& in) {
 	lineSpacing = in.value("lineSpacing", lineSpacing);
 	fontFilePath = in.value("fontFilePath", fontFilePath);
 	horizontalAlign = static_cast<HorizontalAlign>(in.value("horizontalAlign", static_cast<int>(horizontalAlign)));
+	assignedNumberKey = in.value("assignedNumberKey", assignedNumberKey);
+	isVisible = in.value("isVisible", isVisible);
 	editBufferInitialized_ = false; // 次のDrawImGuiでeditBuffer_をtextから作り直す
 }
 

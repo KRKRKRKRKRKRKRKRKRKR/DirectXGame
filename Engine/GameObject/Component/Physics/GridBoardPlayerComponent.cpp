@@ -38,14 +38,23 @@ namespace {
 	}
 
 	// 1マスぶんの移動コスト。壁マスならその壁のpassCost、無ければ通常の1
+	// （impassableな壁はそもそも通過できないため、この関数は呼び出し側でimpassableを
+	// 別途チェックした後にのみ使うこと）
 	int CellMoveCost(const std::vector<GameObject*>* sceneObjects, int col, int row) {
 		const GridWallComponent* wall = FindWallAt(sceneObjects, col, row);
 		return wall ? wall->passCost : 1;
 	}
 
+	// 指定マスにimpassable=trueの壁があるかどうか
+	bool IsImpassable(const std::vector<GameObject*>* sceneObjects, int col, int row) {
+		const GridWallComponent* wall = FindWallAt(sceneObjects, col, row);
+		return wall && wall->impassable;
+	}
+
 	// (fromCol,fromRow)から(toCol,toRow)まで（同じ行/列上の直線移動）実際に通過する各マスの
 	// コストを合計する。GridBoardPlayerComponent::GetReservedPathCellsと同じ「1マスずつ進みながら
-	// 通過マスを数える」ロジックをコスト集計用に転用したもの
+	// 通過マスを数える」ロジックをコスト集計用に転用したもの。経路上にimpassableな壁があれば
+	// 通行不可のため、コストの代わりに負値(-1)を返す（呼び出し側は必ずこれをチェックすること）
 	int ComputePathCost(const std::vector<GameObject*>* sceneObjects, int fromCol, int fromRow, int toCol, int toRow) {
 		int stepCol = (toCol > fromCol) - (toCol < fromCol);
 		int stepRow = (toRow > fromRow) - (toRow < fromRow);
@@ -53,7 +62,10 @@ namespace {
 
 		int cost = 0;
 		for (int s = 1; s <= steps; ++s) {
-			cost += CellMoveCost(sceneObjects, fromCol + stepCol * s, fromRow + stepRow * s);
+			int col = fromCol + stepCol * s;
+			int row = fromRow + stepRow * s;
+			if (IsImpassable(sceneObjects, col, row)) return -1;
+			cost += CellMoveCost(sceneObjects, col, row);
 		}
 		return cost;
 	}
@@ -111,7 +123,9 @@ std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetValidTargets(const
 
 	// 4方向それぞれへ1マスずつ進みながら、通過するマスのコスト（壁マスはGridWallComponent::
 	// passCost、それ以外は1）を積算していく。積算コストが残りコストを超えた時点でその方向は
-	// 打ち切る（壁を挟むと、同じ残りコストでも届く距離が短くなる）
+	// 打ち切る（壁を挟むと、同じ残りコストでも届く距離が短くなる）。impassable=trueの壁に
+	// ぶつかった場合は、盤面外に出た場合と同じくその方向をそこで完全に打ち切る
+	// （そのマス自体もresultに含めない＝クリックできない）
 	auto walk = [&](int colStep, int rowStep) {
 		int accumulated = 0;
 		int col = originCol;
@@ -120,6 +134,7 @@ std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetValidTargets(const
 			col += colStep;
 			row += rowStep;
 			if (col < 0 || col >= board->columns || row < 0 || row >= board->rows) break;
+			if (IsImpassable(sceneObjects, col, row)) break;
 			accumulated += CellMoveCost(sceneObjects, col, row);
 			if (accumulated > currentCost_) break;
 			result.push_back({ col, row });
@@ -187,20 +202,10 @@ void GridBoardPlayerComponent::ClearWaypoints() {
 }
 
 void GridBoardPlayerComponent::ApplyItemEffect(GridItemComponent::Type type) {
-	std::uniform_int_distribution<int> coinFlip(0, 1);
-
-	switch (type) {
-	case GridItemComponent::Type::kAttackPower:
-		attackPower_ += 1;
-		break;
-	case GridItemComponent::Type::kCostFixed:
-		currentCost_ += 2;
-		break;
-	case GridItemComponent::Type::kCostRisky:
-		currentCost_ += (coinFlip(rng_) == 0) ? 4 : -4;
-		currentCost_ = (std::max)(currentCost_, 1);
-		break;
-	}
+	// 企画変更により、赤/緑/青のアイテムはいずれも移動・コストへの直接効果を持たない
+	// （敵HPバーの取得カウント通知のみがGridPuzzleScene::UpdateCollectedItemsDisplay経由で
+	// 行われる）。将来的に効果を復活させる場合はここへ書き戻す
+	(void)type;
 }
 
 void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
@@ -230,9 +235,12 @@ void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, con
 				bool sameCol = (col == prevCol && row != prevRow);
 				if (sameRow || sameCol) {
 					// 経路上に壁マスがあれば、その区間の消費コストは距離（マス数）そのままではなく
-					// 壁のpassCostぶん上乗せされる（ComputePathCost参照）
+					// 壁のpassCostぶん上乗せされる（ComputePathCost参照）。経路上にimpassableな壁が
+					// あればComputePathCostは-1を返す（＝そもそも通行不可のクリックとして無効化する。
+					// pathCost<=currentCost_だけで判定すると、負値は常に真になってしまうため
+					// pathCost>=0も明示的にチェックする必要がある）
 					int pathCost = ComputePathCost(ctx.sceneObjects, prevCol, prevRow, col, row);
-					if (pathCost <= currentCost_) {
+					if (pathCost >= 0 && pathCost <= currentCost_) {
 						waypoints_.push_back({ col, row });
 						waypointCosts_.push_back(pathCost);
 						currentCost_ -= pathCost;

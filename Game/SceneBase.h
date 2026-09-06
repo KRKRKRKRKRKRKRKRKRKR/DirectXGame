@@ -288,11 +288,18 @@ protected:
 	// 何も生成しない
 	void RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextComponent& comp);
 
-	// 'A'〜'Z'（大文字化して引数に渡す）・'0'〜'9'のRenderer::ModelHandleをキャッシュする。
-	// 同じ文字が文字列内で繰り返し使われても、Renderer::LoadModelを呼び直さず使い回す
-	// （LoadModelは呼ぶたびに新しいModelHandle/SRVスロットを消費するため）
+	// 'A'〜'Z'（大文字化して引数に渡す）・'0'〜'9'・'/'（Resources/Alphabet/slash.objへ
+	// マッピングされる特殊文字。ファイル名に'/'を直接使えないための例外）のRenderer::ModelHandleを
+	// キャッシュする。同じ文字が文字列内で繰り返し使われても、Renderer::LoadModelを呼び直さず
+	// 使い回す（LoadModelは呼ぶたびに新しいModelHandle/SRVスロットを消費するため）
 	Renderer::ModelHandle GetOrLoadAlphabetModel(char upperLetter);
 	std::unordered_map<char, Renderer::ModelHandle> alphabetModelCache_;
+
+	// 1文字（'A'〜'Z'・'0'〜'9'・'/'）に対応する.objファイル名（拡張子込み、ディレクトリなし）を返す。
+	// '/'だけは同名ファイルを作れないため"slash.obj"という別名にマッピングする。GetOrLoadAlphabetModel・
+	// RebuildAlphabetTextChildren（ModelRenderComponent::filename）の両方がこれを使うことで、
+	// 文字→ファイル名の対応関係を1箇所に集約する
+	static std::string AlphabetCharToFilename(char upperLetter);
 
 	// TextGroupComponentを持つ全GameObjectについて、entries/anchorOffset/spacing/stackDirectionが
 	// lastBuilt*（前回子GameObjectを組み立てた時点の値）と食い違っていたら、既存のエントリの
@@ -330,6 +337,13 @@ protected:
 	//    自動的にフェードアウトへ移行し、フェードアウトが終わったら破棄する。
 	// Render()から毎フレーム呼ぶ（UpdateAlphabetTextComponentsと同様の「シーン側が実体を管理する」パターン）
 	void UpdateComboPopupComponents(float deltaTime);
+
+	// TextSpriteComponent::assignedNumberKeyが0〜9のいずれかに設定されている全GameObjectについて、
+	// 対応する数字キー（DIK_0〜DIK_9）がこのフレームでトリガー（押された瞬間）されていたら
+	// isVisibleを反転させる（トグル方式：押すたびに表示⇔非表示が切り替わり、離しても状態は
+	// 保持される）。Render()から毎フレーム呼ぶ。ImGuiのテキスト入力欄がキーボードを掴んでいる間
+	// （WantCaptureKeyboard）は、Inspectorでの文字入力中に誤ってトグルされないよう判定をスキップする
+	void UpdateTextSpriteVisibilityToggles();
 
 	// comboValue（1個の整数値、複数桁ありうる）を表示する1個のポップアップを新規生成する。
 	// ownerの下に「1個のポップアップ全体を表す」空の親GameObject（グループ）を作り、その下に

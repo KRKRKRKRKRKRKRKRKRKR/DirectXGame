@@ -26,23 +26,23 @@ class GameObject;
 // アイテム（GridItemComponent）：発動判定はマス座標比較ではなく、ColliderSystemによる
 // OBBCollider同士の当たり判定（isTrigger=true）で行う。プレイヤー・アイテム双方のGameObjectに
 // OBBColliderComponentが付与されている前提で、実際に重なった瞬間にGridItemComponent::
-// OnTriggerEnterが呼ばれ、そこからこのコンポーネントのApplyItemEffect()を呼んで効果を適用する
-// （kAttackPower：attackPower_+1、kCostFixed：currentCost_+2、kCostRisky：50%でcurrentCost_±4、
-// 下限1でクランプ）。発動したアイテムのGameObject削除はGridItemComponent::triggeredフラグ経由で
-// GridPuzzleScene側が行う（このコンポーネントはアイテムGameObjectの削除には一切関与しない）。
-// 「経路をクリア」しても発動済みの効果（attackPower_・コスト増減）は巻き戻さない
-// （アイテムは拾ったままにする）。
+// OnTriggerEnterが呼ばれ、そこからこのコンポーネントのApplyItemEffect()が呼ばれる。企画変更
+// により、赤/緑/青いずれの種別も移動・コストへの直接効果は持たない（ApplyItemEffectは
+// 現在何もしない空実装）。発動したアイテムのGameObject削除はGridItemComponent::triggeredフラグ
+// 経由でGridPuzzleScene側が行う（このコンポーネントはアイテムGameObjectの削除には一切関与しない）。
 //
 // 経路の可視化は波紋マーカー・破線（ReflexPathVisualizer、REFLEX本編と共有の描画部品）を
 // 使わない。GridPuzzleScene::UpdateTileHighlightsがGetReservedWaypoints()を参照して、
 // 予約済みマス自体をタイルの色塗りで表現する方式にしている（このコンポーネント自身は
 // 経路の描画を一切行わない）。
 //
-// 壁（GridWallComponent）：プレイヤーの通行を塞ぐ障害物ではなく、「通過にpassCostぶんの
-// コストがかかる」マスの目印。Collider/OnTriggerEnterは使わず、経路上の各マスのcol/rowを
-// 直接GridWallComponentと比較して判定する（GetValidTargets・Update内のクリック処理・
-// ComputePathCost/CellMoveCostヘルパー（GridBoardPlayerComponent.cpp内の無名namespace）参照）。
-// 壁が無いマスは通常通りコスト1として扱う。
+// 壁（GridWallComponent）：通常は「通過にpassCostぶんのコストがかかる」マスの目印。
+// Collider/OnTriggerEnterは使わず、経路上の各マスのcol/rowを直接GridWallComponentと比較して
+// 判定する（GetValidTargets・Update内のクリック処理・ComputePathCost/CellMoveCost/IsImpassable
+// ヘルパー（GridBoardPlayerComponent.cpp内の無名namespace）参照）。壁が無いマスは通常通り
+// コスト1として扱う。GridWallComponent::impassable=trueの壁は例外で、passCostを無視して
+// 盤面端と同じく絶対に通行不可にする（GetValidTargetsの探索・Updateのクリック判定の両方で、
+// 経路上にimpassableな壁が現れた時点でそこを超えられないものとして扱う）。
 //
 // ダメージ・盤面リセットは今回のスコープ外（docs/ComponentPlanTemplate.mdの計画書参照。
 // 実装は次段階で追加する）
@@ -104,10 +104,10 @@ public:
 	// GetValidTargetsと同じ
 	std::vector<std::pair<int, int>> GetReservedPathCells(const Transform& transform, const std::vector<GameObject*>* sceneObjects) const;
 
-	// GridItemComponent::OnTriggerEnterから呼ばれる。渡されたアイテムの種別に応じて効果を
-	// 即時適用する（kAttackPower：attackPower_+1、kCostFixed：currentCost_+2、kCostRisky：
-	// 50%でcurrentCost_±4、下限1でクランプ）。呼び出し元（GridItemComponent）が自分自身の
-	// triggeredフラグを立てて削除待ちにするため、ここではアイテムGameObjectの削除には関与しない
+	// GridItemComponent::OnTriggerEnterから呼ばれる。企画変更により現在は何もしない空実装
+	// （赤/緑/青いずれの種別も移動・コストへの直接効果を持たない）。呼び出し元
+	// （GridItemComponent）が自分自身のtriggeredフラグを立てて削除待ちにするため、
+	// ここではアイテムGameObjectの削除には関与しない
 	void ApplyItemEffect(GridItemComponent::Type type);
 
 private:
