@@ -10,10 +10,16 @@
 // 交差を判定し、IsHovering()で結果を公開する。左クリックされた瞬間はSEを鳴らし、
 // clicked_フラグを立てる。
 //
-// 見た目（PLAY文字のAlphabetTextComponentの色・サイズ変化）とシーン遷移は、このコンポーネント
-// 自身ではなくTitleScene::HandleSceneTransitionInputが担当する（IsHovering()/ConsumeClicked()を
-// 毎フレーム読んで反映する）。Engine層のこのコンポーネントがGame層のタグ名・シーン遷移先を
-// 知る必要が無いようにするための分離
+// 見た目の反映（ホバー中の色・拡大率）はこのコンポーネント自身が行う：自分のGameObjectの
+// 「子」に付いているAlphabetTextComponent全てへ、毎フレーム自動的にdisplayColor/
+// displayScaleMultiplierを書き込む。つまり「PLAY」等の見た目役GameObjectをこのコンポーネントが
+// 付いたGameObjectの子にするだけでホバー演出が効き、Game層でタグ名を対応させる必要が無い
+// （旧方式：SceneBase::UpdateButtonAndReflectHoverがhitboxタグ・textタグの2つを個別に
+// 探して手動で反映していた。既存シーン（TitleScene等）はこの旧方式のまま親子関係を持たせて
+// いないため、そちらは今まで通りUpdateButtonAndReflectHoverを使う。新しく作るボタンは
+// このコンポーネントのGameObjectの子にAlphabetTextComponentを置くだけでよい）。
+// シーン遷移（クリック後どこへ行くか）は引き続きScene側がConsumeClicked()を読んで決める
+// （Engine層のこのコンポーネントがGame層のシーン遷移先を知る必要が無いようにするための分離）
 class PlayButtonComponent : public IComponent {
 public:
 	// audioClips: SceneBase::projectAudioClips_への非所有ポインタ（ComponentLoadContext::audioClips）。

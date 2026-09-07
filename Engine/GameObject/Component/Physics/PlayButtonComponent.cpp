@@ -3,6 +3,7 @@
 #include "../../GameObject.h"
 #include "../../Systems/ScreenRay.h"
 #include "OBBColliderComponent.h"
+#include "../Render/AlphabetTextComponent.h"
 #include "../../../../Math/Collision.h"
 #include "../../../../Math/JsonUtil.h"
 #include "../../../Audio/Sound.h"
@@ -42,6 +43,37 @@ PlayButtonComponent::PlayButtonComponent(const std::vector<ProjectAssetEntry>* a
 void PlayButtonComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
 	(void)deltaTime;
 
+	// このコンポーネント自身が付いているGameObject（＝自分のOBBColliderComponentを持つ相手）を
+	// ctx.sceneObjectsから、Transformのアドレス一致で逆引きする（IComponent::Updateはtransformしか
+	// 受け取らず、兄弟・子のコンポーネントを直接GetComponentできないため。ReflexPlayerComponent::
+	// IsPathBlockedがctx.sceneObjectsを同様の目的で使っているのと同じ発想）。ホバー判定だけでなく、
+	// 下のapplyHoverVisualToChildren（子のAlphabetTextComponentへの自動反映）にも使うため、
+	// isGameViewを問わず毎フレーム探す
+	GameObject* self = nullptr;
+	if (ctx.sceneObjects) {
+		for (GameObject* obj : *ctx.sceneObjects) {
+			if (obj && &obj->GetTransform() == &transform) { self = obj; break; }
+		}
+	}
+
+	// このGameObjectの子に付いているAlphabetTextComponent全てへ、ホバー演出（色・拡大率）を
+	// 自動的に反映する。以前はSceneBase::UpdateButtonAndReflectHoverがタグ名で見た目役の
+	// GameObjectを探して個別に反映していたが（TitleScene等が「hitboxタグ」「textタグ」の
+	// 2つを手書きで対応させる必要があった）、「PLAYの見た目をこのボタンの子にする」だけで
+	// 自動的に効くようにし、タグでの紐付けを不要にする
+	auto applyHoverVisualToChildren = [&](bool hoveringNow) {
+		if (!self) return;
+		Vector4 color = !enabled ? disabledColor : (hoveringNow ? hoverColor : normalColor);
+		float scale = hoveringNow ? hoverScaleMultiplier : normalScaleMultiplier;
+		for (GameObject* child : self->GetChildren()) {
+			if (!child) continue;
+			if (auto* text = child->GetComponent<AlphabetTextComponent>()) {
+				text->displayScaleMultiplier = scale;
+				text->displayColor = color;
+			}
+		}
+		};
+
 	// Sceneビュー表示中はGizmoControllerが同じ左クリックでオブジェクト選択を行っているため、
 	// ReflexPlayerComponentと同じくGameビュー中のみ判定する
 	bool leftPressed = ctx.isGameView && ImGui::IsMouseDown(ImGuiMouseButton_Left);
@@ -50,29 +82,19 @@ void PlayButtonComponent::Update(float deltaTime, Transform& transform, const Up
 
 	// enabled==falseの間はprevMouseLeftPressed_の更新だけ行い（再度enabled=trueに戻った瞬間、
 	// 押しっぱなしのマウスを誤ってクリックとして拾わないようにするため）、ホバー・クリック判定は
-	// 一切行わない
+	// 一切行わない（見た目はdisabledColor・通常サイズへ揃える）
 	if (!enabled) {
 		isHovering_ = false;
+		applyHoverVisualToChildren(false);
 		return;
 	}
 
 	bool hovering = false;
-	if (ctx.isGameView && ctx.renderer && ctx.sceneObjects && !ImGui::GetIO().WantCaptureMouse) {
-		// このコンポーネント自身が付いているGameObject（＝自分のOBBColliderComponentを持つ相手）を
-		// ctx.sceneObjectsから、Transformのアドレス一致で逆引きする（IComponent::Updateはtransformしか
-		// 受け取らず、兄弟コンポーネントを直接GetComponentできないため。ReflexPlayerComponent::
-		// IsPathBlockedがctx.sceneObjectsを同様の目的で使っているのと同じ発想）
-		GameObject* self = nullptr;
-		for (GameObject* obj : *ctx.sceneObjects) {
-			if (obj && &obj->GetTransform() == &transform) { self = obj; break; }
-		}
-
-		if (self) {
-			if (auto* obbCollider = self->GetComponent<OBBColliderComponent>()) {
-				Collision::OBB obb = obbCollider->GetWorldOBB(self->GetWorldTransform());
-				Collision::Ray ray = ScreenRay::FromMouse(ctx.renderer, ctx.view, ctx.proj);
-				hovering = Collision::OBBRay(obb, ray);
-			}
+	if (self && ctx.isGameView && ctx.renderer && ctx.sceneObjects && !ImGui::GetIO().WantCaptureMouse) {
+		if (auto* obbCollider = self->GetComponent<OBBColliderComponent>()) {
+			Collision::OBB obb = obbCollider->GetWorldOBB(self->GetWorldTransform());
+			Collision::Ray ray = ScreenRay::FromMouse(ctx.renderer, ctx.view, ctx.proj);
+			hovering = Collision::OBBRay(obb, ray);
 		}
 	}
 
@@ -85,6 +107,7 @@ void PlayButtonComponent::Update(float deltaTime, Transform& transform, const Up
 	}
 
 	isHovering_ = hovering;
+	applyHoverVisualToChildren(hovering);
 }
 
 void PlayButtonComponent::DrawImGui(const char* namePrefix) {
@@ -119,6 +142,7 @@ void PlayButtonComponent::DrawImGui(const char* namePrefix) {
 	ImGui::Text("%s", statusLabel.c_str());
 
 	ImGui::TextDisabled("(このGameObjectにOBBColliderComponentも付けてください。当たり判定として使います)");
+	ImGui::TextDisabled("(このGameObjectの子にAlphabetTextComponentを置くと、ホバー時の色・拡大が自動的に反映されます)");
 }
 
 void PlayButtonComponent::ToJson(nlohmann::json& out) const {
