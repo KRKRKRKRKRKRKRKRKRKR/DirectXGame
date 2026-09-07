@@ -237,6 +237,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClCompile Include="Game\TutorialScene.cpp" />
     <ClCompile Include="Game\GridPuzzleScene.cpp" />
     <ClCompile Include="Game\GridPuzzleTutorialScene.cpp" />
+    <ClCompile Include="Game\GridPuzzleTitleScene.cpp" />
     <ClCompile Include="Game\SelectScene.cpp" />
     <ClCompile Include="Game\GameOverScene.cpp" />
     <ClCompile Include="Game\ClearScene.cpp" />
@@ -396,6 +397,7 @@ copy "$(ProjectDir)Externals\assimp\bin\assimp-vc145-mt.dll" "$(TargetDir)assimp
     <ClInclude Include="Game\TutorialScene.h" />
     <ClInclude Include="Game\GridPuzzleScene.h" />
     <ClInclude Include="Game\GridPuzzleTutorialScene.h" />
+    <ClInclude Include="Game\GridPuzzleTitleScene.h" />
     <ClInclude Include="Game\SelectScene.h" />
     <ClInclude Include="Game\GameOverScene.h" />
     <ClInclude Include="Game\ClearScene.h" />

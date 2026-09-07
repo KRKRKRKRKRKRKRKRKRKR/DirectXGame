@@ -232,18 +232,20 @@ namespace {
 	// LoadFieldDataの戻り値。gridが空の場合はファイルを開けなかったことを示す
 	// （呼び出し側はこれを「読み込み失敗」の合図として扱うこと）。redQuota/greenQuota/blueQuotaは
 	// ファイル冒頭の「R=3」等の行で指定された取得目標数（GridPuzzleScene::
-	// ApplyManualFieldIfRequestedが対応する敵HPバーのmaxCollectCountへ反映する）。
-	// ファイル内に指定が無い色は-1のままにし、呼び出し側は「このフィールドは指定していない
+	// ApplyManualFieldIfRequestedが対応する敵HPバーのmaxCollectCountへ反映する）。moveQuotaは
+	// 「M=20」で指定する行動可能マス数（GridBoardPlayerComponent::maxCost）。
+	// ファイル内に指定が無い項目は-1のままにし、呼び出し側は「このフィールドは指定していない
 	// （既存の値のまま変更しない）」という意味に解釈する
 	struct FieldData {
 		std::vector<std::vector<char>> grid;
 		int redQuota = -1;
 		int greenQuota = -1;
 		int blueQuota = -1;
+		int moveQuota = -1;
 	};
 
-	// 1行が「R=3」「G = 5」のような「R/G/Bのいずれか1文字＋'='＋数字」の形式かどうかを判定する
-	// （空白は無視する）。該当すればtrueを返し、outType/outValueへ種別文字・数値を取り出す
+	// 1行が「R=3」「G = 5」「M=20」のような「R/G/B/Mのいずれか1文字＋'='＋数字」の形式かどうかを
+	// 判定する（空白は無視する）。該当すればtrueを返し、outType/outValueへ種別文字・数値を取り出す
 	bool ParseFieldQuotaLine(const std::string& line, char& outType, int& outValue) {
 		std::string trimmed;
 		for (char c : line) {
@@ -251,7 +253,7 @@ namespace {
 			trimmed += c;
 		}
 		if (trimmed.size() < 3) return false;
-		if (trimmed[0] != 'R' && trimmed[0] != 'G' && trimmed[0] != 'B') return false;
+		if (trimmed[0] != 'R' && trimmed[0] != 'G' && trimmed[0] != 'B' && trimmed[0] != 'M') return false;
 		if (trimmed[1] != '=') return false;
 		for (size_t i = 2; i < trimmed.size(); ++i) {
 			if (trimmed[i] < '0' || trimmed[i] > '9') return false;
@@ -261,8 +263,9 @@ namespace {
 		return true;
 	}
 
-	// Resources/GridPuzzle/Field/{name}.txtを読む。ファイルの内容は「先頭にR=/G=/B=の取得目標数
-	// 指定を0〜3行（任意の順・省略可）、続けてrows行×columns列の文字グリッド」という構成。
+	// Resources/GridPuzzle/Field/{name}.txtを読む。ファイルの内容は「先頭にR=/G=/B=の取得目標数・
+	// M=の行動可能マス数指定を0〜4行（任意の順・省略可）、続けてrows行×columns列の文字グリッド」
+	// という構成。
 	// グリッド部分の各文字は'R'(赤アイテム)/'G'(緑アイテム)/'B'(青アイテム)/'W'(壁)のいずれかとして
 	// 扱い、それ以外の文字（'0'を含む）はすべて空白マス扱いにする。行数・各行の文字数が足りない
 	// 場合は残りを空白マス('0'扱い)で埋め、多すぎる分は無視する（読み込みやすさ優先で厳密な
@@ -287,8 +290,9 @@ namespace {
 			lines.push_back(line);
 		}
 
-		// 先頭から続く「R=N」「G=N」「B=N」形式の行を取得目標数指定として読み取り、該当しない行が
-		// 現れた時点でそこから先を盤面の行として扱う（空行は指定・盤面どちらでもないので読み飛ばす）
+		// 先頭から続く「R=N」「G=N」「B=N」「M=N」形式の行を取得目標数・行動可能マス数指定として
+		// 読み取り、該当しない行が現れた時点でそこから先を盤面の行として扱う（空行は指定・盤面
+		// どちらでもないので読み飛ばす）
 		size_t gridStartIndex = 0;
 		for (; gridStartIndex < lines.size(); ++gridStartIndex) {
 			const std::string& l = lines[gridStartIndex];
@@ -298,6 +302,7 @@ namespace {
 			if (type == 'R') data.redQuota = value;
 			else if (type == 'G') data.greenQuota = value;
 			else if (type == 'B') data.blueQuota = value;
+			else if (type == 'M') data.moveQuota = value;
 		}
 
 		data.grid.assign(static_cast<size_t>(rows), std::vector<char>(static_cast<size_t>(columns), '0'));
@@ -1260,9 +1265,12 @@ void GridPuzzleScene::ApplyManualFieldIfRequested() {
 	gameCleared_ = false;
 
 	// 途中だった計画・実行を破棄して配置フェーズへ戻す（盤面が丸ごと入れ替わったため、
-	// 予約中の経路が存在しないマスを指したままになるのを防ぐ）
+	// 予約中の経路が存在しないマスを指したままになるのを防ぐ）。フィールドファイル冒頭の
+	// 「M=20」で行動可能マス数（maxCost）が指定されていれば、ForceResetToPlacing（currentCost_を
+	// maxCostへ補充する）より前に反映しておく（そうしないと補充後の値が古いmaxCostのままになる）
 	if (GameObject* player = FindObjectByTag(GameTags::kPlayer)) {
 		if (auto* playerMove = player->GetComponent<GridBoardPlayerComponent>()) {
+			if (fieldData.moveQuota >= 0) playerMove->maxCost = fieldData.moveQuota;
 			playerMove->ForceResetToPlacing();
 		}
 	}
