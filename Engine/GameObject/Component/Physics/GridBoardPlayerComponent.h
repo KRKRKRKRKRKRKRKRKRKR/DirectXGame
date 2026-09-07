@@ -15,13 +15,20 @@ class GameObject;
 // には一切依存しない独立実装。GridBoardComponent（盤面サイズ・マス間隔の唯一のデータソース）を
 // UpdateContext::sceneObjects経由で参照し、盤面上のマスをクリックして移動する。
 //
-// フェーズは「計画（kPlanning）→実行（kExecuting）」の2段階。計画フェーズ中、直前の予約地点
-// （無ければ現在地）と同じ行/列上のマスをクリックすると、そのマスまでの距離（マス数）ぶん
-// currentCost_をその場で即時消費して経路に予約する。残りコストを超える距離のクリックは無効。
-// currentCost_を使い切った（0になった）瞬間、それ以上予約できないため自動的に実行フェーズへ移る
-// （Inspectorの「実行フェーズへ」ボタンを押さなくてもよい）。実行フェーズでは予約した経路を
-// 先頭から順にイージング移動し、すべて終えたら計画フェーズへ戻り、同時にcurrentCost_を
-// maxCostへリセットする（次ターンの開始）。
+// フェーズは「配置（kPlacing）→計画（kPlanning）→実行（kExecuting）」の3段階。ゲーム開始直後
+// （phase_の既定値）と、実行フェーズが終わって次のターンへ移る瞬間は必ずkPlacingへ入る。
+// kPlacing中は毎フレーム、マウスカーソルの真下のマス（壁・未取得アイテムが無ければ）へ
+// プレイヤー自身を追従させる（移動コストは消費しない、プレビュー移動）。その状態で左クリック
+// した瞬間の位置をそのまま確定し、間を置かず自動的に計画フェーズへ進む（クリック=配置確定で、
+// 確認ボタンは無い）。カーソルが盤面外・壁マス（GridWallComponent、通行可否を問わず）・
+// 未取得のアイテム（GridItemComponent）の上にある間は追従を止め、直前の有効な位置に留まる
+// （＝配置先として壁マス・アイテムのあるマスは選べない）。計画フェーズ中、直前の予約地点（無ければ配置したばかりの現在地）と
+// 同じ行/列上のマスをクリックすると、そのマスまでの距離（マス数）ぶんcurrentCost_をその場で
+// 即時消費して経路に予約する。残りコストを超える距離のクリックは無効。currentCost_を使い切った
+// （0になった）瞬間、それ以上予約できないため自動的に実行フェーズへ移る（Inspectorの
+// 「実行フェーズへ」ボタンを押さなくてもよい）。実行フェーズでは予約した経路を先頭から順に
+// イージング移動し、すべて終えたら配置フェーズへ戻り、同時にcurrentCost_をmaxCostへ
+// リセットする（次ターンの開始。＝毎ターン、移動を始める前に必ず配置し直せる）。
 //
 // アイテム（GridItemComponent）：発動判定はマス座標比較ではなく、ColliderSystemによる
 // OBBCollider同士の当たり判定（isTrigger=true）で行う。プレイヤー・アイテム双方のGameObjectに
@@ -48,11 +55,11 @@ class GameObject;
 // 実装は次段階で追加する）
 class GridBoardPlayerComponent : public IComponent {
 public:
-	enum class Phase { kPlanning, kExecuting };
+	enum class Phase { kPlacing, kPlanning, kExecuting };
 
 	// 1ターンあたりの移動コスト上限。ターン開始（実行フェーズ完了）のたびにcurrentCost_へ
-	// この値が補充される
-	int maxCost = 10;
+	// この値が補充される。既定値20は企画の「行動可能マスは20」に合わせたもの
+	int maxCost = 20;
 
 	// 1秒あたりの移動距離。区間の所要時間 = 区間の距離 / moveSpeed
 	float moveSpeed = 5.0f;
@@ -67,6 +74,16 @@ public:
 	// GridPuzzleScene::UpdateTileHighlightsが「予約済みの経路マス」を塗る色。highlightColorとは
 	// 別の色にして、次に選べるマスと既に予約済みのマスを見分けられるようにする
 	Vector4 reservedColor = { 1.0f, 0.85f, 0.2f, 1.0f };
+
+	// GridPuzzleScene::UpdateTileHighlightsが、配置フェーズ（kPlacing）中に「配置先として選べる
+	// マス」（壁が無い全マス）を塗る色。highlightColor/reservedColorとは別の色にして、
+	// 「今は移動予約ではなく配置をしている」ことが一目でわかるようにする
+	Vector4 placingColor = { 0.35f, 0.65f, 1.0f, 1.0f };
+
+	// 計画フェーズ（kPlanning）中、左クリックをこの秒数以上押しっぱなしにすると、残りコストの
+	// 有無を問わず強制的に実行フェーズへ進める（スキップ操作）。詳しくはUpdate()内の
+	// leftHoldElapsed_/leftHoldSkipTriggered_のコメント参照
+	float skipHoldSeconds = 0.6f;
 
 	void Update(float deltaTime, Transform& transform, const UpdateContext& ctx) override;
 	void DrawImGui(const char* namePrefix) override;
@@ -91,6 +108,13 @@ public:
 	// 盤面が見つからない場合は空を返す
 	std::vector<std::pair<int, int>> GetValidTargets(const Transform& transform, const std::vector<GameObject*>* sceneObjects) const;
 
+	// 配置フェーズ（kPlacing）中のみ、盤面上の壁（GridWallComponent、通行可否を問わず）・
+	// 未取得のアイテム（GridItemComponent、triggered==falseのもの）のいずれも無い全マスの
+	// 一覧を返す（配置フェーズ以外は空を返す）。GridPuzzleScene::UpdateTileHighlightsが
+	// placingColorで塗るために使う。GetValidTargetsと違い残りコストや現在位置に依存しない
+	// （配置はコストを消費せず、盤面上どこへでも直接移動できるため）
+	std::vector<std::pair<int, int>> GetPlaceableCells(const std::vector<GameObject*>* sceneObjects) const;
+
 	// 現在予約済みの経路（列,行）一覧をそのまま返す。予約地点（クリックした先端マス）だけで、
 	// 途中で飛び越えるマスは含まない（実行フェーズ中は「まだ通過していない」残りの区間のみを
 	// 返す想定はしていない。全区間を返し続けるが、実行フェーズ中はGetValidTargets()が
@@ -111,11 +135,22 @@ public:
 	void ApplyItemEffect(GridItemComponent::Type type);
 
 private:
-	Phase phase_ = Phase::kPlanning;
+	// 既定値はkPlacing：ゲーム開始直後は必ず配置フェーズから始まり、プレイヤーは最初の1クリックで
+	// 自分の初期位置を選ぶ（フェーズは保存しない＝scene.jsonをロードした直後も毎回ここから始まる）
+	Phase phase_ = Phase::kPlacing;
 	int currentCost_ = maxCost;
 
 	bool prevMouseLeftPressed_ = false;
+	bool prevMouseRightPressed_ = false;
 	bool isFirstUpdate_ = true;
+
+	// 左クリックを押し続けている秒数（離すと0に戻る）。skipHoldSeconds以上になった瞬間、
+	// 計画フェーズなら実行フェーズへ強制的に進む（スキップ操作）。leftHoldSkipTriggered_は
+	// 「今の一連の押しっぱなしで、既にスキップを発動済みか」を示し、trueの間は離した瞬間を
+	// 通常のクリック（経路予約・配置確定）として扱わないようにする（1回の長押しでスキップと
+	// クリックの両方が発生してしまうのを防ぐ）
+	float leftHoldElapsed_ = 0.0f;
+	bool leftHoldSkipTriggered_ = false;
 
 	std::vector<std::pair<int, int>> waypoints_; // 予約した経路（列,行）。プレイヤーの現在地は含まない
 	// waypoints_[i]を予約した際に実際に消費したコスト（壁マスを含む区間ほど大きくなる）。
@@ -141,4 +176,8 @@ private:
 
 	// waypoints_を全部消し、消費済みコストを予約前の状態へ戻す（DrawImGuiの「経路をクリア」用）
 	void ClearWaypoints();
+
+	// waypoints_の末尾（直前の1手）だけを取り消し、その手ぶんのコストだけを払い戻す
+	// （右クリックのUndo操作用。ClearWaypointsの「全部取り消す」版に対してこちらは1手ぶんだけ）
+	void UndoLastWaypoint();
 };

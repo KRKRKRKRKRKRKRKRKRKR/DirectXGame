@@ -101,6 +101,7 @@
     <ClCompile Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridItemComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridItemSpawnComponent.cpp" />
+    <ClCompile Include="Engine\GameObject\Component\Physics\GridFieldLoaderComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridWallComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\GridWallSpawnComponent.cpp" />
     <ClCompile Include="Engine\GameObject\Component\Physics\ParticleComponent.cpp" />
@@ -290,6 +291,7 @@
     <ClInclude Include="Engine\GameObject\Component\Physics\GridBoardPlayerComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridItemComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridItemSpawnComponent.h" />
+    <ClInclude Include="Engine\GameObject\Component\Physics\GridFieldLoaderComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridWallComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\GridWallSpawnComponent.h" />
     <ClInclude Include="Engine\GameObject\Component\Physics\ParticleComponent.h" />

@@ -27,8 +27,9 @@ public:
 	// 壁を通過する（＝経路の一部として通る）際に消費する移動コスト（通常のマスは距離1マスに
 	// つきコスト1）。生成する壁（GridWallComponent::passCost）の初期値として使う。生成後は
 	// 壁ごとにInspectorから個別に上書きできる（ここでの値はあくまで新規生成時の初期値）。
-	// impassable=trueの間はこの値は参照されない（GridWallComponent::passCostと同じ扱い）
-	int passCost = 3;
+	// impassable=trueの間はこの値は参照されない（GridWallComponent::passCostと同じ扱い）。
+	// 既定3では簡単すぎたため5に上げた（行動可能マス20は変えず、壁越えの負担を増やす方向で調整）
+	int passCost = 5;
 
 	// trueにすると、今後SpawnWallsFromConfigで新しく生成される壁がimpassable=true
 	// （超えられない壁）になる。「切り替え」ボタンを押すと、現在盤面上にある既存の全壁の

@@ -17,6 +17,11 @@ void GridItemComponent::OnTriggerEnter(GameObject& other) {
 	auto* playerMove = other.GetComponent<GridBoardPlayerComponent>();
 	if (!playerMove) return; // アイテム同士やその他のTrigger相手には反応しない
 
+	// 配置フェーズ（kPlacing）中はプレイヤーがマウス追従で盤面上を自由に動き回るだけで、
+	// 実際に「移動した」わけではないため、アイテムに触れても取得扱いにしない
+	// （配置中に偶然カーソルが乗っただけで取得されてしまうのを防ぐ）
+	if (playerMove->GetPhase() == GridBoardPlayerComponent::Phase::kPlacing) return;
+
 	playerMove->ApplyItemEffect(type);
 	triggered = true;
 }

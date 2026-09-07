@@ -51,6 +51,20 @@ namespace {
 		return wall && wall->impassable;
 	}
 
+	// 指定マスに（まだ取得されていない）GridItemComponentがあるかどうか。triggered==trueの
+	// アイテムは取得済み表示エリアへ移動済みで実際にはそのマスに存在しないため対象外にする
+	// （GridPuzzleScene::ComputeOccupiedCellsの判定条件と同じ）
+	bool IsItemAt(const std::vector<GameObject*>* sceneObjects, int col, int row) {
+		if (!sceneObjects) return false;
+		for (GameObject* obj : *sceneObjects) {
+			if (!obj) continue;
+			if (auto* item = obj->GetComponent<GridItemComponent>()) {
+				if (!item->triggered && item->col == col && item->row == row) return true;
+			}
+		}
+		return false;
+	}
+
 	// (fromCol,fromRow)から(toCol,toRow)まで（同じ行/列上の直線移動）実際に通過する各マスの
 	// コストを合計する。GridBoardPlayerComponent::GetReservedPathCellsと同じ「1マスずつ進みながら
 	// 通過マスを数える」ロジックをコスト集計用に転用したもの。経路上にimpassableな壁があれば
@@ -148,6 +162,25 @@ std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetValidTargets(const
 	return result;
 }
 
+std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetPlaceableCells(const std::vector<GameObject*>* sceneObjects) const {
+	std::vector<std::pair<int, int>> result;
+	if (phase_ != Phase::kPlacing) return result;
+
+	const GridBoardComponent* board = FindBoard(sceneObjects);
+	if (!board) return result;
+
+	// 配置はコストを消費せず、壁・アイテムが無いマスならどこへでも選べる
+	// （impassableな壁も含め壁マスは除外、未取得のアイテムがあるマスも除外する）
+	for (int row = 0; row < board->rows; ++row) {
+		for (int col = 0; col < board->columns; ++col) {
+			if (!FindWallAt(sceneObjects, col, row) && !IsItemAt(sceneObjects, col, row)) {
+				result.push_back({ col, row });
+			}
+		}
+	}
+	return result;
+}
+
 std::vector<std::pair<int, int>> GridBoardPlayerComponent::GetReservedPathCells(const Transform& transform, const std::vector<GameObject*>* sceneObjects) const {
 	std::vector<std::pair<int, int>> cells;
 	if (waypoints_.empty()) return cells;
@@ -201,6 +234,15 @@ void GridBoardPlayerComponent::ClearWaypoints() {
 	waypointCosts_.clear();
 }
 
+void GridBoardPlayerComponent::UndoLastWaypoint() {
+	// 直前の1手（waypoints_の末尾）だけを取り消し、その手で消費したコストだけを払い戻す
+	// （ClearWaypointsの「全部取り消す」版に対して、こちらは1手ぶんだけ）。予約が無ければ何もしない
+	if (waypoints_.empty()) return;
+	currentCost_ = (std::min)(currentCost_ + waypointCosts_.back(), maxCost);
+	waypoints_.pop_back();
+	waypointCosts_.pop_back();
+}
+
 void GridBoardPlayerComponent::ApplyItemEffect(GridItemComponent::Type type) {
 	// 企画変更により、赤/緑/青のアイテムはいずれも移動・コストへの直接効果を持たない
 	// （敵HPバーの取得カウント通知のみがGridPuzzleScene::UpdateCollectedItemsDisplay経由で
@@ -210,13 +252,70 @@ void GridBoardPlayerComponent::ApplyItemEffect(GridItemComponent::Type type) {
 
 void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, const UpdateContext& ctx) {
 	bool leftPressed = ImGui::IsMouseDown(ImGuiMouseButton_Left);
-	bool clickedThisFrame = !isFirstUpdate_ && ctx.isGameView && leftPressed && !prevMouseLeftPressed_;
+	bool rightPressed = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+	bool inGameView = !isFirstUpdate_ && ctx.isGameView;
+
+	// 左クリックは「押した瞬間」ではなく「離した瞬間」をクリックとして扱う（配置確定・経路予約の
+	// ための短押しと、下のスキップ操作のための長押しを区別するため）。押している間だけ
+	// leftHoldElapsed_を積算し、計画フェーズ中にskipHoldSeconds以上押しっぱなしになった瞬間、
+	// 残りコストの有無を問わず強制的に実行フェーズへ進める（＝スキップ操作）。スキップが
+	// 発動したホールドは、離した時に「クリックされた」扱いにしない（leftHoldSkipTriggered_で抑制）
+	if (leftPressed) leftHoldElapsed_ += deltaTime;
+	bool longPressSkip = inGameView && phase_ == Phase::kPlanning && leftPressed
+		&& !leftHoldSkipTriggered_ && leftHoldElapsed_ >= skipHoldSeconds;
+	if (longPressSkip) {
+		leftHoldSkipTriggered_ = true;
+		phase_ = Phase::kExecuting;
+		currentWaypointIndex_ = 0;
+		segmentStarted_ = false;
+	}
+
+	bool clickedThisFrame = inGameView && !leftPressed && prevMouseLeftPressed_ && !leftHoldSkipTriggered_;
+	// 右クリックはUndo専用。押した瞬間の単純なエッジ検知でよい（長押しとの区別は不要）
+	bool rightClickedThisFrame = inGameView && rightPressed && !prevMouseRightPressed_;
+
+	if (!leftPressed) {
+		leftHoldElapsed_ = 0.0f;
+		leftHoldSkipTriggered_ = false;
+	}
 	prevMouseLeftPressed_ = leftPressed;
+	prevMouseRightPressed_ = rightPressed;
 	isFirstUpdate_ = false;
 
 	const GridBoardComponent* board = FindBoard(ctx.sceneObjects);
 
+	if (phase_ == Phase::kPlacing) {
+		// 配置フェーズ：マウスカーソルの真下のマス（壁が無ければ）へ毎フレーム追従させ、
+		// 左クリックした瞬間の位置で確定して計画フェーズへ進む（確認ボタンは無い）。
+		// カーソルが盤面外・壁マスの上にある間は追従を止め、直前の有効な位置に留まる
+		if (board) {
+			int col, row;
+			if (TryPickCell(transform, ctx, col, row) && !FindWallAt(ctx.sceneObjects, col, row) && !IsItemAt(ctx.sceneObjects, col, row)) {
+				Vector3 pos = board->GridToWorld(col, row);
+				transform.translation.x = pos.x;
+				transform.translation.z = pos.z;
+
+				if (clickedThisFrame) {
+					phase_ = Phase::kPlanning;
+					waypoints_.clear();
+					waypointCosts_.clear();
+					currentWaypointIndex_ = 0;
+					segmentStarted_ = false;
+					currentCost_ = maxCost;
+					attackPower_ = 0;
+				}
+			}
+		}
+		return;
+	}
+
 	if (phase_ == Phase::kPlanning) {
+		// 右クリック：直前に予約した1手だけを取り消す（Undo）。複数回押せば複数手戻せる
+		if (rightClickedThisFrame) {
+			UndoLastWaypoint();
+			return;
+		}
+
 		if (clickedThisFrame && board && currentCost_ > 0) {
 			int col, row;
 			if (TryPickCell(transform, ctx, col, row)) {
@@ -265,8 +364,9 @@ void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, con
 
 	// 実行フェーズ：waypoints_を先頭から順に、区間ごとにイージング補間しながら直進する
 	if (!board || currentWaypointIndex_ >= waypoints_.size()) {
-		// 盤面が見つからない、または予約が空のまま実行フェーズに来た場合は即座に計画フェーズへ戻す
-		phase_ = Phase::kPlanning;
+		// 盤面が見つからない、または予約が空のまま実行フェーズに来た場合は即座に配置フェーズへ戻す
+		// （次ターンの開始と同じ扱いにする）
+		phase_ = Phase::kPlacing;
 		currentWaypointIndex_ = 0;
 		currentCost_ = maxCost;
 		attackPower_ = 0;
@@ -286,8 +386,9 @@ void GridBoardPlayerComponent::Update(float deltaTime, Transform& transform, con
 		transform.translation.z = segmentEnd_.z;
 		++currentWaypointIndex_;
 		if (currentWaypointIndex_ >= waypoints_.size()) {
-			// 実行完了：次ターンへ。コスト・攻撃力は満タン/0へリセットする
-			phase_ = Phase::kPlanning;
+			// 実行完了：次ターンへ。必ず配置フェーズから始まり、プレイヤーは移動を始める前に
+			// もう一度自分の位置を選び直せる。コスト・攻撃力は満タン/0へリセットする
+			phase_ = Phase::kPlacing;
 			waypoints_.clear();
 			waypointCosts_.clear();
 			currentWaypointIndex_ = 0;
@@ -333,7 +434,15 @@ void GridBoardPlayerComponent::DrawImGui(const char* namePrefix) {
 	std::string reservedColorLabel = std::string(namePrefix) + "予約済みマスの色";
 	ImGui::ColorEdit4(reservedColorLabel.c_str(), &reservedColor.x);
 
-	const char* phaseLabel = (phase_ == Phase::kPlanning) ? "計画フェーズ" : "実行フェーズ";
+	std::string placingColorLabel = std::string(namePrefix) + "配置可能マスの色";
+	ImGui::ColorEdit4(placingColorLabel.c_str(), &placingColor.x);
+
+	std::string skipHoldLabel = std::string(namePrefix) + "スキップに必要な長押し秒数";
+	ImGui::DragFloat(skipHoldLabel.c_str(), &skipHoldSeconds, 0.05f, 0.05f, 5.0f);
+
+	const char* phaseLabel = "配置フェーズ";
+	if (phase_ == Phase::kPlanning) phaseLabel = "計画フェーズ";
+	else if (phase_ == Phase::kExecuting) phaseLabel = "実行フェーズ";
 	ImGui::Text("%s", (std::string(namePrefix) + "フェーズ: " + phaseLabel).c_str());
 	ImGui::Text("%s", (std::string(namePrefix) + "残りコスト: "
 		+ std::to_string(currentCost_) + " / " + std::to_string(maxCost)).c_str());
@@ -360,6 +469,8 @@ void GridBoardPlayerComponent::ToJson(nlohmann::json& out) const {
 	out["easingType"] = static_cast<int>(easingType);
 	out["highlightColor"] = Vector4ToJson(highlightColor);
 	out["reservedColor"] = Vector4ToJson(reservedColor);
+	out["placingColor"] = Vector4ToJson(placingColor);
+	out["skipHoldSeconds"] = skipHoldSeconds;
 }
 
 void GridBoardPlayerComponent::FromJson(const nlohmann::json& in) {
@@ -368,6 +479,8 @@ void GridBoardPlayerComponent::FromJson(const nlohmann::json& in) {
 	easingType = static_cast<Easing::Type>(in.value("easingType", static_cast<int>(easingType)));
 	if (in.contains("highlightColor")) highlightColor = Vector4FromJson(in["highlightColor"]);
 	if (in.contains("reservedColor")) reservedColor = Vector4FromJson(in["reservedColor"]);
+	if (in.contains("placingColor")) placingColor = Vector4FromJson(in["placingColor"]);
+	skipHoldSeconds = in.value("skipHoldSeconds", skipHoldSeconds);
 	currentCost_ = maxCost;
 }
 

@@ -8,12 +8,14 @@
 #include "../Engine/GameObject/Component/Physics/GridItemSpawnComponent.h"
 #include "../Engine/GameObject/Component/Physics/GridWallComponent.h"
 #include "../Engine/GameObject/Component/Physics/GridWallSpawnComponent.h"
+#include "../Engine/GameObject/Component/Physics/GridFieldLoaderComponent.h"
 #include "../Engine/GameObject/Component/Physics/OBBColliderComponent.h"
 #include "../Engine/GameObject/Component/Lighting/DirectionalLightComponent.h"
 #include "../Engine/GameObject/Component/Render/TextSpriteComponent.h"
 #include "../Engine/GameObject/Component/Render/AlphabetTextComponent.h"
 #include "../Engine/GameObject/Component/Render/EnemyHealthBarComponent.h"
 #include "../Engine/Utils/Logger.h"
+#include "../Engine/Utils/StringUtils.h"
 #include "../Externals/Json/json.hpp"
 #include <algorithm>
 #include <cstdlib>
@@ -57,6 +59,17 @@ namespace {
 	constexpr const char* kGridEnemyHealthBarTag = "GridEnemyHealthBar";
 	constexpr const char* kGridLifeHealthBarTag = "GridLifeHealthBar";
 	constexpr const char* kGridHealthBarLabelTag = "GridHealthBarLabel";
+	constexpr const char* kGridRoundTextTag = "GridRoundText";
+	constexpr const char* kGridResultTextTag = "GridResultText";
+	constexpr const char* kGridFieldLoaderTag = "GridFieldLoader";
+
+	// GridFieldLoaderComponentが読み込む手動配置ファイルの置き場所。
+	// GridFieldLoaderComponent::ScanAvailableFieldNamesが参照するパスと一致させること
+	constexpr const char* kFieldFolderPath = "Resources/GridPuzzle/Field";
+
+	// 企画の「これを7ゲームほど繰り返して、7ゲームクリアできたら終了」に対応するラウンド数。
+	// currentRound_がこれを超えた時点でgameCleared_になる
+	constexpr int kTotalRounds = 7;
 
 	// 敵HPバーを赤/緑/青の3本、独立して並べる。各バーはEnemyHealthBarComponent::watchedTypesで
 	// 対応する1種別だけを監視する（他の2種別の取得では減らない）。GridItemComponent::Typeの
@@ -215,6 +228,43 @@ namespace {
 	// 解釈し、rotation={0,0,0}のときの正面方向は+Z。pitch(rotation.x)をちょうど+90度にすると
 	// 正面方向が真下(-Y)を向く（真上から真下を見下ろす姿勢になる）
 	constexpr float kCameraPitchStraightDown = std::numbers::pi_v<float> * 0.5f;
+
+	// Resources/GridPuzzle/Field/{name}.txtを読み、rows行×columns列の文字グリッドを返す。
+	// 各文字は'R'(赤アイテム)/'G'(緑アイテム)/'B'(青アイテム)/'W'(壁)のいずれかとして扱い、
+	// それ以外の文字（'0'を含む）はすべて空白マス扱いにする。ファイルの行数・各行の文字数が
+	// 足りない場合は残りを空白マス('0'扱い)で埋め、多すぎる分は無視する（読み込みやすさ優先で
+	// 厳密なフォーマットチェックはしない）。ファイルを開けなかった場合は空のvectorを返す
+	// （呼び出し側はこれを「読み込み失敗」の合図として扱うこと）
+	std::vector<std::vector<char>> LoadFieldGrid(const std::string& name, int columns, int rows) {
+		std::vector<std::vector<char>> grid;
+
+		std::string path = std::string(kFieldFolderPath) + "/" + name + ".txt";
+		// ファイル名に日本語等の非ASCII文字が含まれる場合、std::ifstream(std::string)はWindowsの
+		// ANSIコードページ経由で解釈されてしまい、UTF-8のパスだと文字化けして開けないことがある。
+		// ConvertStringでワイド文字列（Unicode）へ変換してから開くことでこれを回避する
+		std::ifstream in(StringUtils::ConvertString(path), std::ios::binary);
+		if (!in.is_open()) {
+			Logger::Log(std::format("GridPuzzleScene: フィールドファイル '{}' を開けませんでした\n", path));
+			return grid;
+		}
+
+		std::vector<std::string> lines;
+		std::string line;
+		while (std::getline(in, line)) {
+			if (!line.empty() && line.back() == '\r') line.pop_back(); // Windows改行対策
+			lines.push_back(line);
+		}
+
+		grid.assign(static_cast<size_t>(rows), std::vector<char>(static_cast<size_t>(columns), '0'));
+		for (int row = 0; row < rows && row < static_cast<int>(lines.size()); ++row) {
+			const std::string& l = lines[row];
+			for (int col = 0; col < columns && col < static_cast<int>(l.size()); ++col) {
+				char c = l[col];
+				if (c == 'R' || c == 'G' || c == 'B' || c == 'W') grid[static_cast<size_t>(row)][static_cast<size_t>(col)] = c;
+			}
+		}
+		return grid;
+	}
 }
 
 void GridPuzzleScene::OnInitialize() {
@@ -271,6 +321,10 @@ void GridPuzzleScene::HandleSceneTransitionInput() {
 	// 現在盤面上にある全壁のimpassableを一括で書き換える
 	ApplyImpassableToggleIfRequested();
 
+	// Inspectorの「読み込む」ボタンが押されていたら、選択中の手動配置ファイルの内容通りに
+	// アイテム・壁を作り直す
+	ApplyManualFieldIfRequested();
+
 	// Inspectorで変更されたGridItemComponent::color/col/rowを、兄弟のCubeRenderComponent::color・
 	// Transform.translationへ反映する
 	SyncItems();
@@ -284,6 +338,10 @@ void GridPuzzleScene::HandleSceneTransitionInput() {
 
 	// 赤/緑/青の敵HPバーの上に表示する「残量/最大値」ラベルを最新の値に更新する
 	UpdateEnemyHealthBarLabels();
+
+	// ラウンド数表示・ゲームオーバー/クリア時の結果テキストを最新の状態に更新する
+	UpdateRoundText();
+	UpdateResultText();
 
 	// 計画フェーズ中にクリックできるマスを毎フレーム塗り直す。isPlaying_を問わず呼んで良い
 	// （Stop中は単に直近の状態のまま表示され続けるだけで、実害は無い）
@@ -393,6 +451,16 @@ void GridPuzzleScene::EnsureInitialObjectsExist() {
 	// （アイテムと同じ理由。壁は踏んでも消えないため通常は初回の1回しか出番が無いが、
 	// 「リセット」ボタンで作り直した後の再配置にも同じ判定を使い回せるようにするため）
 
+	// 完全手動配置ローダー（見た目・当たり判定を持たない空のGameObject）。GridFieldLoaderComponentが
+	// Resources/GridPuzzle/Field/配下のテキストファイル一覧から選んだ1つを「読み込む」ボタンで
+	// 反映する（確認・レベルデザイン用。ランダム生成とは独立した追加の手段）
+	if (!FindObjectByTag(kGridFieldLoaderTag)) {
+		GameObject& fieldLoader = CreateObject("FieldLoader");
+		fieldLoader.tag = kGridFieldLoaderTag;
+		fieldLoader.excludeFromPicking = true;
+		fieldLoader.AddComponent<GridFieldLoaderComponent>();
+	}
+
 	// 行動可能マス数（残り移動コスト）を表示するテキスト（スクリーン空間UI）。実際の文字列は
 	// 毎フレームUpdateCostTextが更新するため、ここでは箱だけ用意して仮の文字列でRebuildしておく。
 	// Inspectorで位置・フォントサイズ・色を調整でき、その設定はscene.jsonに保存される
@@ -410,6 +478,39 @@ void GridPuzzleScene::EnsureInitialObjectsExist() {
 		text->Rebuild(renderer_);
 
 		costText.GetComponent<TransformComponent>()->is2D = true;
+	}
+
+	// 現在のラウンド数を表示するテキスト（CostTextのすぐ下）
+	if (!FindObjectByTag(kGridRoundTextTag)) {
+		GameObject& roundText = CreateObject("RoundText");
+		roundText.tag = kGridRoundTextTag;
+		roundText.excludeFromPicking = true;
+		roundText.GetTransform().translation = { 20.0f, 60.0f, 0.0f };
+
+		auto* text = roundText.AddComponent<TextSpriteComponent>();
+		text->fontSize = 28.0f;
+		text->horizontalAlign = TextSpriteComponent::HorizontalAlign::kLeft;
+		text->text = "ラウンド: - / -";
+		text->Rebuild(renderer_);
+
+		roundText.GetComponent<TransformComponent>()->is2D = true;
+	}
+
+	// ゲームオーバー／クリア時にだけ表示する大きな結果テキスト（既定は空文字＝非表示）。
+	// 画面中央上寄りに配置する（kUiDesignWidth/Height=1280x720基準）
+	if (!FindObjectByTag(kGridResultTextTag)) {
+		GameObject& resultText = CreateObject("ResultText");
+		resultText.tag = kGridResultTextTag;
+		resultText.excludeFromPicking = true;
+		resultText.GetTransform().translation = { 640.0f, 260.0f, 0.0f };
+
+		auto* text = resultText.AddComponent<TextSpriteComponent>();
+		text->fontSize = 64.0f;
+		text->horizontalAlign = TextSpriteComponent::HorizontalAlign::kCenter;
+		text->text = ""; // 空文字＝非表示（TextSpriteComponent::Rebuild参照）
+		text->Rebuild(renderer_);
+
+		resultText.GetComponent<TransformComponent>()->is2D = true;
 	}
 
 	// 敵HPバー（盤面の上に置くワールド空間の3Dオブジェクト）
@@ -453,9 +554,10 @@ void GridPuzzleScene::EnsureEnemyHealthBarExists() {
 			bar->watchedTypes = { false, false, false };
 			bar->watchedTypes[static_cast<size_t>(kEnemyHealthBarSpecs[i].watchedType)] = true;
 
-			// アイテムは現在1種別につき1個（GridItemSpawnComponent::spawnEntriesの既定count=1）常に
-			// 盤面に存在させ続ける方式のため、maxCollectCountも既定の「その種別のアイテム数」に合わせる
-			bar->maxCollectCount = 3;
+			// 初期値。GridItemSpawnComponent::spawnEntriesの既定count（現在6）に合わせてあるが、
+			// 生成後はInspectorから自由に変更できる（自動同期はしない。両方変える場合は手動で
+			// 揃えること。詳しくはUpdateEnemyHealthBarLabelsのコメント参照）
+			bar->maxCollectCount = 6;
 
 			// バーの上に「残量/最大値」ラベル（AlphabetTextComponent、例："2/3"）を子として追加する。
 			// 実際の文字列はUpdateEnemyHealthBarLabelsが毎フレーム更新する（初期値はここでは仮置き）
@@ -520,6 +622,11 @@ void GridPuzzleScene::ResetAllEnemyHealthBars() {
 }
 
 void GridPuzzleScene::UpdateEnemyHealthBarLabels() {
+	// EnemyHealthBarComponent::maxCollectCountはInspectorから自由に編集できる値（DrawImGuiの
+	// 「満タンにする取得数」）。以前ここでGridItemSpawnComponent::spawnEntries[].countへ強制的に
+	// 同期させていたが、それだとInspectorで手動変更してもこの関数が毎フレーム上書きしてしまい
+	// 「変更できない」という不具合になっていたため撤廃した。実際の判定（IsFull）に使う値と
+	// アイテムの実際の生成数（spawnEntries側）を一致させたい場合は、両方を手動で揃えること
 	for (auto& obj : objects_) {
 		if (obj->tag != kGridEnemyHealthBarTag) continue;
 		auto* bar = obj->GetComponent<EnemyHealthBarComponent>();
@@ -618,6 +725,33 @@ void GridPuzzleScene::UpdateCostText() {
 	}
 }
 
+void GridPuzzleScene::UpdateRoundText() {
+	GameObject* textObj = FindObjectByTag(kGridRoundTextTag);
+	auto* text = textObj ? textObj->GetComponent<TextSpriteComponent>() : nullptr;
+	if (!text) return;
+
+	std::string newText = "ラウンド: " + std::to_string(currentRound_) + " / " + std::to_string(kTotalRounds);
+	if (newText != text->text) {
+		text->text = newText;
+		text->Rebuild(renderer_);
+	}
+}
+
+void GridPuzzleScene::UpdateResultText() {
+	GameObject* textObj = FindObjectByTag(kGridResultTextTag);
+	auto* text = textObj ? textObj->GetComponent<TextSpriteComponent>() : nullptr;
+	if (!text) return;
+
+	std::string newText;
+	if (gameOver_) newText = "GAME OVER";
+	else if (gameCleared_) newText = "CLEAR!";
+
+	if (newText != text->text) {
+		text->text = newText;
+		text->Rebuild(renderer_);
+	}
+}
+
 void GridPuzzleScene::AdvanceTurnIfExecutionFinished() {
 	GameObject* player = FindObjectByTag(GameTags::kPlayer);
 	auto* playerMove = player ? player->GetComponent<GridBoardPlayerComponent>() : nullptr;
@@ -627,9 +761,11 @@ void GridPuzzleScene::AdvanceTurnIfExecutionFinished() {
 	// 明示的に計画フェーズへ戻す」準備フェーズを持たない（コンポーネント自身が自動遷移する）。
 	// そのためシーン側は「実行フェーズだったか」を前フレームと比較するだけで、
 	// kExecuting→kPlanningへ切り替わった瞬間（＝プレイヤーの行動マスが全て終わった瞬間）を検知する
-	if (wasExecutingLastFrame_ && !isExecutingNow) {
+	// gameOver_/gameCleared_が確定した後は、それ以上ラウンドを進めず盤面もその場で凍結する
+	// （UpdateResultTextが結果テキストを表示し続ける。プレイヤー自体の操作は特に禁止しない）
+	if (wasExecutingLastFrame_ && !isExecutingNow && !gameOver_ && !gameCleared_) {
 		// リセット（ResetAllEnemyHealthBars）で赤/緑/青のバーが満タンに戻される前に、
-		// このターン中に3本すべてを空にできたか（＝赤/緑/青のアイテムを1個ずつ全部取得できたか）を
+		// このターン中に3本すべてを空にできたか（＝赤/緑/青のアイテムを規定数ずつ全部取得できたか）を
 		// 判定する。1本でも空にできていなければ「このターンは失敗」としてライフバーを1目盛り減らす
 		bool allCleared = true;
 		for (auto& obj : objects_) {
@@ -637,26 +773,38 @@ void GridPuzzleScene::AdvanceTurnIfExecutionFinished() {
 			auto* bar = obj->GetComponent<EnemyHealthBarComponent>();
 			if (bar && !bar->IsFull()) { allCleared = false; break; }
 		}
-		if (!allCleared) {
-			if (GameObject* lifeBarObj = FindObjectByTag(kGridLifeHealthBarTag)) {
-				if (auto* lifeBar = lifeBarObj->GetComponent<EnemyHealthBarComponent>()) {
-					lifeBar->Notify1FailureOccurred();
-				}
-			}
+
+		GameObject* lifeBarObj = FindObjectByTag(kGridLifeHealthBarTag);
+		auto* lifeBar = lifeBarObj ? lifeBarObj->GetComponent<EnemyHealthBarComponent>() : nullptr;
+		if (!allCleared && lifeBar) {
+			lifeBar->Notify1FailureOccurred();
 		}
 
-		// RebuildItemsが取得済み・未取得を問わず全アイテムGameObjectを削除して作り直すため、
-		// 削除済みポインタが残らないよう先にリストを空にしておく（Finalize相当の演出は行わず、
-		// アイテムは壁と同じ「全削除→新規ランダム配置」でリセットする）。壁を先に作り直すことで、
-		// アイテム側のスポーン抽選が新しい壁配置を避けられるようにする（逆順だとアイテムの上に
-		// 壁が重なって配置され、指定した個数のアイテムが実質埋もれてしまう不具合があった）
-		collectedItemsThisTurn_.clear();
-		RebuildWalls();
-		RebuildItems();
+		if (lifeBar && lifeBar->IsFull()) {
+			// ライフを使い切った：即座にゲームオーバー。以降ラウンドは進めず、盤面も作り直さない
+			gameOver_ = true;
+		} else {
+			// このラウンドは終了（成功・失敗いずれでも次のラウンドへ進む。失敗はライフを1つ
+			// 減らすだけで即ゲームオーバーにはしない）
+			++currentRound_;
+			if (currentRound_ > kTotalRounds) {
+				// ライフを使い切る前にkTotalRounds回終えられた：クリア。以降は盤面を作り直さない
+				gameCleared_ = true;
+			} else {
+				// RebuildItemsが取得済み・未取得を問わず全アイテムGameObjectを削除して作り直すため、
+				// 削除済みポインタが残らないよう先にリストを空にしておく（Finalize相当の演出は行わず、
+				// アイテムは壁と同じ「全削除→新規ランダム配置」でリセットする）。壁を先に作り直すことで、
+				// アイテム側のスポーン抽選が新しい壁配置を避けられるようにする（逆順だとアイテムの上に
+				// 壁が重なって配置され、指定した個数のアイテムが実質埋もれてしまう不具合があった）
+				collectedItemsThisTurn_.clear();
+				RebuildWalls();
+				RebuildItems();
 
-		// アイテムを全部作り直す＝取得数が0に戻るタイミングなので、敵HPバー（赤/緑/青）も
-		// 満タンへ戻す（ライフバーはここでは触らない。失敗回数は貯まり続ける仕様のため）
-		ResetAllEnemyHealthBars();
+				// アイテムを全部作り直す＝取得数が0に戻るタイミングなので、敵HPバー（赤/緑/青）も
+				// 満タンへ戻す（ライフバーはここでは触らない。失敗回数は貯まり続ける仕様のため）
+				ResetAllEnemyHealthBars();
+			}
+		}
 	}
 	wasExecutingLastFrame_ = isExecutingNow;
 }
@@ -800,34 +948,38 @@ void GridPuzzleScene::RebuildItems() {
 	SpawnItemsFromConfig(*spawner, *spawnConfig, *boardSize);
 }
 
+void GridPuzzleScene::SpawnItemCell(GameObject& spawner, GridBoardComponent& boardSize, GridItemComponent::Type type, int col, int row, const Vector4& color) {
+	GameObject& item = CreateObject("Item");
+	item.tag = kGridItemTag;
+	item.SetParent(&spawner);
+	item.GetTransform().scale = { kItemSize, kItemSize, kItemSize };
+	Vector3 pos = boardSize.GridToWorld(col, row);
+	item.GetTransform().translation = { pos.x, kItemHeightOffset, pos.z };
+
+	auto* render = item.AddComponent<CubeRenderComponent>();
+	render->color = color;
+	render->lighting = false;
+
+	auto* itemComp = item.AddComponent<GridItemComponent>();
+	itemComp->type = type;
+	itemComp->col = col;
+	itemComp->row = row;
+	itemComp->color = color; // Inspectorで調整する色の初期値
+
+	// プレイヤーとの当たり判定（アイテム取得）用。isTrigger=trueで押し戻しは行わない
+	auto* itemCollider = item.AddComponent<OBBColliderComponent>();
+	itemCollider->layer = CollisionLayer::kItem;
+	itemCollider->isTrigger = true;
+	itemCollider->halfSize = { kItemSize * 0.5f, kItemSize * 0.5f, kItemSize * 0.5f };
+}
+
 void GridPuzzleScene::SpawnItemsFromConfig(GameObject& spawner, GridItemSpawnComponent& spawnConfig, GridBoardComponent& boardSize) {
 	// 現時点で空いている全マスから、種別ごとの個数ぶんだけ重複なくランダムに抽選する
 	std::vector<std::pair<int, int>> occupied = ComputeOccupiedCells(&boardSize);
 	std::vector<std::pair<int, int>> freeCells = ComputeFreeCells(&boardSize, occupied);
 
 	auto spawnItem = [&](GridItemComponent::Type type, int col, int row, const Vector4& color) {
-		GameObject& item = CreateObject("Item");
-		item.tag = kGridItemTag;
-		item.SetParent(&spawner);
-		item.GetTransform().scale = { kItemSize, kItemSize, kItemSize };
-		Vector3 pos = boardSize.GridToWorld(col, row);
-		item.GetTransform().translation = { pos.x, kItemHeightOffset, pos.z };
-
-		auto* render = item.AddComponent<CubeRenderComponent>();
-		render->color = color;
-		render->lighting = false;
-
-		auto* itemComp = item.AddComponent<GridItemComponent>();
-		itemComp->type = type;
-		itemComp->col = col;
-		itemComp->row = row;
-		itemComp->color = color; // Inspectorで調整する色の初期値（GridItemSpawnComponent::spawnEntriesの設定色）
-
-		// プレイヤーとの当たり判定（アイテム取得）用。isTrigger=trueで押し戻しは行わない
-		auto* itemCollider = item.AddComponent<OBBColliderComponent>();
-		itemCollider->layer = CollisionLayer::kItem;
-		itemCollider->isTrigger = true;
-		itemCollider->halfSize = { kItemSize * 0.5f, kItemSize * 0.5f, kItemSize * 0.5f };
+		SpawnItemCell(spawner, boardSize, type, col, row, color);
 		};
 
 	// 同じマンハッタン距離判定をクラスター中心の候補選び（事前チェック）と、本抽選の両方で使う
@@ -966,25 +1118,96 @@ void GridPuzzleScene::ApplyImpassableToggleIfRequested() {
 	}
 }
 
+void GridPuzzleScene::ApplyManualFieldIfRequested() {
+	GameObject* loaderObj = FindObjectByTag(kGridFieldLoaderTag);
+	auto* loader = loaderObj ? loaderObj->GetComponent<GridFieldLoaderComponent>() : nullptr;
+	if (!loader || !loader->ConsumeLoadRequested()) return;
+	if (loader->selectedFieldName.empty()) return;
+
+	GameObject* board = FindObjectByTag(kGridBoardFolderTag);
+	auto* boardSize = board ? board->GetComponent<GridBoardComponent>() : nullptr;
+	if (!boardSize || boardSize->columns <= 0 || boardSize->rows <= 0) return;
+
+	GameObject* itemSpawner = FindObjectByTag(kGridItemSpawnerTag);
+	auto* itemSpawnConfig = itemSpawner ? itemSpawner->GetComponent<GridItemSpawnComponent>() : nullptr;
+	GameObject* wallSpawner = FindObjectByTag(kGridWallSpawnerTag);
+	auto* wallSpawnConfig = wallSpawner ? wallSpawner->GetComponent<GridWallSpawnComponent>() : nullptr;
+	if (!itemSpawner || !wallSpawner) return;
+
+	std::vector<std::vector<char>> grid = LoadFieldGrid(loader->selectedFieldName, boardSize->columns, boardSize->rows);
+	if (grid.empty()) return; // ファイルを開けなかった場合（LoadFieldGrid参照）
+
+	// 既存のアイテム・壁を全部削除してから、ファイルの内容通りに作り直す
+	// （RebuildItems/RebuildWallsと同じ「全削除→作り直す」方式）
+	std::vector<GameObject*> existing;
+	for (auto& obj : objects_) {
+		if (obj->tag == kGridItemTag || obj->tag == kGridWallTag) existing.push_back(obj.get());
+	}
+	if (!existing.empty()) DeleteObjects(existing);
+	collectedItemsThisTurn_.clear();
+
+	// R/G/Bの初期色は、アイテムスポナー側のspawnEntriesに設定されている色をそのまま使う
+	// （見つからなければ既定色にフォールバック）。壁の通過コスト・通行可否・色は
+	// 壁スポナー側の設定をそのまま使う
+	auto colorForType = [&](GridItemComponent::Type type, const Vector4& fallback) {
+		if (itemSpawnConfig) {
+			for (const auto& entry : itemSpawnConfig->spawnEntries) {
+				if (entry.type == type) return entry.color;
+			}
+		}
+		return fallback;
+		};
+	Vector4 redColor = colorForType(GridItemComponent::Type::kAttackPower, kRedFillColor);
+	Vector4 greenColor = colorForType(GridItemComponent::Type::kCostFixed, kGreenFillColor);
+	Vector4 blueColor = colorForType(GridItemComponent::Type::kCostRisky, kBlueFillColor);
+
+	int wallPassCost = wallSpawnConfig ? wallSpawnConfig->passCost : 3;
+	bool wallImpassable = wallSpawnConfig ? wallSpawnConfig->impassable : false;
+	Vector4 wallColor = wallSpawnConfig ? wallSpawnConfig->wallColor : Vector4{ 0.35f, 0.32f, 0.4f, 1.0f };
+
+	for (int row = 0; row < boardSize->rows; ++row) {
+		for (int col = 0; col < boardSize->columns; ++col) {
+			char c = grid[static_cast<size_t>(row)][static_cast<size_t>(col)];
+			switch (c) {
+			case 'R': SpawnItemCell(*itemSpawner, *boardSize, GridItemComponent::Type::kAttackPower, col, row, redColor); break;
+			case 'G': SpawnItemCell(*itemSpawner, *boardSize, GridItemComponent::Type::kCostFixed, col, row, greenColor); break;
+			case 'B': SpawnItemCell(*itemSpawner, *boardSize, GridItemComponent::Type::kCostRisky, col, row, blueColor); break;
+			case 'W': SpawnWallCell(*wallSpawner, *boardSize, col, row, wallColor, wallPassCost, wallImpassable); break;
+			default: break; // '0'および未知の文字は空白マス
+			}
+		}
+	}
+
+	// アイテムを全部作り直す＝取得数が0に戻るタイミングなので、敵HPバー（赤/緑/青）も満タンへ戻す
+	ResetAllEnemyHealthBars();
+
+	// CreateObjectで追加したGameObjectをgizmoTargets_（Update/Draw対象一覧）に反映する
+	RebuildDerivedLists();
+}
+
+void GridPuzzleScene::SpawnWallCell(GameObject& spawner, GridBoardComponent& boardSize, int col, int row, const Vector4& color, int passCost, bool impassable) {
+	GameObject& wall = CreateObject("Wall");
+	wall.tag = kGridWallTag;
+	wall.SetParent(&spawner);
+	wall.GetTransform().scale = { kWallSize, kWallSize, kWallSize };
+	Vector3 pos = boardSize.GridToWorld(col, row);
+	wall.GetTransform().translation = { pos.x, kWallHeightOffset, pos.z };
+
+	auto* render = wall.AddComponent<CubeRenderComponent>();
+	render->color = color;
+	render->lighting = false;
+
+	auto* wallComp = wall.AddComponent<GridWallComponent>();
+	wallComp->col = col;
+	wallComp->row = row;
+	wallComp->passCost = passCost;
+	wallComp->impassable = impassable;
+	wallComp->color = color; // Inspectorで調整する色の初期値
+}
+
 void GridPuzzleScene::SpawnWallsFromConfig(GameObject& spawner, GridWallSpawnComponent& spawnConfig, GridBoardComponent& boardSize) {
 	auto spawnWallCell = [&](int col, int row) {
-		GameObject& wall = CreateObject("Wall");
-		wall.tag = kGridWallTag;
-		wall.SetParent(&spawner);
-		wall.GetTransform().scale = { kWallSize, kWallSize, kWallSize };
-		Vector3 pos = boardSize.GridToWorld(col, row);
-		wall.GetTransform().translation = { pos.x, kWallHeightOffset, pos.z };
-
-		auto* render = wall.AddComponent<CubeRenderComponent>();
-		render->color = spawnConfig.wallColor;
-		render->lighting = false;
-
-		auto* wallComp = wall.AddComponent<GridWallComponent>();
-		wallComp->col = col;
-		wallComp->row = row;
-		wallComp->passCost = spawnConfig.passCost;
-		wallComp->impassable = spawnConfig.impassable;
-		wallComp->color = spawnConfig.wallColor; // Inspectorで調整する色の初期値
+		SpawnWallCell(spawner, boardSize, col, row, spawnConfig.wallColor, spawnConfig.passCost, spawnConfig.impassable);
 	};
 
 	// 壁は手動デザイン基本形をそのまま使うのではなく、各基本形を90度回転4通り×左右反転2通り
@@ -1079,8 +1302,13 @@ void GridPuzzleScene::UpdateTileHighlights() {
 	// （予約マスの色は「行動可能マスではない予約済みマス」にだけ使う）
 	std::vector<std::pair<int, int>> validTargets = playerMove ? playerMove->GetValidTargets(player->GetTransform(), &gizmoTargets_) : std::vector<std::pair<int, int>>{};
 	std::vector<std::pair<int, int>> reservedPathCells = playerMove ? playerMove->GetReservedPathCells(player->GetTransform(), &gizmoTargets_) : std::vector<std::pair<int, int>>{};
+	// 配置フェーズ（kPlacing）中は、自分の初期位置として選べるマス一覧（壁の無い全マス）を
+	// placingColorで塗る。この間validTargets/reservedPathCellsは常に空になる
+	// （GetValidTargets/GetReservedPathCellsはkPlanning/kExecuting専用のため）
+	std::vector<std::pair<int, int>> placeableCells = playerMove ? playerMove->GetPlaceableCells(&gizmoTargets_) : std::vector<std::pair<int, int>>{};
 	Vector4 highlightColor = playerMove ? playerMove->highlightColor : boardSize->tileColorA;
 	Vector4 reservedColor = playerMove ? playerMove->reservedColor : boardSize->tileColorA;
+	Vector4 placingColor = playerMove ? playerMove->placingColor : boardSize->tileColorA;
 
 	for (int row = 0; row < lastBoardRows_; ++row) {
 		for (int col = 0; col < lastBoardColumns_; ++col) {
@@ -1099,9 +1327,16 @@ void GridPuzzleScene::UpdateTileHighlights() {
 					if (cell.first == col && cell.second == row) { isReserved = true; break; }
 				}
 			}
+			bool isPlaceable = false;
+			if (!isValidTarget && !isReserved) {
+				for (const auto& cell : placeableCells) {
+					if (cell.first == col && cell.second == row) { isPlaceable = true; break; }
+				}
+			}
 
 			if (isValidTarget) render->color = highlightColor;
 			else if (isReserved) render->color = reservedColor;
+			else if (isPlaceable) render->color = placingColor;
 			else render->color = ((row + col) % 2 == 0) ? boardSize->tileColorA : boardSize->tileColorB;
 		}
 	}

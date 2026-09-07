@@ -32,10 +32,15 @@ public:
 	// 与えつつcount個ぶんランダムな空きマスへ生成し直す。生成済みの子アイテム個々の色
 	// （GridItemComponent::color）は生成後Inspectorから個別に上書きできる
 	// （ここでの色はあくまで新規生成時の初期値）
+	// 既定は赤/緑/青6個ずつ（当初「4つずつ」だったが、行動可能マス20に対して簡単すぎたため、
+	// maxCost・ライフ・ラウンド数といった企画で明言済みの値は変えずに個数だけ増やして難度を上げた）。
+	// 色はGridPuzzleScene::kRedFillColor/kGreenFillColor/kBlueFillColorと合わせてあり、対応する
+	// 敵HPバー（同じ色）と見た目が一致する（kCostFixedが緑、kCostRiskyが青。名前は旧仕様の名残で
+	// R/G/Bの意味とは対応しないが、GridPuzzleScene::kEnemyHealthBarSpecsの並びと一致させている）
 	std::vector<SpawnEntry> spawnEntries = {
-		SpawnEntry{ GridItemComponent::Type::kAttackPower, 1, { 0.9f, 0.2f, 0.2f, 1.0f } },  // 赤
-		SpawnEntry{ GridItemComponent::Type::kCostFixed, 1, { 0.2f, 0.5f, 0.95f, 1.0f } },   // 青
-		SpawnEntry{ GridItemComponent::Type::kCostRisky, 1, { 0.85f, 0.55f, 0.95f, 1.0f } }, // 紫
+		SpawnEntry{ GridItemComponent::Type::kAttackPower, 6, { 0.85f, 0.2f, 0.2f, 1.0f } },  // 赤
+		SpawnEntry{ GridItemComponent::Type::kCostFixed, 6, { 0.25f, 0.8f, 0.3f, 1.0f } },    // 緑
+		SpawnEntry{ GridItemComponent::Type::kCostRisky, 6, { 0.25f, 0.45f, 0.9f, 1.0f } },   // 青
 	};
 
 	// 同じSpawnEntry内のcount個を、盤面全体からバラバラにランダム配置するのではなく、

@@ -1,5 +1,6 @@
 #pragma once
 #include "SceneBase.h"
+#include "../Engine/GameObject/Component/Physics/GridItemComponent.h"
 #include <random>
 #include <vector>
 
@@ -102,6 +103,32 @@ private:
 	// 検知するための前フレーム比較に使う
 	bool wasExecutingLastFrame_ = false;
 
+	// 現在のラウンド数（1始まり）。AdvanceTurnIfExecutionFinishedが1ターン終了ごとに1つ進める。
+	// kTotalRounds（GridPuzzleScene.cpp内、既定7）を超えた時点でgameCleared_になる。
+	// gameOver_/gameCleared_共に非保存（実行時の一時状態、scene.jsonをロードし直すたびに
+	// 1からやり直しになる）
+	int currentRound_ = 1;
+
+	// ライフ（GridLifeHealthBarTagのEnemyHealthBarComponent）が尽きた（IsFull()==true）瞬間trueになる。
+	// true になった以降、AdvanceTurnIfExecutionFinishedはラウンド進行・盤面の作り直しを一切行わず
+	// （＝盤面はその場で凍結する）、UpdateResultTextが「GAME OVER」の表示に切り替える
+	bool gameOver_ = false;
+
+	// currentRound_がkTotalRoundsを超えた（＝ライフを使い切る前にkTotalRounds回終えられた）瞬間
+	// trueになる。gameOver_と同じく、true以降は盤面を作り直さない
+	bool gameCleared_ = false;
+
+	// 毎フレーム呼ぶ。gameOver_/gameCleared_の状態に応じて、tag==kGridResultTextTagの
+	// TextSpriteComponent::textを「GAME OVER」「CLEAR!」のいずれかへ切り替える（どちらでも
+	// なければ空文字＝非表示のまま）。UpdateCostTextと同じ変更検知パターンで、値が変わった
+	// 時だけRebuildする
+	void UpdateResultText();
+
+	// 毎フレーム呼ぶ。「ラウンド: currentRound_ / kTotalRounds」を文字列化し、
+	// tag==kGridRoundTextTagのTextSpriteComponent::textへ反映する（UpdateCostTextと同じ
+	// 変更検知パターン）
+	void UpdateRoundText();
+
 	// 現在のターン（計画→実行の1サイクル）で取得された（triggered==trueになった）アイテムを、
 	// 取得した順に保持する非所有ポインタ一覧。UpdateCollectedItemsDisplayが追加し、
 	// RebuildItemsが全アイテムを削除する直前にクリアする（削除済みポインタが残らないようにするため）
@@ -139,6 +166,11 @@ private:
 	// ResetItemsIfRequested（リセットボタン、既存削除後）の両方から呼ばれる共通ロジック
 	void SpawnItemsFromConfig(GameObject& spawner, class GridItemSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
 
+	// アイテム1個ぶんのGameObject（CubeRenderComponent+GridItemComponent+OBBCollider）を
+	// spawnerの子として1個生成する共通処理。SpawnItemsFromConfig（ランダム配置）と
+	// ApplyManualFieldIfRequested（手動配置ファイル読み込み）の両方から呼ばれる
+	void SpawnItemCell(GameObject& spawner, class GridBoardComponent& boardSize, GridItemComponent::Type type, int col, int row, const Vector4& color);
+
 	// 毎フレーム呼ぶ。シーン内にtag==kGridWallTagが1つも存在しなければ（起動直後）、
 	// FixedWallPatternVariants（手動デザインした複数の固定パターンをそれぞれ回転・反転した
 	// 最大16種類）からランダムに1つ選んで配置する（初回配置専用。RespawnItemsIfNoneExistと
@@ -167,6 +199,19 @@ private:
 	// pieceCount回繰り返す実処理（1回につきGridWallComponent付きGameObjectが4個生成される）。
 	// SpawnItemsFromConfigの壁版（形状抽選が入る分、単純な1マスずつの抽選ではない）
 	void SpawnWallsFromConfig(GameObject& spawner, class GridWallSpawnComponent& spawnConfig, class GridBoardComponent& boardSize);
+
+	// 壁1個ぶんのGameObject（CubeRenderComponent+GridWallComponent）をspawnerの子として1個生成する
+	// 共通処理。SpawnWallsFromConfig（固定パターンからランダム配置）とApplyManualFieldIfRequested
+	// （手動配置ファイル読み込み）の両方から呼ばれる
+	void SpawnWallCell(GameObject& spawner, class GridBoardComponent& boardSize, int col, int row, const Vector4& color, int passCost, bool impassable);
+
+	// 毎フレーム呼ぶ。GridFieldLoaderComponent::ConsumeLoadRequested()（Inspectorの「読み込む」
+	// ボタン）がtrueを返した瞬間、selectedFieldName（Resources/GridPuzzle/Field/配下の.txtファイル、
+	// 7x7でR/G/B/W/0の文字グリッド）を読み込み、現在盤面にあるアイテム・壁を全部削除してから
+	// ファイルの内容通りに配置し直す。ランダム生成（RebuildItems/RebuildWalls）を置き換えるものでは
+	// なく、確認・レベルデザイン用に明示的に呼び出す追加の手段。ファイルが見つからない・
+	// 盤面/スポナーが見つからない場合は何もしない
+	void ApplyManualFieldIfRequested();
 
 	// 毎フレーム呼ぶ。tag==kGridWallTagの各GameObjectについて、GridWallComponent::color
 	// （Inspectorで調整可能）を兄弟のCubeRenderComponent::colorへ、col/row（配置マス座標）を
