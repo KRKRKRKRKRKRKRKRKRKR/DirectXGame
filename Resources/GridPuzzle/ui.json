@@ -71,7 +71,7 @@
                         "isVisible": true,
                         "lighting": false,
                         "lineSpacing": 1.2000000476837158,
-                        "text": "ラウンド: 1 / 7"
+                        "text": "ラウンド: 8 / 7"
                     },
                     "type": "TextSprite"
                 }
@@ -121,7 +121,7 @@
                         "isVisible": true,
                         "lighting": false,
                         "lineSpacing": 1.2000000476837158,
-                        "text": ""
+                        "text": "CLEAR!"
                     },
                     "type": "TextSprite"
                 }

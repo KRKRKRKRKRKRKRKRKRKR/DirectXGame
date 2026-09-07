@@ -1181,6 +1181,27 @@ void GridPuzzleScene::ApplyManualFieldIfRequested() {
 	// アイテムを全部作り直す＝取得数が0に戻るタイミングなので、敵HPバー（赤/緑/青）も満タンへ戻す
 	ResetAllEnemyHealthBars();
 
+	// 手動配置ファイルの読み込みは「プレイ中でも強制的にリセットする」仕様のため、ライフバー・
+	// ラウンド数・ゲームオーバー/クリア状態もすべて初期状態へ戻す（RebuildWalls/RebuildItems経由の
+	// 通常のターン終了リセットと違い、ライフ・ラウンドはここでは巻き戻さないのが通常仕様だが、
+	// 手動読み込みは「最初からやり直す」操作として扱う）
+	if (GameObject* lifeBarObj = FindObjectByTag(kGridLifeHealthBarTag)) {
+		if (auto* lifeBar = lifeBarObj->GetComponent<EnemyHealthBarComponent>()) {
+			lifeBar->ResetCollectCount();
+		}
+	}
+	currentRound_ = 1;
+	gameOver_ = false;
+	gameCleared_ = false;
+
+	// 途中だった計画・実行を破棄して配置フェーズへ戻す（盤面が丸ごと入れ替わったため、
+	// 予約中の経路が存在しないマスを指したままになるのを防ぐ）
+	if (GameObject* player = FindObjectByTag(GameTags::kPlayer)) {
+		if (auto* playerMove = player->GetComponent<GridBoardPlayerComponent>()) {
+			playerMove->ForceResetToPlacing();
+		}
+	}
+
 	// CreateObjectで追加したGameObjectをgizmoTargets_（Update/Draw対象一覧）に反映する
 	RebuildDerivedLists();
 }

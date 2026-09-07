@@ -134,6 +134,20 @@ public:
 	// ここではアイテムGameObjectの削除には関与しない
 	void ApplyItemEffect(GridItemComponent::Type type);
 
+	// 現在のフェーズを問わず、予約中の経路・実行中の移動を強制的に破棄して配置フェーズへ戻す
+	// （コストは満タン・攻撃力は0にリセットする）。GridPuzzleScene::ApplyManualFieldIfRequestedが
+	// 手動配置ファイルを読み込んだ瞬間に呼ぶ（盤面が丸ごと入れ替わるため、途中だった計画・実行を
+	// そのまま続けさせると、もう存在しないマスへの経路が残ってしまう）
+	void ForceResetToPlacing() {
+		phase_ = Phase::kPlacing;
+		waypoints_.clear();
+		waypointCosts_.clear();
+		currentWaypointIndex_ = 0;
+		segmentStarted_ = false;
+		currentCost_ = maxCost;
+		attackPower_ = 0;
+	}
+
 private:
 	// 既定値はkPlacing：ゲーム開始直後は必ず配置フェーズから始まり、プレイヤーは最初の1クリックで
 	// 自分の初期位置を選ぶ（フェーズは保存しない＝scene.jsonをロードした直後も毎回ここから始まる）
