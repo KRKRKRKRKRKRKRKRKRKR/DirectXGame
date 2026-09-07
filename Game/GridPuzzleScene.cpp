@@ -229,14 +229,46 @@ namespace {
 	// 正面方向が真下(-Y)を向く（真上から真下を見下ろす姿勢になる）
 	constexpr float kCameraPitchStraightDown = std::numbers::pi_v<float> * 0.5f;
 
-	// Resources/GridPuzzle/Field/{name}.txtを読み、rows行×columns列の文字グリッドを返す。
-	// 各文字は'R'(赤アイテム)/'G'(緑アイテム)/'B'(青アイテム)/'W'(壁)のいずれかとして扱い、
-	// それ以外の文字（'0'を含む）はすべて空白マス扱いにする。ファイルの行数・各行の文字数が
-	// 足りない場合は残りを空白マス('0'扱い)で埋め、多すぎる分は無視する（読み込みやすさ優先で
-	// 厳密なフォーマットチェックはしない）。ファイルを開けなかった場合は空のvectorを返す
-	// （呼び出し側はこれを「読み込み失敗」の合図として扱うこと）
-	std::vector<std::vector<char>> LoadFieldGrid(const std::string& name, int columns, int rows) {
+	// LoadFieldDataの戻り値。gridが空の場合はファイルを開けなかったことを示す
+	// （呼び出し側はこれを「読み込み失敗」の合図として扱うこと）。redQuota/greenQuota/blueQuotaは
+	// ファイル冒頭の「R=3」等の行で指定された取得目標数（GridPuzzleScene::
+	// ApplyManualFieldIfRequestedが対応する敵HPバーのmaxCollectCountへ反映する）。
+	// ファイル内に指定が無い色は-1のままにし、呼び出し側は「このフィールドは指定していない
+	// （既存の値のまま変更しない）」という意味に解釈する
+	struct FieldData {
 		std::vector<std::vector<char>> grid;
+		int redQuota = -1;
+		int greenQuota = -1;
+		int blueQuota = -1;
+	};
+
+	// 1行が「R=3」「G = 5」のような「R/G/Bのいずれか1文字＋'='＋数字」の形式かどうかを判定する
+	// （空白は無視する）。該当すればtrueを返し、outType/outValueへ種別文字・数値を取り出す
+	bool ParseFieldQuotaLine(const std::string& line, char& outType, int& outValue) {
+		std::string trimmed;
+		for (char c : line) {
+			if (c == ' ' || c == '\t') continue;
+			trimmed += c;
+		}
+		if (trimmed.size() < 3) return false;
+		if (trimmed[0] != 'R' && trimmed[0] != 'G' && trimmed[0] != 'B') return false;
+		if (trimmed[1] != '=') return false;
+		for (size_t i = 2; i < trimmed.size(); ++i) {
+			if (trimmed[i] < '0' || trimmed[i] > '9') return false;
+		}
+		outType = trimmed[0];
+		outValue = std::atoi(trimmed.c_str() + 2);
+		return true;
+	}
+
+	// Resources/GridPuzzle/Field/{name}.txtを読む。ファイルの内容は「先頭にR=/G=/B=の取得目標数
+	// 指定を0〜3行（任意の順・省略可）、続けてrows行×columns列の文字グリッド」という構成。
+	// グリッド部分の各文字は'R'(赤アイテム)/'G'(緑アイテム)/'B'(青アイテム)/'W'(壁)のいずれかとして
+	// 扱い、それ以外の文字（'0'を含む）はすべて空白マス扱いにする。行数・各行の文字数が足りない
+	// 場合は残りを空白マス('0'扱い)で埋め、多すぎる分は無視する（読み込みやすさ優先で厳密な
+	// フォーマットチェックはしない）。ファイルを開けなかった場合はgridが空のFieldDataを返す
+	FieldData LoadFieldData(const std::string& name, int columns, int rows) {
+		FieldData data;
 
 		std::string path = std::string(kFieldFolderPath) + "/" + name + ".txt";
 		// ファイル名に日本語等の非ASCII文字が含まれる場合、std::ifstream(std::string)はWindowsの
@@ -245,7 +277,7 @@ namespace {
 		std::ifstream in(StringUtils::ConvertString(path), std::ios::binary);
 		if (!in.is_open()) {
 			Logger::Log(std::format("GridPuzzleScene: フィールドファイル '{}' を開けませんでした\n", path));
-			return grid;
+			return data;
 		}
 
 		std::vector<std::string> lines;
@@ -255,15 +287,29 @@ namespace {
 			lines.push_back(line);
 		}
 
-		grid.assign(static_cast<size_t>(rows), std::vector<char>(static_cast<size_t>(columns), '0'));
-		for (int row = 0; row < rows && row < static_cast<int>(lines.size()); ++row) {
-			const std::string& l = lines[row];
+		// 先頭から続く「R=N」「G=N」「B=N」形式の行を取得目標数指定として読み取り、該当しない行が
+		// 現れた時点でそこから先を盤面の行として扱う（空行は指定・盤面どちらでもないので読み飛ばす）
+		size_t gridStartIndex = 0;
+		for (; gridStartIndex < lines.size(); ++gridStartIndex) {
+			const std::string& l = lines[gridStartIndex];
+			if (l.empty()) continue;
+			char type; int value;
+			if (!ParseFieldQuotaLine(l, type, value)) break;
+			if (type == 'R') data.redQuota = value;
+			else if (type == 'G') data.greenQuota = value;
+			else if (type == 'B') data.blueQuota = value;
+		}
+
+		data.grid.assign(static_cast<size_t>(rows), std::vector<char>(static_cast<size_t>(columns), '0'));
+		int row = 0;
+		for (size_t i = gridStartIndex; i < lines.size() && row < rows; ++i, ++row) {
+			const std::string& l = lines[i];
 			for (int col = 0; col < columns && col < static_cast<int>(l.size()); ++col) {
 				char c = l[col];
-				if (c == 'R' || c == 'G' || c == 'B' || c == 'W') grid[static_cast<size_t>(row)][static_cast<size_t>(col)] = c;
+				if (c == 'R' || c == 'G' || c == 'B' || c == 'W') data.grid[static_cast<size_t>(row)][static_cast<size_t>(col)] = c;
 			}
 		}
-		return grid;
+		return data;
 	}
 }
 
@@ -1134,8 +1180,9 @@ void GridPuzzleScene::ApplyManualFieldIfRequested() {
 	auto* wallSpawnConfig = wallSpawner ? wallSpawner->GetComponent<GridWallSpawnComponent>() : nullptr;
 	if (!itemSpawner || !wallSpawner) return;
 
-	std::vector<std::vector<char>> grid = LoadFieldGrid(loader->selectedFieldName, boardSize->columns, boardSize->rows);
-	if (grid.empty()) return; // ファイルを開けなかった場合（LoadFieldGrid参照）
+	FieldData fieldData = LoadFieldData(loader->selectedFieldName, boardSize->columns, boardSize->rows);
+	const std::vector<std::vector<char>>& grid = fieldData.grid;
+	if (grid.empty()) return; // ファイルを開けなかった場合（LoadFieldData参照）
 
 	// 既存のアイテム・壁を全部削除してから、ファイルの内容通りに作り直す
 	// （RebuildItems/RebuildWallsと同じ「全削除→作り直す」方式）
@@ -1180,6 +1227,24 @@ void GridPuzzleScene::ApplyManualFieldIfRequested() {
 
 	// アイテムを全部作り直す＝取得数が0に戻るタイミングなので、敵HPバー（赤/緑/青）も満タンへ戻す
 	ResetAllEnemyHealthBars();
+
+	// フィールドファイル冒頭の「R=3」等でその色の取得目標数（EnemyHealthBarComponent::
+	// maxCollectCount）が指定されていれば、対応するバーへ反映する。指定が無かった色
+	// （FieldData::redQuota等が-1のまま）はバーの現在の設定をそのまま変更しない
+	auto applyQuotaIfSpecified = [&](GridItemComponent::Type type, int quota) {
+		if (quota < 0) return;
+		for (auto& obj : objects_) {
+			if (obj->tag != kGridEnemyHealthBarTag) continue;
+			auto* bar = obj->GetComponent<EnemyHealthBarComponent>();
+			if (bar && bar->IsWatching(type)) {
+				bar->maxCollectCount = quota;
+				break;
+			}
+		}
+		};
+	applyQuotaIfSpecified(GridItemComponent::Type::kAttackPower, fieldData.redQuota);
+	applyQuotaIfSpecified(GridItemComponent::Type::kCostFixed, fieldData.greenQuota);
+	applyQuotaIfSpecified(GridItemComponent::Type::kCostRisky, fieldData.blueQuota);
 
 	// 手動配置ファイルの読み込みは「プレイ中でも強制的にリセットする」仕様のため、ライフバー・
 	// ラウンド数・ゲームオーバー/クリア状態もすべて初期状態へ戻す（RebuildWalls/RebuildItems経由の

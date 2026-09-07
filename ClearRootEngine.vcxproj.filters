@@ -152,6 +152,7 @@
     <ClCompile Include="Game\TitleScene.cpp" />
     <ClCompile Include="Game\TutorialScene.cpp" />
     <ClCompile Include="Game\GridPuzzleScene.cpp" />
+    <ClCompile Include="Game\GridPuzzleTutorialScene.cpp" />
     <ClCompile Include="Game\SelectScene.cpp" />
     <ClCompile Include="Game\GameOverScene.cpp" />
     <ClCompile Include="Game\ClearScene.cpp" />
@@ -353,6 +354,7 @@
     <ClInclude Include="Game\TitleScene.h" />
     <ClInclude Include="Game\TutorialScene.h" />
     <ClInclude Include="Game\GridPuzzleScene.h" />
+    <ClInclude Include="Game\GridPuzzleTutorialScene.h" />
     <ClInclude Include="Game\SelectScene.h" />
     <ClInclude Include="Game\GameOverScene.h" />
     <ClInclude Include="Game\ClearScene.h" />
