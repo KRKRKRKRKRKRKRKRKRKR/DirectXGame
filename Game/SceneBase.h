@@ -173,6 +173,20 @@ protected:
 	void DrawSceneSaveLoadControls();  // 保存/読み込みボタン、「名前を付けて保存」ポップアップ、保存済みスナップショットのコンボ
 	void DrawSceneTransitionButtons(); // SceneRegistryへ登録済みの全シーン名を列挙したシーン切替ボタン群
 
+	// DrawSceneTransitionButtonsの「削除」ボタンが押された名前を、確認モーダルを挟むために
+	// ここへ一旦控えておく（空文字列＝削除確認中ではない）
+	std::string pendingSceneDeleteName_;
+
+	// pendingSceneDeleteName_に対する「本当に削除しますか？」モーダルを表示する。
+	// 確定されたらDeleteSceneFolder(pendingSceneDeleteName_)を呼んでクリアする
+	void DrawSceneDeleteConfirmPrompt();
+
+	// Resources/{name}/フォルダを丸ごと削除する（scene.json/ui.json含む保存データの実体）。
+	// SceneRegistry::IsGeneric(name)がtrueの場合はSceneRegistry::Unregisterも呼び、
+	// シーン切替ボタン一覧からも消す（REGISTER_SCENE済みの固定シーンは登録を残し、
+	// 次回そのシーンへ入った際に空の状態から使えるようにする）
+	void DeleteSceneFolder(const std::string& name);
+
 	void DrawHierarchy();
 
 	// DrawHierarchyの木構造描画（旧drawNode/drawInsertionGapラムダ）を切り出したヘルパー。
@@ -337,6 +351,14 @@ protected:
 	//    自動的にフェードアウトへ移行し、フェードアウトが終わったら破棄する。
 	// Render()から毎フレーム呼ぶ（UpdateAlphabetTextComponentsと同様の「シーン側が実体を管理する」パターン）
 	void UpdateComboPopupComponents(float deltaTime);
+
+	// AlphabetTextComponent::enableClick==trueな全GameObjectについて、子（tag==kAlphabetClickArea、
+	// RebuildAlphabetTextChildrenが自動生成するOBBColliderComponent付き当たり判定）とマウスレイの
+	// 交差判定・左クリック検知を行い、isHovering_/clicked_を更新した上でdisplayColorを
+	// normalColor/hoverColorへ自動反映する（子のModelRenderComponent::colorへも直接反映する）。
+	// activeCam確定後に呼ぶ必要があるため、UpdateAlphabetTextComponents（Render冒頭、activeCam確定前）
+	// とは別にUpdateComboPopupComponentsの直後で呼ぶ
+	void UpdateAlphabetTextInteraction(const ActiveCameraState& activeCam);
 
 	// TextSpriteComponent::assignedNumberKeyが0〜9のいずれかに設定されている全GameObjectについて、
 	// 対応する数字キー（DIK_0〜DIK_9）がこのフレームでトリガー（押された瞬間）されていたら

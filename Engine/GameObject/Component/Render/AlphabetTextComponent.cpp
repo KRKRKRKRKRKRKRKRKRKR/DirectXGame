@@ -2,6 +2,7 @@
 #include "../../ComponentRegistry.h"
 #include "../../../../Externals/imgui/imgui.h"
 #include "../../../../Math/EasingPreview.h"
+#include "../../../../Math/JsonUtil.h"
 #include <cstring>
 
 void AlphabetTextComponent::DrawImGui(const char* namePrefix) {
@@ -40,6 +41,20 @@ void AlphabetTextComponent::DrawImGui(const char* namePrefix) {
 	}
 
 	ImGui::Separator();
+	std::string enableClickLabel = std::string(namePrefix) + "クリック可能にする(当たり判定を自動生成)";
+	if (ImGui::Checkbox(enableClickLabel.c_str(), &enableClick)) {
+		// enableClickの変更自体はUpdateAlphabetTextComponentsのchanged判定に含まれているため
+		// 次フレームで自動的にRebuildAlphabetTextChildrenが呼ばれる（明示的な再構築要求は不要）
+	}
+	if (enableClick) {
+		std::string normalColorLabel = std::string(namePrefix) + "通常時の色";
+		std::string hoverColorLabel = std::string(namePrefix) + "ホバー時の色";
+		ImGui::ColorEdit4(normalColorLabel.c_str(), &normalColor.x);
+		ImGui::ColorEdit4(hoverColorLabel.c_str(), &hoverColor.x);
+		std::string statusLabel = std::string(namePrefix) + (isHovering_ ? "状態: ホバー中" : "状態: 通常");
+		ImGui::Text("%s", statusLabel.c_str());
+	}
+
 	std::string entranceLabel = std::string(namePrefix) + "1文字ずつ登場演出";
 	if (ImGui::Checkbox(entranceLabel.c_str(), &useCharEntranceAnimation)) {
 		// チェックのON/OFF自体はtext/charScale/charSpacing/spaceWidthのどれとも異なるため、
@@ -82,6 +97,9 @@ void AlphabetTextComponent::ToJson(nlohmann::json& out) const {
 	out["entranceZOffset"] = entranceZOffset;
 	out["entranceDuration"] = entranceDuration;
 	out["entranceEasing"] = static_cast<int>(entranceEasing);
+	out["enableClick"] = enableClick;
+	out["normalColor"] = Vector4ToJson(normalColor);
+	out["hoverColor"] = Vector4ToJson(hoverColor);
 }
 
 void AlphabetTextComponent::FromJson(const nlohmann::json& in) {
@@ -98,6 +116,9 @@ void AlphabetTextComponent::FromJson(const nlohmann::json& in) {
 	entranceZOffset = in.value("entranceZOffset", entranceZOffset);
 	entranceDuration = in.value("entranceDuration", entranceDuration);
 	entranceEasing = static_cast<Easing::Type>(in.value("entranceEasing", static_cast<int>(entranceEasing)));
+	enableClick = in.value("enableClick", enableClick);
+	if (in.contains("normalColor")) normalColor = Vector4FromJson(in["normalColor"]);
+	if (in.contains("hoverColor")) hoverColor = Vector4FromJson(in["hoverColor"]);
 	// lastBuiltTextはあえて復元しない（空のままにしておくことで、Load直後の最初の
 	// UpdateAlphabetTextComponentsで必ず子GameObjectが作り直される。子GameObject自体は
 	// SceneBase::LoadSceneが読み込み直後にClearAlphabetTextChildrenで一旦消しているため、

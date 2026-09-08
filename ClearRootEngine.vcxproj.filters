@@ -359,6 +359,7 @@
     <ClInclude Include="Game\GridPuzzleTitleScene.h" />
     <ClInclude Include="Game\SelectScene.h" />
     <ClInclude Include="Game\GameOverScene.h" />
+    <ClInclude Include="Game\GenericScene.h" />
     <ClInclude Include="Game\ClearScene.h" />
     <ClInclude Include="Game\RankingManager.h" />
     <ClInclude Include="Game\RankingScene.h" />

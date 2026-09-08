@@ -59,9 +59,45 @@ public:
 	// charScale/charSpacingと違い、これらを変更してもRebuildAlphabetTextChildren（子GameObjectの
 	// 全削除・再生成）は起きない。SceneBase::UpdateAlphabetTextComponentsが毎フレーム、
 	// 親GameObject（owner）のTransform.scaleにdisplayScaleMultiplierを、各文字の子GameObjectが持つ
-	// ModelRenderComponent::colorにdisplayColorをそのまま書き込むだけの軽量な処理を行う
+	// ModelRenderComponent::colorにdisplayColorをそのまま書き込むだけの軽量な処理を行う。
+	// enableClick==trueの間は、displayColorはSceneBase::UpdateAlphabetTextInteractionが
+	// IsHovering()の結果に応じてnormalColor/hoverColorへ毎フレーム自動的に上書きする
+	// （手動でColorを設定する必要がなくなる。enableClick==falseなら従来通りInspectorや
+	// 呼び出し側コードが自由に書き込んでよい）
 	float displayScaleMultiplier = 1.0f;
 	Vector4 displayColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+	// trueにすると、SceneBase::RebuildAlphabetTextChildrenが文字列全体を覆うサイズの
+	// OBBColliderComponent付き子GameObject（tag==kAlphabetClickAreaTag、1個だけ）を自動生成し、
+	// SceneBase::UpdateAlphabetTextInteractionが毎フレームそのOBBとマウスレイの交差判定・
+	// 左クリック検知・displayColorへのnormalColor/hoverColor自動反映までを行う
+	// （PlayButtonComponent+手動OBBColliderComponentの「別GameObjectを用意して自分で当たり判定を
+	// 合わせる」手間を無くし、AlphabetTextComponent単体でクリック可能なテキストボタンとして
+	// 完結させるための機能）。text/charScale/charSpacing/horizontalAlignのいずれかが変われば
+	// 当たり判定のサイズもRebuildAlphabetTextChildrenが自動的に作り直す
+	bool enableClick = false;
+
+	// ---- ホバー演出パラメータ（enableClick==trueの間、SceneBase::UpdateAlphabetTextInteractionが
+	// IsHovering()の結果に応じてdisplayColorへ自動反映する。PlayButtonComponentの同名フィールドと
+	// 同じ意味） ----
+	Vector4 normalColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+	Vector4 hoverColor = { 1.0f, 0.9f, 0.2f, 1.0f };
+
+	bool IsHovering() const { return isHovering_; }
+
+	// SceneBase::UpdateAlphabetTextInteractionが毎フレーム呼ぶ。クリックされていればtrueを返し、
+	// 呼び出し後はフラグを消費する（PlayButtonComponent::ConsumeClickedと同じワンショットパターン）
+	bool ConsumeClicked() {
+		bool result = clicked_;
+		clicked_ = false;
+		return result;
+	}
+
+	// SceneBase::UpdateAlphabetTextInteractionが毎フレーム、当たり判定・ホバー状態を書き込むために使う
+	// （実行時の一時状態、非保存）
+	bool isHovering_ = false;
+	bool clicked_ = false;
+	bool prevMouseLeftPressed_ = false;
 
 	// trueにすると、SceneBase::RebuildAlphabetTextChildrenが子GameObject（1文字ずつ）を組み立てる際、
 	// 各文字にSpawnMoveComponentを付けて「Z方向の奥から手前へイージングで登場する」演出を与える。
@@ -93,6 +129,9 @@ public:
 	float lastBuiltSpaceWidth = -1.0f;  // 同上
 	// 初回は必ず不一致になるよう、horizontalAlignが取り得ない値（kCount相当の番兵）で初期化する
 	HorizontalAlign lastBuiltHorizontalAlign = static_cast<HorizontalAlign>(-1);
+	// enableClickが変わった場合も当たり判定用子GameObject（tag==kAlphabetClickArea）を
+	// 作り直す/消す必要があるため比較対象に含める。初回は必ず不一致になるよう逆の値で初期化する
+	bool lastBuiltEnableClick = true;
 
 private:
 	TextProvider textProvider_; // 未設定時は空（std::functionのbool変換でチェックする）

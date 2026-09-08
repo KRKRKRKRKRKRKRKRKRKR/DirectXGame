@@ -16,6 +16,7 @@
 #include "../Engine/GameObject/Systems/HitEffect.h"
 #include "../Engine/GameObject/Component/Physics/SpawnMoveComponent.h"
 #include "../Engine/GameObject/Component/Render/TextSpriteComponent.h"
+#include "../Engine/GameObject/Systems/ScreenRay.h"
 #include "../Engine/InputDevice/InputDevice.h"
 #include <cmath>
 #include <algorithm>
@@ -561,6 +562,11 @@ void SceneBase::Render(float deltaTime) {
 	// プレイヤーが高速で移動する際にコンボポップアップの位置が追従1フレーム分だけ遅れて見える
 	UpdateComboPopupComponents(deltaTime);
 
+	// AlphabetTextComponent::enableClick==trueなテキストのホバー・クリック判定と色の自動反映。
+	// activeCam確定後（Gameビュー判定・マウスレイ計算に必要）に行う必要があるため、
+	// UpdateAlphabetTextComponents（Render冒頭、activeCam確定前）とは別のこの位置で呼ぶ
+	UpdateAlphabetTextInteraction(activeCam);
+
 	// TextSpriteComponentに割り当てた数字キーのトリガー検知・表示トグル
 	UpdateTextSpriteVisibilityToggles();
 
@@ -764,11 +770,37 @@ void SceneBase::RebuildAlphabetTextChildren(GameObject& owner, AlphabetTextCompo
 		}
 	}
 
+	// enableClick==trueの間、文字列全体（totalWidth×charScale相当の高さ）を覆う当たり判定用
+	// 子GameObjectを1個だけ追加する。ClearAlphabetTextChildrenはtag==kAlphabetCharしか消さない
+	// ため、ここでは別途tag==kAlphabetClickAreaの既存子を消してから作り直す（毎回のRebuildで
+	// totalWidthが変わりうるため、サイズを常に最新へ合わせ直す）
+	std::vector<GameObject*> existingClickAreas;
+	for (GameObject* child : owner.GetChildren()) {
+		if (child->tag == GameTags::kAlphabetClickArea) existingClickAreas.push_back(child);
+	}
+	if (!existingClickAreas.empty()) DeleteObjects(existingClickAreas);
+
+	if (comp.enableClick && totalWidth > 0.0f) {
+		GameObject& clickArea = CreateObject("AlphabetClickArea");
+		clickArea.tag = GameTags::kAlphabetClickArea;
+		clickArea.excludeFromPicking = true; // 3Dクリックでの誤選択を防ぐ（見た目を持たない当たり判定専用）
+		clickArea.excludeFromSave = true;    // kAlphabetCharと同じ理由（毎回作り直す一時的な子）
+		clickArea.SetParent(&owner);
+		// startX〜(startX+totalWidth)の中心を当たり判定の中心にする（horizontalAlignに関わらず、
+		// 実際に文字が並んでいる範囲そのものを覆う）
+		clickArea.GetTransform().translation = { startX + totalWidth * 0.5f, 0.0f, 0.0f };
+
+		auto* obb = clickArea.AddComponent<OBBColliderComponent>();
+		obb->isTrigger = true; // 押し戻しは不要、レイキャスト判定のためだけに使う
+		obb->halfSize = { totalWidth * 0.5f, comp.charScale * 0.5f, comp.charScale * 0.5f };
+	}
+
 	comp.lastBuiltText = comp.text;
 	comp.lastBuiltCharScale = comp.charScale;
 	comp.lastBuiltCharSpacing = comp.charSpacing;
 	comp.lastBuiltSpaceWidth = comp.spaceWidth;
 	comp.lastBuiltHorizontalAlign = comp.horizontalAlign;
+	comp.lastBuiltEnableClick = comp.enableClick;
 	RebuildDerivedLists(); // 新規生成した子をgizmoTargets_に反映する
 
 	// 選択復元：previouslySelectedが今回の削除対象（文字の子）自身だった場合はもう存在しないため
@@ -806,7 +838,8 @@ void SceneBase::UpdateAlphabetTextComponents() {
 				|| comp->charScale != comp->lastBuiltCharScale
 				|| comp->charSpacing != comp->lastBuiltCharSpacing
 				|| comp->spaceWidth != comp->lastBuiltSpaceWidth
-				|| comp->horizontalAlign != comp->lastBuiltHorizontalAlign;
+				|| comp->horizontalAlign != comp->lastBuiltHorizontalAlign
+				|| comp->enableClick != comp->lastBuiltEnableClick;
 			if (changed) {
 				toRebuild.push_back({ obj.get(), comp });
 			}
@@ -838,6 +871,56 @@ void SceneBase::UpdateAlphabetTextComponents() {
 	}
 	for (auto& [owner, comp] : toRebuild) {
 		RebuildAlphabetTextChildren(*owner, *comp);
+	}
+}
+
+void SceneBase::UpdateAlphabetTextInteraction(const ActiveCameraState& activeCam) {
+	// PlayButtonComponent::Updateと同じ「Gameビュー表示中、かつImGuiがマウスを掴んでいない間だけ
+	// マウスレイとOBBの交差を判定する」ルール（Sceneビュー中はGizmoControllerが同じ左クリックで
+	// オブジェクト選択を行っているため判定しない）
+	bool leftPressed = activeCam.useGameCamera && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+
+	for (auto& obj : objects_) {
+		auto* comp = obj->GetComponent<AlphabetTextComponent>();
+		if (!comp || !comp->enableClick) continue;
+
+		bool clickedThisFrame = leftPressed && !comp->prevMouseLeftPressed_;
+		comp->prevMouseLeftPressed_ = leftPressed;
+
+		// enableClickの子（tag==kAlphabetClickArea）は必ず1個だけ（RebuildAlphabetTextChildren参照）。
+		// 見つからない場合（totalWidth<=0、つまり空文字列等）はホバーもクリックも起こらない
+		OBBColliderComponent* clickAreaObb = nullptr;
+		GameObject* clickAreaObj = nullptr;
+		for (GameObject* child : obj->GetChildren()) {
+			if (child->tag != GameTags::kAlphabetClickArea) continue;
+			clickAreaObb = child->GetComponent<OBBColliderComponent>();
+			clickAreaObj = child;
+			break;
+		}
+
+		bool hovering = false;
+		if (clickAreaObb && clickAreaObj && activeCam.useGameCamera && renderer_ && !ImGui::GetIO().WantCaptureMouse) {
+			Collision::OBB obb = clickAreaObb->GetWorldOBB(clickAreaObj->GetWorldTransform());
+			Collision::Ray ray = ScreenRay::FromMouse(renderer_, activeCam.view, activeCam.proj);
+			hovering = Collision::OBBRay(obb, ray);
+		}
+
+		if (hovering && clickedThisFrame) {
+			comp->clicked_ = true;
+		}
+		comp->isHovering_ = hovering;
+
+		// ホバー色の自動反映。displayColorへも代入しておく（Inspector等がdisplayColorを見ても
+		// 最新値になるように）が、実際に画面へ反映する子のModelRenderComponent::colorはこの場で
+		// 直接書き込む（UpdateAlphabetTextComponentsは呼び出し順序の都合でこの関数より前に
+		// 実行済みのため、代入をdisplayColorだけに留めると1フレーム遅れて反映されてしまうため）
+		comp->displayColor = hovering ? comp->hoverColor : comp->normalColor;
+		for (GameObject* child : obj->GetChildren()) {
+			if (child->tag != GameTags::kAlphabetChar) continue;
+			if (auto* render = child->GetComponent<ModelRenderComponent>()) {
+				render->color = comp->displayColor;
+			}
+		}
 	}
 }
 
@@ -1951,12 +2034,100 @@ void SceneBase::DrawSceneTransitionButtons() {
 	// 既存のSceneManager::Render()内（GetNextScene()を見てChangeScene）で行われる
 	ImGui::Text("シーン切替");
 	// SceneRegistryに登録済みの全シーン名を動的に列挙してボタン化する（REGISTER_SCENEで
-	// 新しいシーンを追加するだけで、ここを編集しなくても切替ボタンが増える）
-	bool firstSceneButton = true;
+	// 新しいシーンを追加するだけで、ここを編集しなくても切替ボタンが増える。「新規シーン作成」で
+	// 動的登録した名前もSceneRegistry::GetAllNamesに含まれるため、同じループでボタン化される）。
+	// 各シーン名の隣に「削除」ボタンを添える。今開いているシーン（assetFolder_と一致）は
+	// 削除すると足元のデータが消えて不安定になるため無効化する
+	bool openDeletePrompt = false;
 	for (const std::string& sceneName : SceneRegistry::GetAllNames()) {
-		if (!firstSceneButton) ImGui::SameLine();
-		firstSceneButton = false;
+		ImGui::PushID(sceneName.c_str());
 		if (ImGui::Button(sceneName.c_str())) nextScene_ = sceneName;
+		ImGui::SameLine();
+
+		bool isCurrentScene = (sceneName == assetFolder_);
+		if (isCurrentScene) ImGui::BeginDisabled();
+		if (ImGui::SmallButton("削除")) {
+			pendingSceneDeleteName_ = sceneName;
+			openDeletePrompt = true;
+		}
+		if (isCurrentScene) ImGui::EndDisabled();
+		ImGui::PopID();
+	}
+	// OpenPopupはPushID/PopIDの影響を受けるIDで登録されてしまうため、必ずIDスタックが
+	// ループ開始前の状態に戻った（PopID済みの）ここで呼ぶ。BeginPopupModal側は
+	// PushIDの外（このDrawSceneTransitionButtons本体スコープ）から呼ばれるため、
+	// ループ内でOpenPopupすると互いのIDが食い違いモーダルが一切開かなくなる
+	if (openDeletePrompt) {
+		ImGui::OpenPopup("シーン削除の確認##SceneDeletePrompt");
+	}
+	DrawSceneDeleteConfirmPrompt();
+
+	// Unityの「新規シーン作成」相当：コードを一切書かずに、名前だけ指定して空のシーンを作る。
+	// 実体はGenericScene（SceneBaseそのまま）で、Resources/{名前}/には何も作らない
+	// （LoadSceneはファイルが無ければ何もせず終わるため、遷移した瞬間から空のシーンとして使える。
+	// 保存操作（SaveScene）を初めて行った時点でResources/{名前}/scene.json・ui.jsonが作られる）
+	ImGui::Separator();
+	static char newSceneNameBuf[64] = "";
+	static std::string newSceneMessage;
+	ImGui::InputText("新規シーン名", newSceneNameBuf, sizeof(newSceneNameBuf));
+	ImGui::SameLine();
+	if (ImGui::Button("新規シーン作成")) {
+		std::string newName = newSceneNameBuf;
+		if (newName.empty() || !(std::isalpha(static_cast<unsigned char>(newName[0])) || newName[0] == '_')) {
+			newSceneMessage = "シーン名は英字または_で始めてください";
+		} else {
+			bool allValid = true;
+			for (char c : newName) {
+				if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_')) { allValid = false; break; }
+			}
+			if (!allValid) {
+				newSceneMessage = "シーン名に使えるのは英数字と_のみです";
+			} else if (SceneRegistry::IsRegistered(newName)) {
+				newSceneMessage = "'" + newName + "' は既に存在します";
+			} else {
+				SceneRegistry::RegisterGenericIfMissing(newName);
+				nextScene_ = newName;
+				newSceneNameBuf[0] = '\0';
+				newSceneMessage.clear();
+			}
+		}
+	}
+	if (!newSceneMessage.empty()) {
+		ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", newSceneMessage.c_str());
+	}
+}
+
+void SceneBase::DrawSceneDeleteConfirmPrompt() {
+	if (ImGui::BeginPopupModal("シーン削除の確認##SceneDeletePrompt", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		ImGui::Text("'%s' を削除しますか？", pendingSceneDeleteName_.c_str());
+		ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "この操作は取り消せません（Resources/%s/ を削除します）", pendingSceneDeleteName_.c_str());
+		ImGui::Separator();
+		if (ImGui::Button("削除する", ImVec2(120, 0))) {
+			DeleteSceneFolder(pendingSceneDeleteName_);
+			pendingSceneDeleteName_.clear();
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル", ImVec2(120, 0))) {
+			pendingSceneDeleteName_.clear();
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+void SceneBase::DeleteSceneFolder(const std::string& name) {
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	fs::remove_all(fs::path("Resources") / name, ec);
+	if (ec) {
+		Logger::Log("DeleteSceneFolder: 削除に失敗しました '" + name + "': " + ec.message() + "\n");
+	}
+
+	// GenericScene（動的登録）なら一覧からも消す。REGISTER_SCENE済みの固定シーンは
+	// クラス自体は残り続けるため、登録も残して次回そのシーンへ入った際に空の状態から使えるようにする
+	if (SceneRegistry::IsGeneric(name)) {
+		SceneRegistry::Unregister(name);
 	}
 }
 

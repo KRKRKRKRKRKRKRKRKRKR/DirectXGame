@@ -2,12 +2,16 @@
 #include "../Externals/imgui/imgui.h"
 #include "../Engine/GameObject/ComponentRegistration.h"
 #include "../Engine/Utils/EditorState.h"
+#include "SceneRegistry.h"
 
 void Game::Initialize(Renderer* renderer, Camera* camera, Window* window) {
 	renderer_ = renderer;
 	camera_ = camera;
 	window_ = window;
 	RegisterEngineComponents(); // JSON保存/復元のためのコンポーネント型登録（シーン初期化前に一度だけ）
+	// 過去に「新規シーン作成」で作ったGenericScene名をSceneRegistryへ復元する
+	// （REGISTER_SCENEの固定シーンは各.cppの静的初期化で既に登録済みのため、ここでは動的名だけが対象になる）
+	SceneRegistry::ScanResourcesForGenericScenes();
 	sceneManager_.Initialize(renderer, camera, "Title");
 }
 

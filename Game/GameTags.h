@@ -22,6 +22,11 @@ namespace GameTags {
 	// ClearAlphabetTextChildrenの一括削除に巻き込まれるため、他の用途では使わないこと
 	inline constexpr const char* kAlphabetChar = "AlphabetChar";
 
+	// SceneBase::RebuildAlphabetTextChildrenが、AlphabetTextComponent::enableClick==trueの間だけ
+	// 追加生成する、文字列全体を覆うOBBColliderComponent付き当たり判定用子GameObject（1個だけ）の
+	// 目印。SceneBase::UpdateAlphabetTextInteractionがこのタグの子を探してホバー・クリック判定に使う
+	inline constexpr const char* kAlphabetClickArea = "AlphabetClickArea";
+
 	// SceneBase::RebuildDashedLineSegmentsが生成する、DashedLineComponent1本分の
 	// 子GameObjectの目印。ユーザーが手動でこのタグを付けたGameObjectがあると
 	// ClearDashedLineSegmentsの一括削除に巻き込まれるため、他の用途では使わないこと

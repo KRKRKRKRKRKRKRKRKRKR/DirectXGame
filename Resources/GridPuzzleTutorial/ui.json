@@ -1,3 +1,154 @@
 {
-    "objects": []
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "assignedNumberKey": -1,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 28.0,
+                        "horizontalAlign": 0,
+                        "isVisible": true,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "text": "行動可能マス: 20 / 20"
+                    },
+                    "type": "TextSprite"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
+            "name": "CostText",
+            "parentIndex": -1,
+            "tag": "GridCostText",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    20.0,
+                    20.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "assignedNumberKey": -1,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 28.0,
+                        "horizontalAlign": 0,
+                        "isVisible": true,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "text": "ラウンド: 1 / 7"
+                    },
+                    "type": "TextSprite"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
+            "name": "RoundText",
+            "parentIndex": -1,
+            "tag": "GridRoundText",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    20.0,
+                    60.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "alphaTest": false,
+                        "alphaThreshold": 0.5,
+                        "assignedNumberKey": -1,
+                        "blendMode": "Normal (Alpha)",
+                        "blendStrength": 1.0,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "fontFilePath": "Resources/Font/font.ttf",
+                        "fontSize": 64.0,
+                        "horizontalAlign": 1,
+                        "isVisible": true,
+                        "lighting": false,
+                        "lineSpacing": 1.2000000476837158,
+                        "text": ""
+                    },
+                    "type": "TextSprite"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": true,
+            "name": "ResultText",
+            "parentIndex": -1,
+            "tag": "GridResultText",
+            "transform": {
+                "is2D": true,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    640.0,
+                    260.0,
+                    0.0
+                ]
+            }
+        }
+    ]
 }
