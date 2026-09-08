@@ -3,6 +3,7 @@
 #include "../../../../Math/Easing.h"
 #include <string>
 #include <functional>
+#include <vector>
 
 // 文字列（A〜Z（大文字小文字問わず）・0〜9、半角スペースは空白として1文字分だけ間隔を空ける）を
 // Resources/Alphabet/{文字}.objの3Dモデルを1文字ずつ横に並べて表示するHUD向けコンポーネント。
@@ -60,9 +61,10 @@ public:
 	// 全削除・再生成）は起きない。SceneBase::UpdateAlphabetTextComponentsが毎フレーム、
 	// 親GameObject（owner）のTransform.scaleにdisplayScaleMultiplierを、各文字の子GameObjectが持つ
 	// ModelRenderComponent::colorにdisplayColorをそのまま書き込むだけの軽量な処理を行う。
-	// enableClick==trueの間は、displayColorはSceneBase::UpdateAlphabetTextInteractionが
-	// IsHovering()の結果に応じてnormalColor/hoverColorへ毎フレーム自動的に上書きする
-	// （手動でColorを設定する必要がなくなる。enableClick==falseなら従来通りInspectorや
+	// enableClick==trueの間は、displayColor/displayScaleMultiplierはSceneBase::
+	// UpdateAlphabetTextInteractionがIsHovering()の結果に応じてnormalColor/hoverColor・
+	// normalScaleMultiplier/hoverScaleMultiplierへ毎フレーム自動的に上書きする
+	// （手動で設定する必要がなくなる。enableClick==falseなら従来通りInspectorや
 	// 呼び出し側コードが自由に書き込んでよい）
 	float displayScaleMultiplier = 1.0f;
 	Vector4 displayColor = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -78,10 +80,30 @@ public:
 	bool enableClick = false;
 
 	// ---- ホバー演出パラメータ（enableClick==trueの間、SceneBase::UpdateAlphabetTextInteractionが
-	// IsHovering()の結果に応じてdisplayColorへ自動反映する。PlayButtonComponentの同名フィールドと
-	// 同じ意味） ----
+	// IsHovering()の結果に応じてdisplayColor/displayScaleMultiplierへ自動反映する。
+	// PlayButtonComponentの同名フィールドと同じ意味・同じ即時切り替え方式：ホバー中は常に
+	// hoverColor/hoverScaleMultiplier、離れた瞬間にnormalColor/normalScaleMultiplierへ戻る） ----
 	Vector4 normalColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 	Vector4 hoverColor = { 1.0f, 0.9f, 0.2f, 1.0f };
+	float normalScaleMultiplier = 1.0f;
+	float hoverScaleMultiplier = 1.1f;
+
+	// 空文字列以外を設定すると、クリックされた瞬間にSceneBase::UpdateAlphabetTextInteractionが
+	// 自動的にnextScene_へこの値を代入してシーン遷移させる（Unityの「ボタンにシーン名を
+	// 割り当てるだけで遷移するUI」相当）。InspectorのコンボボックスにはGetAvailableSceneNames()
+	// （下記）が返す名前だけが並ぶ。空文字列（既定）のままなら従来通り自動遷移せず、
+	// 呼び出し側コードが自分でConsumeClicked()を見て好きな処理をする運用のまま変わらない
+	std::string transitionTargetScene;
+
+	// 「利用可能なシーン名一覧」を返すコールバック。AlphabetTextComponent自身（Engine層）は
+	// SceneRegistry（Game層）を知らないため直接参照できず、代わりにGame層起動時
+	// （RegisterEngineComponents呼び出し付近）に1回だけ注入してもらう関数ポインタ経由で取得する。
+	// 未設定（nullptr）のままだとDrawImGuiのコンボボックスは空になる
+	using SceneNamesProvider = const std::vector<std::string>& (*)();
+	static void SetSceneNamesProvider(SceneNamesProvider provider) { sceneNamesProvider_ = provider; }
+	static const std::vector<std::string>* GetAvailableSceneNames() {
+		return sceneNamesProvider_ ? &sceneNamesProvider_() : nullptr;
+	}
 
 	bool IsHovering() const { return isHovering_; }
 
@@ -135,4 +157,7 @@ public:
 
 private:
 	TextProvider textProvider_; // 未設定時は空（std::functionのbool変換でチェックする）
+
+	// SetSceneNamesProviderで注入される、全インスタンス共有のコールバック（実体はcppで定義）
+	static SceneNamesProvider sceneNamesProvider_;
 };

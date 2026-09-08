@@ -907,19 +907,35 @@ void SceneBase::UpdateAlphabetTextInteraction(const ActiveCameraState& activeCam
 
 		if (hovering && clickedThisFrame) {
 			comp->clicked_ = true;
+			// transitionTargetSceneが設定されていれば、クリックされた瞬間に自動でシーン遷移させる
+			// （Unityの「ボタンにシーン名を割り当てるだけで遷移するUI」相当）。空文字列（未設定）の
+			// 場合は従来通り何もせず、呼び出し側コードが自分でConsumeClicked()を見て処理する
+			if (!comp->transitionTargetScene.empty()) {
+				nextScene_ = comp->transitionTargetScene;
+			}
 		}
 		comp->isHovering_ = hovering;
 
-		// ホバー色の自動反映。displayColorへも代入しておく（Inspector等がdisplayColorを見ても
-		// 最新値になるように）が、実際に画面へ反映する子のModelRenderComponent::colorはこの場で
-		// 直接書き込む（UpdateAlphabetTextComponentsは呼び出し順序の都合でこの関数より前に
-		// 実行済みのため、代入をdisplayColorだけに留めると1フレーム遅れて反映されてしまうため）
+		// ホバー色・ホバー拡大の自動反映。displayColor/displayScaleMultiplierへも代入しておく
+		// （Inspector等がこれらを見ても最新値になるように）が、実際に画面へ反映する
+		// 子のModelRenderComponent::color・オーナー自身のTransform.scaleはこの場で直接書き込む
+		// （UpdateAlphabetTextComponentsは呼び出し順序の都合でこの関数より前に実行済みのため、
+		// displayColor/displayScaleMultiplierへの代入だけに留めると1フレーム遅れて反映されてしまうため）
 		comp->displayColor = hovering ? comp->hoverColor : comp->normalColor;
+		comp->displayScaleMultiplier = hovering ? comp->hoverScaleMultiplier : comp->normalScaleMultiplier;
 		for (GameObject* child : obj->GetChildren()) {
 			if (child->tag != GameTags::kAlphabetChar) continue;
 			if (auto* render = child->GetComponent<ModelRenderComponent>()) {
 				render->color = comp->displayColor;
 			}
+		}
+		// UpdateAlphabetTextComponentsのdisplayScaleMultiplier反映と同じガード：
+		// SpawnMoveComponent::animateScale==trueの間はそちらのスケールアニメーションを
+		// 優先し、ここでの拡縮上書きをスキップする
+		auto* spawnMoveForScale = obj->GetComponent<SpawnMoveComponent>();
+		bool skipScaleOverride = spawnMoveForScale && spawnMoveForScale->animateScale;
+		if (!skipScaleOverride) {
+			obj->GetTransform().scale = { comp->displayScaleMultiplier, comp->displayScaleMultiplier, comp->displayScaleMultiplier };
 		}
 	}
 }
@@ -2036,22 +2052,49 @@ void SceneBase::DrawSceneTransitionButtons() {
 	// SceneRegistryに登録済みの全シーン名を動的に列挙してボタン化する（REGISTER_SCENEで
 	// 新しいシーンを追加するだけで、ここを編集しなくても切替ボタンが増える。「新規シーン作成」で
 	// 動的登録した名前もSceneRegistry::GetAllNamesに含まれるため、同じループでボタン化される）。
-	// 各シーン名の隣に「削除」ボタンを添える。今開いているシーン（assetFolder_と一致）は
-	// 削除すると足元のデータが消えて不安定になるため無効化する
+	// 各シーン名の隣に「名前変更」「削除」ボタンを添える。今開いているシーン（assetFolder_と一致）は
+	// どちらも足元のデータ・登録名が不一致になり不安定になるため無効化する
 	bool openDeletePrompt = false;
-	for (const std::string& sceneName : SceneRegistry::GetAllNames()) {
+	bool openRenamePrompt = false;
+	// ↑↓ボタンはその場でSceneRegistry::MoveUp/MoveDownを呼ぶとGetAllNames()が返す
+	// vector（今まさにループ中のもの）を書き換えてしまいイテレータが無効化されるため、
+	// 押された時点ではindexだけ記録し、ループを抜けてから実行する
+	int moveUpIndex = -1;
+	int moveDownIndex = -1;
+	const auto& sceneNames = SceneRegistry::GetAllNames();
+	for (size_t i = 0; i < sceneNames.size(); ++i) {
+		const std::string& sceneName = sceneNames[i];
 		ImGui::PushID(sceneName.c_str());
+
+		if (ImGui::SmallButton("上")) moveUpIndex = static_cast<int>(i);
+		ImGui::SameLine();
+		if (ImGui::SmallButton("下")) moveDownIndex = static_cast<int>(i);
+		ImGui::SameLine();
+
 		if (ImGui::Button(sceneName.c_str())) nextScene_ = sceneName;
 		ImGui::SameLine();
 
 		bool isCurrentScene = (sceneName == assetFolder_);
 		if (isCurrentScene) ImGui::BeginDisabled();
+		if (ImGui::SmallButton("名前変更")) {
+			pendingSceneRenameName_ = sceneName;
+			openRenamePrompt = true;
+		}
+		ImGui::SameLine();
 		if (ImGui::SmallButton("削除")) {
 			pendingSceneDeleteName_ = sceneName;
 			openDeletePrompt = true;
 		}
 		if (isCurrentScene) ImGui::EndDisabled();
 		ImGui::PopID();
+	}
+	if (moveUpIndex >= 0) {
+		SceneRegistry::MoveUp(static_cast<size_t>(moveUpIndex));
+		SceneRegistry::SaveOrder();
+	}
+	if (moveDownIndex >= 0) {
+		SceneRegistry::MoveDown(static_cast<size_t>(moveDownIndex));
+		SceneRegistry::SaveOrder();
 	}
 	// OpenPopupはPushID/PopIDの影響を受けるIDで登録されてしまうため、必ずIDスタックが
 	// ループ開始前の状態に戻った（PopID済みの）ここで呼ぶ。BeginPopupModal側は
@@ -2060,7 +2103,11 @@ void SceneBase::DrawSceneTransitionButtons() {
 	if (openDeletePrompt) {
 		ImGui::OpenPopup("シーン削除の確認##SceneDeletePrompt");
 	}
+	if (openRenamePrompt) {
+		ImGui::OpenPopup("シーン名の変更##SceneRenamePrompt");
+	}
 	DrawSceneDeleteConfirmPrompt();
+	DrawSceneRenamePrompt();
 
 	// Unityの「新規シーン作成」相当：コードを一切書かずに、名前だけ指定して空のシーンを作る。
 	// 実体はGenericScene（SceneBaseそのまま）で、Resources/{名前}/には何も作らない
@@ -2073,23 +2120,15 @@ void SceneBase::DrawSceneTransitionButtons() {
 	ImGui::SameLine();
 	if (ImGui::Button("新規シーン作成")) {
 		std::string newName = newSceneNameBuf;
-		if (newName.empty() || !(std::isalpha(static_cast<unsigned char>(newName[0])) || newName[0] == '_')) {
-			newSceneMessage = "シーン名は英字または_で始めてください";
+		if (!IsValidScriptBaseName(newName)) {
+			newSceneMessage = "シーン名は英字/_で始まり、英数字と_のみ使えます";
+		} else if (SceneRegistry::IsRegistered(newName)) {
+			newSceneMessage = "'" + newName + "' は既に存在します";
 		} else {
-			bool allValid = true;
-			for (char c : newName) {
-				if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_')) { allValid = false; break; }
-			}
-			if (!allValid) {
-				newSceneMessage = "シーン名に使えるのは英数字と_のみです";
-			} else if (SceneRegistry::IsRegistered(newName)) {
-				newSceneMessage = "'" + newName + "' は既に存在します";
-			} else {
-				SceneRegistry::RegisterGenericIfMissing(newName);
-				nextScene_ = newName;
-				newSceneNameBuf[0] = '\0';
-				newSceneMessage.clear();
-			}
+			SceneRegistry::RegisterGenericIfMissing(newName);
+			nextScene_ = newName;
+			newSceneNameBuf[0] = '\0';
+			newSceneMessage.clear();
 		}
 	}
 	if (!newSceneMessage.empty()) {
@@ -2100,7 +2139,10 @@ void SceneBase::DrawSceneTransitionButtons() {
 void SceneBase::DrawSceneDeleteConfirmPrompt() {
 	if (ImGui::BeginPopupModal("シーン削除の確認##SceneDeletePrompt", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		ImGui::Text("'%s' を削除しますか？", pendingSceneDeleteName_.c_str());
-		ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "この操作は取り消せません（Resources/%s/ を削除します）", pendingSceneDeleteName_.c_str());
+		ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.2f, 1.0f), "この操作は取り消せません（Resources/%s/ を削除し、一覧からも消します）", pendingSceneDeleteName_.c_str());
+		if (!SceneRegistry::IsGeneric(pendingSceneDeleteName_)) {
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "(プログラム上のシーンです。C++コード自体は残るため実装は消えませんが、\nこの一覧・シーン選択には再起動後も二度と出てこなくなります)");
+		}
 		ImGui::Separator();
 		if (ImGui::Button("削除する", ImVec2(120, 0))) {
 			DeleteSceneFolder(pendingSceneDeleteName_);
@@ -2124,11 +2166,80 @@ void SceneBase::DeleteSceneFolder(const std::string& name) {
 		Logger::Log("DeleteSceneFolder: 削除に失敗しました '" + name + "': " + ec.message() + "\n");
 	}
 
-	// GenericScene（動的登録）なら一覧からも消す。REGISTER_SCENE済みの固定シーンは
-	// クラス自体は残り続けるため、登録も残して次回そのシーンへ入った際に空の状態から使えるようにする
-	if (SceneRegistry::IsGeneric(name)) {
-		SceneRegistry::Unregister(name);
+	// 一覧（シーン切替ボタン）からも消す
+	bool wasGeneric = SceneRegistry::IsGeneric(name);
+	SceneRegistry::Unregister(name);
+
+	// REGISTER_SCENE済みの固定シーン（Title/Play等）はC++クラス自体が残っているため、
+	// Unregisterだけでは次回起動時の静的初期化でまた自動的に登録され直してしまう。
+	// 削除済みリスト（Resources/DeletedScenes.json）へ記録し、Game::Initializeが起動のたびに
+	// ApplyPermanentlyDeletedScenesでもう一度Unregisterし直すことで、再起動しても一覧に戻らないようにする
+	// （GenericSceneはフォルダごと消えており復元元が無いため記録不要）
+	if (!wasGeneric) {
+		SceneRegistry::RecordPermanentlyDeleted(name);
 	}
+}
+
+void SceneBase::DrawSceneRenamePrompt() {
+	static char renameBuf[64] = "";
+	static std::string renameMessage;
+	// ポップアップが新規に開かれた最初のフレームだけ、入力欄を元の名前で初期化する
+	// （IsWindowAppearingはBeginPopupModalが実際に開いた瞬間だけtrueを返す）
+	if (ImGui::BeginPopupModal("シーン名の変更##SceneRenamePrompt", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		if (ImGui::IsWindowAppearing()) {
+			strncpy_s(renameBuf, pendingSceneRenameName_.c_str(), sizeof(renameBuf) - 1);
+			renameMessage.clear();
+		}
+		ImGui::Text("'%s' の新しい名前", pendingSceneRenameName_.c_str());
+		ImGui::InputText("##NewSceneName", renameBuf, sizeof(renameBuf));
+		if (!SceneRegistry::IsGeneric(pendingSceneRenameName_)) {
+			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "(プログラム上のシーンのため、このコードを参照する他の遷移処理は\n新しい名前を知らないまま残ります)");
+		}
+		if (!renameMessage.empty()) {
+			ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", renameMessage.c_str());
+		}
+		ImGui::Separator();
+		if (ImGui::Button("変更する", ImVec2(120, 0))) {
+			std::string newName = renameBuf;
+			if (!IsValidScriptBaseName(newName)) {
+				renameMessage = "シーン名は英字/_で始まり、英数字と_のみ使えます";
+			} else if (newName == pendingSceneRenameName_) {
+				renameMessage = "元の名前と同じです";
+			} else if (SceneRegistry::IsRegistered(newName)) {
+				renameMessage = "'" + newName + "' は既に存在します";
+			} else {
+				RenameSceneFolder(pendingSceneRenameName_, newName);
+				pendingSceneRenameName_.clear();
+				renameMessage.clear();
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("キャンセル", ImVec2(120, 0))) {
+			pendingSceneRenameName_.clear();
+			renameMessage.clear();
+			ImGui::CloseCurrentPopup();
+		}
+		ImGui::EndPopup();
+	}
+}
+
+void SceneBase::RenameSceneFolder(const std::string& oldName, const std::string& newName) {
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	fs::path oldPath = fs::path("Resources") / oldName;
+	fs::path newPath = fs::path("Resources") / newName;
+	// フォルダがまだ存在しない（保存前のGenericSceneをすぐリネームした等）場合はファイル操作を
+	// スキップし、SceneRegistry側の登録名だけ付け替える
+	if (fs::exists(oldPath, ec)) {
+		fs::rename(oldPath, newPath, ec);
+		if (ec) {
+			Logger::Log("RenameSceneFolder: フォルダの改名に失敗しました '" + oldName + "' -> '" + newName + "': " + ec.message() + "\n");
+			return; // フォルダ改名に失敗した場合、登録名だけ変えると実体を見失うため中断する
+		}
+	}
+
+	SceneRegistry::Rename(oldName, newName);
 }
 
 // 全オブジェクトを名前クリックで選べる一覧パネル。選択状態の実体はGizmoControllerの

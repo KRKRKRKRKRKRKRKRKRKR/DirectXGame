@@ -46,10 +46,47 @@ public:
 	// （GenericSceneならUnregisterも呼ぶ）を判断するために使う
 	static bool IsGeneric(const std::string& name);
 
-	// nameをFactories()/Names()から取り除く。IsGeneric(name)がtrueの場合のみ呼ぶこと
-	// （REGISTER_SCENEの固定シーンを外すと、次にそのシーンへ切り替えようとした際に
-	// 二度と復元できなくなるため。SceneBase::DrawSceneTransitionButtonsの削除UI専用）
+	// nameをFactories()/Names()/GenericFlags()から取り除く。SceneBase::DrawSceneTransitionButtonsの
+	// 削除UI専用。REGISTER_SCENE済みの固定シーン（.cppに実装が残っているクラス）については、
+	// これだけでは実行中の一覧から消えるだけで、C++コード自体は残っているため通常は再起動すると
+	// 復活する。永続的に消したい場合はこのメソッドの後にRecordPermanentlyDeleted(name)も呼ぶこと
+	// （SceneBase::DeleteSceneFolderが両方を行う）
 	static void Unregister(const std::string& name);
+
+	// nameをResources/DeletedScenes.jsonへ追記する（既に記録済みなら何もしない）。
+	// ApplyPermanentlyDeletedScenesが次回起動時にこの一覧を読み、該当する名前をUnregisterし直すことで、
+	// REGISTER_SCENE済みの固定シーンであってもアプリ再起動後に一覧へ戻らないようにする
+	// （C++クラス自体・Resources/{name}/のデータは削除しない。あくまでSceneRegistryへの
+	// 再登録だけを永続的に抑止するブロックリスト）。SceneBase::DeleteSceneFolder専用
+	static void RecordPermanentlyDeleted(const std::string& name);
+
+	// Resources/DeletedScenes.jsonを読み込み、記載されている全名前をUnregisterする。
+	// REGISTER_SCENEはmain()より前の静的初期化で必ず実行されるため、このメソッドは
+	// その後（Game::InitializeがsceneManager_.Initialize()より前）に1回呼ぶ必要がある
+	static void ApplyPermanentlyDeletedScenes();
+
+	// oldNameで登録済みのファクトリ・GenericFlagsをnewNameへ丸ごと付け替える（登録順の位置も
+	// 維持する）。oldNameが未登録、またはnewNameが既に登録済みの場合は何もせずfalseを返す。
+	// SceneBase::DrawSceneTransitionButtonsの「名前変更」UI専用。呼び出し側がResources/{oldName}/を
+	// Resources/{newName}/へ改名する処理（ファイルシステム操作）は別途自分で行うこと
+	// （このメソッドはSceneRegistryの登録情報だけを付け替える）
+	static bool Rename(const std::string& oldName, const std::string& newName);
+
+	// GetAllNames()の並び順（Names()内でのindex）を1つ前/後ろの要素と入れ替える。
+	// indexが範囲外、または端（MoveUpでindex==0、MoveDownで末尾）の場合は何もしない。
+	// SceneBase::DrawSceneTransitionButtonsの「↑」「↓」ボタン専用
+	static void MoveUp(size_t index);
+	static void MoveDown(size_t index);
+
+	// GetAllNames()の現在の並び順をResources/SceneOrder.jsonへ保存する。
+	// SceneBase::DrawSceneTransitionButtonsが↑↓ボタンで並び替えるたびに呼ぶ
+	static void SaveOrder();
+
+	// Resources/SceneOrder.jsonを読み込み、記載されている順序でNames()を並べ替える。
+	// ファイルに載っているがまだ未登録の名前（例：削除済みのGenericScene）は無視し、
+	// 逆にファイルに載っていない登録済みの名前（新しく増えたシーン等）は末尾に追加する形で残す。
+	// Game::InitializeがScanResourcesForGenericScenesの後に1回呼ぶ
+	static void LoadOrder();
 
 private:
 	static std::unordered_map<std::string, Factory>& Factories();

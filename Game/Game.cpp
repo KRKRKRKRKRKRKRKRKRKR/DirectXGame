@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "../Externals/imgui/imgui.h"
 #include "../Engine/GameObject/ComponentRegistration.h"
+#include "../Engine/GameObject/Component/Render/AlphabetTextComponent.h"
 #include "../Engine/Utils/EditorState.h"
 #include "SceneRegistry.h"
 
@@ -9,10 +10,30 @@ void Game::Initialize(Renderer* renderer, Camera* camera, Window* window) {
 	camera_ = camera;
 	window_ = window;
 	RegisterEngineComponents(); // JSON保存/復元のためのコンポーネント型登録（シーン初期化前に一度だけ）
+	// AlphabetTextComponent（Engine層）はSceneRegistry（Game層）を直接参照できないため、
+	// 「クリック時の遷移先シーン」コンボボックスに出す選択肢一覧をここで注入する
+	// （AlphabetTextComponent.h::SceneNamesProvider参照）
+	AlphabetTextComponent::SetSceneNamesProvider(SceneRegistry::GetAllNames);
+	// 過去に「シーン削除」で消した固定シーン（REGISTER_SCENE、.cppに実装が残っているクラス）名を、
+	// このプロセスの静的初期化で登録された直後にもう一度Unregisterし直す。ScanResourcesForGenericScenes
+	// より必ず先に呼ぶ（そちらが「未登録だから」と誤ってGenericSceneとして復元してしまわないようにするため。
+	// 実際にはDeleteSceneFolderがResources/{name}/自体も削除済みのため通常は競合しないが、念のための順序）
+	SceneRegistry::ApplyPermanentlyDeletedScenes();
 	// 過去に「新規シーン作成」で作ったGenericScene名をSceneRegistryへ復元する
 	// （REGISTER_SCENEの固定シーンは各.cppの静的初期化で既に登録済みのため、ここでは動的名だけが対象になる）
 	SceneRegistry::ScanResourcesForGenericScenes();
-	sceneManager_.Initialize(renderer, camera, "Title");
+	// シーン切替ボタンの並び順（「↑」「↓」ボタンで並び替えた結果）を復元する。
+	// 全シーンの登録が済んだ後（ここより前の2行の後）に呼ぶ必要がある
+	SceneRegistry::LoadOrder();
+	// 既定の起動シーン"Title"が削除済みで一覧に無い場合、SceneManager::ChangeSceneがログを出して
+	// 何もしないまま起動が続いてしまう（currentScene_がnullptrのまま）。その場合は登録済みの
+	// 先頭のシーン（GetAllNamesの1件目）へフォールバックする
+	std::string startScene = "Title";
+	if (!SceneRegistry::IsRegistered(startScene)) {
+		const auto& allNames = SceneRegistry::GetAllNames();
+		if (!allNames.empty()) startScene = allNames.front();
+	}
+	sceneManager_.Initialize(renderer, camera, startScene);
 }
 
 void Game::Update(float deltaTime) {

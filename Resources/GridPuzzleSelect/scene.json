@@ -1,0 +1,521 @@
+{
+    "objects": [
+        {
+            "components": [
+                {
+                    "data": {
+                        "ambient": 0.20000000298023224,
+                        "color": [
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "enabled": true,
+                        "halfLambertPower": 2.0
+                    },
+                    "type": "DirectionalLight"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "ライト",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    -8759.716796875
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "farClip": 1000.0,
+                        "fov": 45.0,
+                        "nearClip": 0.10000000149011612,
+                        "positionOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ],
+                        "rotationOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
+                    },
+                    "type": "Camera"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "カメラ",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "ナンバー",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    -3.0,
+                    20.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 1.2000000476837158,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "1",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "1",
+            "parentIndex": 2,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -10.0,
+                    3.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 1.2000000476837158,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "2",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "2",
+            "parentIndex": 2,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    -5.0,
+                    3.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 1.2000000476837158,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "3",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "3",
+            "parentIndex": 2,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    3.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 1.2000000476837158,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "4",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "4",
+            "parentIndex": 2,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    5.0,
+                    3.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 1.2000000476837158,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "5",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "5",
+            "parentIndex": 2,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    10.0,
+                    3.0,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 2.450000047683716,
+                        "enableClick": false,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "SELECT",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "セレクト",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    5.849999904632568,
+                    20.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 0.5,
+                        "charSpacing": 1.149999976158142,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.0,
+                        "text": "Back to Title",
+                        "transitionTargetScene": "GridPuzzleTitle",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "Back to Title",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    -6.0,
+                    20.0
+                ]
+            }
+        }
+    ]
+}

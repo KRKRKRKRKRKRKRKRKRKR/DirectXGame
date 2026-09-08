@@ -4,36 +4,26 @@
             "components": [
                 {
                     "data": {
-                        "charScale": 0.6499999761581421,
-                        "charSpacing": 1.25,
-                        "enableClick": false,
-                        "entranceCharDelay": 0.05000000074505806,
-                        "entranceDuration": 0.3499999940395355,
-                        "entranceEasing": 8,
-                        "entranceZOffset": 6.0,
-                        "horizontalAlign": 1,
-                        "hoverColor": [
-                            1.0,
-                            0.8999999761581421,
-                            0.20000000298023224,
-                            1.0
+                        "farClip": 1000.0,
+                        "fov": 45.0,
+                        "nearClip": 0.10000000149011612,
+                        "positionOffset": [
+                            0.0,
+                            0.0,
+                            0.0
                         ],
-                        "normalColor": [
-                            1.0,
-                            1.0,
-                            1.0,
-                            1.0
-                        ],
-                        "spaceWidth": 1.2000000476837158,
-                        "text": "grid puzzle",
-                        "useCharEntranceAnimation": false
+                        "rotationOffset": [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
                     },
-                    "type": "AlphabetText"
+                    "type": "Camera"
                 }
             ],
             "excludeFromGizmoList": false,
             "excludeFromPicking": false,
-            "name": "新規追加 2",
+            "name": "カメラ",
             "parentIndex": -1,
             "tag": "",
             "transform": {
@@ -51,7 +41,7 @@
                 "translation": [
                     0.0,
                     0.0,
-                    0.0
+                    -13.109999656677246
                 ]
             }
         },
@@ -73,7 +63,7 @@
             ],
             "excludeFromGizmoList": false,
             "excludeFromPicking": false,
-            "name": "新規追加 13",
+            "name": "ライト",
             "parentIndex": -1,
             "tag": "",
             "transform": {
@@ -99,21 +89,92 @@
             "components": [
                 {
                     "data": {
-                        "farClip": 1000.0,
-                        "fov": 45.0,
-                        "nearClip": 0.10000000149011612,
-                        "positionOffset": [
-                            0.0,
-                            0.0,
-                            0.0
+                        "charScale": 1.0,
+                        "charSpacing": 1.7000000476837158,
+                        "enableClick": false,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
                         ],
-                        "rotationOffset": [
-                            0.0,
-                            0.0,
-                            0.0
-                        ]
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "GRID PUZZLE",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
                     },
-                    "type": "Camera"
+                    "type": "AlphabetText"
+                }
+            ],
+            "excludeFromGizmoList": false,
+            "excludeFromPicking": false,
+            "name": "新規追加 3",
+            "parentIndex": -1,
+            "tag": "",
+            "transform": {
+                "is2D": false,
+                "rotation": [
+                    0.0,
+                    0.0,
+                    0.0
+                ],
+                "scale": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "translation": [
+                    0.0,
+                    3.940000057220459,
+                    0.0
+                ]
+            }
+        },
+        {
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 1.7999999523162842,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "PLAY",
+                        "transitionTargetScene": "GridPuzzleSelect",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
                 }
             ],
             "excludeFromGizmoList": false,
@@ -135,16 +196,48 @@
                 ],
                 "translation": [
                     0.0,
-                    0.0,
-                    -20.0
+                    0.4399999976158142,
+                    0.0
                 ]
             }
         },
         {
-            "components": [],
+            "components": [
+                {
+                    "data": {
+                        "charScale": 1.0,
+                        "charSpacing": 1.7999999523162842,
+                        "enableClick": true,
+                        "entranceCharDelay": 0.05000000074505806,
+                        "entranceDuration": 0.3499999940395355,
+                        "entranceEasing": 8,
+                        "entranceZOffset": 6.0,
+                        "horizontalAlign": 1,
+                        "hoverColor": [
+                            1.0,
+                            0.8999999761581421,
+                            0.20000000298023224,
+                            1.0
+                        ],
+                        "hoverScaleMultiplier": 1.100000023841858,
+                        "normalColor": [
+                            1.0,
+                            1.0,
+                            1.0,
+                            1.0
+                        ],
+                        "normalScaleMultiplier": 1.0,
+                        "spaceWidth": 1.2000000476837158,
+                        "text": "CREDIT",
+                        "transitionTargetScene": "",
+                        "useCharEntranceAnimation": false
+                    },
+                    "type": "AlphabetText"
+                }
+            ],
             "excludeFromGizmoList": false,
             "excludeFromPicking": false,
-            "name": "新規追加 15",
+            "name": "新規追加 20",
             "parentIndex": -1,
             "tag": "",
             "transform": {
@@ -161,7 +254,7 @@
                 ],
                 "translation": [
                     0.0,
-                    0.0,
+                    -3.609999895095825,
                     0.0
                 ]
             }

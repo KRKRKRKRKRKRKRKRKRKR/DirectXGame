@@ -5,6 +5,8 @@
 #include "../../../../Math/JsonUtil.h"
 #include <cstring>
 
+AlphabetTextComponent::SceneNamesProvider AlphabetTextComponent::sceneNamesProvider_ = nullptr;
+
 void AlphabetTextComponent::DrawImGui(const char* namePrefix) {
 	// ImGui::InputTextは素のchar[]バッファを要求するため、textとの相互変換をここで行う
 	// （SceneBase.cppのstaticTextContentBufと同じ固定サイズバッファ方式）
@@ -51,8 +53,35 @@ void AlphabetTextComponent::DrawImGui(const char* namePrefix) {
 		std::string hoverColorLabel = std::string(namePrefix) + "ホバー時の色";
 		ImGui::ColorEdit4(normalColorLabel.c_str(), &normalColor.x);
 		ImGui::ColorEdit4(hoverColorLabel.c_str(), &hoverColor.x);
+
+		std::string normalScaleLabel = std::string(namePrefix) + "通常時のサイズ倍率";
+		std::string hoverScaleLabel = std::string(namePrefix) + "ホバー時のサイズ倍率";
+		ImGui::DragFloat(normalScaleLabel.c_str(), &normalScaleMultiplier, 0.01f, 0.1f, 5.0f);
+		ImGui::DragFloat(hoverScaleLabel.c_str(), &hoverScaleMultiplier, 0.01f, 0.1f, 5.0f);
+
 		std::string statusLabel = std::string(namePrefix) + (isHovering_ ? "状態: ホバー中" : "状態: 通常");
 		ImGui::Text("%s", statusLabel.c_str());
+
+		// クリック時に自動でシーン遷移させたい場合の遷移先。選択肢はGame層がSetSceneNamesProviderで
+		// 注入したシーン名一覧（SceneRegistry::GetAllNames相当）から選ぶ。「未設定」を選ぶと
+		// transitionTargetSceneが空文字列に戻り、自動遷移しない（呼び出し側コードが自分で
+		// ConsumeClicked()を見る従来の運用に戻る）
+		std::string sceneLabel = std::string(namePrefix) + "クリック時の遷移先シーン";
+		const std::vector<std::string>* sceneNames = GetAvailableSceneNames();
+		const char* currentLabel = transitionTargetScene.empty() ? "(未設定)" : transitionTargetScene.c_str();
+		if (ImGui::BeginCombo(sceneLabel.c_str(), currentLabel)) {
+			bool noneSelected = transitionTargetScene.empty();
+			if (ImGui::Selectable("(未設定)", noneSelected)) transitionTargetScene.clear();
+			if (noneSelected) ImGui::SetItemDefaultFocus();
+			if (sceneNames) {
+				for (const std::string& name : *sceneNames) {
+					bool selected = (name == transitionTargetScene);
+					if (ImGui::Selectable(name.c_str(), selected)) transitionTargetScene = name;
+					if (selected) ImGui::SetItemDefaultFocus();
+				}
+			}
+			ImGui::EndCombo();
+		}
 	}
 
 	std::string entranceLabel = std::string(namePrefix) + "1文字ずつ登場演出";
@@ -100,6 +129,9 @@ void AlphabetTextComponent::ToJson(nlohmann::json& out) const {
 	out["enableClick"] = enableClick;
 	out["normalColor"] = Vector4ToJson(normalColor);
 	out["hoverColor"] = Vector4ToJson(hoverColor);
+	out["normalScaleMultiplier"] = normalScaleMultiplier;
+	out["hoverScaleMultiplier"] = hoverScaleMultiplier;
+	out["transitionTargetScene"] = transitionTargetScene;
 }
 
 void AlphabetTextComponent::FromJson(const nlohmann::json& in) {
@@ -119,6 +151,9 @@ void AlphabetTextComponent::FromJson(const nlohmann::json& in) {
 	enableClick = in.value("enableClick", enableClick);
 	if (in.contains("normalColor")) normalColor = Vector4FromJson(in["normalColor"]);
 	if (in.contains("hoverColor")) hoverColor = Vector4FromJson(in["hoverColor"]);
+	normalScaleMultiplier = in.value("normalScaleMultiplier", normalScaleMultiplier);
+	hoverScaleMultiplier = in.value("hoverScaleMultiplier", hoverScaleMultiplier);
+	transitionTargetScene = in.value("transitionTargetScene", transitionTargetScene);
 	// lastBuiltTextはあえて復元しない（空のままにしておくことで、Load直後の最初の
 	// UpdateAlphabetTextComponentsで必ず子GameObjectが作り直される。子GameObject自体は
 	// SceneBase::LoadSceneが読み込み直後にClearAlphabetTextChildrenで一旦消しているため、

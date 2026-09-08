@@ -181,11 +181,24 @@ protected:
 	// 確定されたらDeleteSceneFolder(pendingSceneDeleteName_)を呼んでクリアする
 	void DrawSceneDeleteConfirmPrompt();
 
-	// Resources/{name}/フォルダを丸ごと削除する（scene.json/ui.json含む保存データの実体）。
-	// SceneRegistry::IsGeneric(name)がtrueの場合はSceneRegistry::Unregisterも呼び、
-	// シーン切替ボタン一覧からも消す（REGISTER_SCENE済みの固定シーンは登録を残し、
-	// 次回そのシーンへ入った際に空の状態から使えるようにする）
+	// Resources/{name}/フォルダを丸ごと削除し（scene.json/ui.json含む保存データの実体）、
+	// SceneRegistry::Unregisterでシーン切替ボタン一覧からも消す。REGISTER_SCENE済みの
+	// 固定シーン（Title/Play等）はC++クラス自体は消えないため、アプリを再起動すると
+	// 静的初期化により自動的にまた一覧へ登録され直す（実行中だけ一覧から消える扱いになる）
 	void DeleteSceneFolder(const std::string& name);
+
+	// DrawSceneTransitionButtonsの「名前変更」ボタンが押された名前を、リネームポップアップを
+	// 挟むためにここへ一旦控えておく（空文字列＝リネーム中ではない）
+	std::string pendingSceneRenameName_;
+
+	// pendingSceneRenameName_に対する新しい名前の入力ポップアップを表示する。
+	// 確定されたらRenameSceneFolder(pendingSceneRenameName_, 新しい名前)を呼んでクリアする
+	void DrawSceneRenamePrompt();
+
+	// Resources/{oldName}/をResources/{newName}/へフォルダ名ごと改名し、SceneRegistry::Renameで
+	// 登録名も付け替える。newNameが既に登録済み、またはフォルダの改名に失敗した場合は何もしない
+	// （改名前にSceneBase::DrawSceneTransitionButtons側でバリデーション・重複チェック済みの前提）
+	void RenameSceneFolder(const std::string& oldName, const std::string& newName);
 
 	void DrawHierarchy();
 
